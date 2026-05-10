@@ -3,10 +3,12 @@ import path from "node:path";
 import { OpenAIAdapter } from "@/providers/openai";
 import { AppError, NotFoundError } from "@/server/errors";
 import {
+  completeGenerationJob,
   createGenerationJob,
   decryptProjectProviderKey,
   getScriptAnalysisGraph,
   getStore,
+  markGenerationJobRunning,
   persistFrameVersionState,
   persistGeneratedFrameVersion,
   persistReviewNoteState,
@@ -80,7 +82,7 @@ export async function processStoryboardFrameJob(input: {
   }
   const scene = graph.scenes.find((candidate) => candidate.id === shot.sceneId);
   if (!scene) throw new NotFoundError("Scene not found.");
-  const job = store.generationJobs.find((candidate) => candidate.id === input.jobId);
+  const job = await markGenerationJobRunning(input.jobId);
   if (!job) throw new NotFoundError("Generation job not found.");
   let frame = store.storyboardFrames.find(
     (candidate) => candidate.shotId === shot.id && candidate.keyframeIndex === input.keyframeIndex,
@@ -98,8 +100,6 @@ export async function processStoryboardFrameJob(input: {
     assets: graph.assets.filter((asset) => requiredAssetIds.has(asset.id)),
     userDirection: input.userDirection,
   });
-  job.status = "running";
-  job.startedAt = nowIso();
   const result = await new OpenAIAdapter(await openAiApiKeyForProject(input.projectId)).generateImage(prompt, {
     modelId: "gpt-image-1",
     width: 1024,
@@ -125,10 +125,8 @@ export async function processStoryboardFrameJob(input: {
   };
   store.frameVersions.push(version);
   shot.status = "storyboarded";
-  job.status = "complete";
-  job.outputPayload = { frameId: frame.id, frameVersionId: version.id };
-  job.completedAt = nowIso();
   await persistGeneratedFrameVersion({ frame, version, shot });
+  completeGenerationJob(job.id, { status: "complete", outputPayload: { frameId: frame.id, frameVersionId: version.id } });
   return getScriptAnalysisGraph(input.projectId);
 }
 

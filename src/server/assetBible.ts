@@ -10,6 +10,7 @@ import {
   decryptProjectProviderKey,
   getScriptAnalysisGraph,
   getStore,
+  markGenerationJobRunning,
   persistAssetMergeState,
   persistCreatedAssetState,
   persistAssetDetailState,
@@ -163,13 +164,11 @@ export async function processAssetReferenceJob(input: {
   if (!asset) {
     throw new NotFoundError("Asset not found.");
   }
-  const job = store.generationJobs.find((candidate) => candidate.id === input.jobId);
+  const job = await markGenerationJobRunning(input.jobId);
   if (!job) {
     throw new NotFoundError("Generation job not found.");
   }
   const adapter = input.providerSlug === "stability" ? new StabilityAdapter() : new OpenAIAdapter(await openAiApiKeyForProject(input.projectId));
-  job.status = "running";
-  job.startedAt = nowIso();
   addJobEvent({
     jobId: job.id,
     projectId: input.projectId,
