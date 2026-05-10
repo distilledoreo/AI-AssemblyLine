@@ -420,6 +420,19 @@ describe("Prisma repository mode", () => {
         completedAt: expect.any(Date),
       }),
     });
+
+    vi.clearAllMocks();
+    prismaMock.generationJob.findUnique.mockResolvedValue({ ...job, status: "polling" });
+    prismaMock.generationJob.update.mockResolvedValue({ ...job, status: "polling" });
+
+    await expect(repository.markGenerationJobRunning(job.id, "polling")).resolves.toMatchObject({
+      id: job.id,
+      status: "polling",
+    });
+    expect(prismaMock.generationJob.update).toHaveBeenCalledWith({
+      where: { id: job.id },
+      data: expect.objectContaining({ status: "polling", startedAt: expect.any(Date) }),
+    });
   });
 
   it("loads script versions from Prisma for out-of-process analysis workers", async () => {

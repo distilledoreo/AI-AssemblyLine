@@ -2705,16 +2705,16 @@ export async function getGenerationJob(jobId: string) {
   return job ? mapJob(job) : undefined;
 }
 
-export async function markGenerationJobRunning(jobId: string) {
+export async function markGenerationJobRunning(jobId: string, status: GenerationJob["status"] = "running") {
   const startedAt = nowIso();
   const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
   if (local) {
-    Object.assign(local, { status: "running" as const, startedAt });
+    Object.assign(local, { status, startedAt });
   }
   if (isPrismaRepositoryEnabled()) {
     await prisma.generationJob.update({
       where: { id: jobId },
-      data: { status: "running", startedAt: new Date(startedAt) },
+      data: { status, startedAt: new Date(startedAt) },
     }).catch(() => undefined);
   }
   if (!local && !isPrismaRepositoryEnabled()) {

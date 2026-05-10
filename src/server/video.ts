@@ -3,10 +3,12 @@ import path from "node:path";
 import { KlingAdapter, RunwayAdapter } from "@/providers/videoProviders";
 import { AppError, NotFoundError } from "@/server/errors";
 import {
+  completeGenerationJob,
   createGenerationJob,
   getScriptAnalysisGraph,
   getScriptAnalysisGraphForProject,
   getStore,
+  markGenerationJobRunning,
   persistClipVersionState,
   persistGeneratedClipVersion,
 } from "@/server/repository";
@@ -81,10 +83,8 @@ export async function processVideoClipJob(input: {
   }
   const adapter = input.providerSlug === "kling" ? new KlingAdapter() : new RunwayAdapter();
   const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
-  const job = store.generationJobs.find((candidate) => candidate.id === input.jobId);
+  const job = await markGenerationJobRunning(input.jobId, "polling");
   if (!job) throw new NotFoundError("Generation job not found.");
-  job.status = "polling";
-  job.startedAt = nowIso();
   const result = await adapter.generateVideo(
     {
       positivePrompt: prompt,
@@ -134,10 +134,8 @@ export async function processVideoClipJob(input: {
     createdAt: timestamp,
   };
   store.clipVersions.push(version);
-  job.status = "complete";
-  job.outputPayload = { clipId: clip.id, clipVersionId: version.id, media: info };
-  job.completedAt = nowIso();
   await persistGeneratedClipVersion({ clip, version });
+  completeGenerationJob(job.id, { status: "complete", outputPayload: { clipId: clip.id, clipVersionId: version.id, media: info } });
   return getScriptAnalysisGraphForProject(input.projectId);
 }
 
