@@ -1,6 +1,6 @@
 import pino from "pino";
 import { getQueueHealthSnapshot } from "@/server/queue";
-import { getScriptAnalysisGraph } from "@/server/repository";
+import { getScriptAnalysisGraphForProject } from "@/server/repository";
 import type { GenerationJob } from "@/server/types";
 
 export const logger = pino({
@@ -16,7 +16,7 @@ export function captureError(error: unknown, context: Record<string, unknown> = 
 }
 
 export async function getProjectJobMetrics(projectId: string) {
-  const graph = getScriptAnalysisGraph(projectId);
+  const graph = await getScriptAnalysisGraphForProject(projectId);
   const jobsByType = graph.jobs.reduce<Record<string, number>>((acc, job) => {
     acc[job.type] = (acc[job.type] ?? 0) + 1;
     return acc;
