@@ -3,7 +3,13 @@ import path from "node:path";
 import { OpenAIAdapter } from "@/providers/openai";
 import { StabilityAdapter } from "@/providers/stability";
 import { AppError, NotFoundError } from "@/server/errors";
-import { createGenerationJob, getStore, persistAssetState, refreshPrismaReadiness } from "@/server/repository";
+import {
+  createGenerationJob,
+  getStore,
+  persistAssetState,
+  persistAssetVersionAndReference,
+  refreshPrismaReadiness,
+} from "@/server/repository";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
 import { markFramesStaleForAsset } from "@/server/storyboard";
@@ -97,6 +103,8 @@ export async function uploadAssetReference(input: {
   store.assetReferences.push(reference);
   asset.status = "needs_review";
   asset.updatedAt = nowIso();
+  await persistAssetState(asset);
+  await persistAssetVersionAndReference({ version, reference });
   return { version, reference };
 }
 
@@ -147,6 +155,9 @@ export async function generateAssetReference(input: {
   };
   store.assetReferences.push(reference);
   asset.status = "needs_review";
+  asset.updatedAt = nowIso();
+  await persistAssetState(asset);
+  await persistAssetVersionAndReference({ version, reference });
   job.status = "complete";
   job.outputPayload = { assetVersionId: version.id, referenceId: reference.id };
   job.completedAt = nowIso();

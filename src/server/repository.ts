@@ -425,6 +425,55 @@ function mapAsset(asset: {
   };
 }
 
+function mapAssetVersion(version: {
+  id: string;
+  assetId: string;
+  versionNumber: number;
+  description?: string | null;
+  promptFragments?: unknown;
+  status: AssetVersion["status"];
+  createdAt: Date | string;
+}): AssetVersion {
+  return {
+    id: version.id,
+    assetId: version.assetId,
+    versionNumber: version.versionNumber,
+    description: version.description ?? undefined,
+    promptFragments:
+      version.promptFragments && typeof version.promptFragments === "object" && !Array.isArray(version.promptFragments)
+        ? (version.promptFragments as Record<string, string>)
+        : undefined,
+    status: version.status,
+    createdAt: iso(version.createdAt),
+  };
+}
+
+function mapAssetReference(reference: {
+  id: string;
+  assetVersionId: string;
+  referenceType: AssetReference["referenceType"];
+  filePath: string;
+  mimeType: string;
+  width?: number | null;
+  height?: number | null;
+  thumbnailPath?: string | null;
+  generationJobId?: string | null;
+  createdAt: Date | string;
+}): AssetReference {
+  return {
+    id: reference.id,
+    assetVersionId: reference.assetVersionId,
+    referenceType: reference.referenceType,
+    filePath: reference.filePath,
+    mimeType: reference.mimeType,
+    width: reference.width ?? undefined,
+    height: reference.height ?? undefined,
+    thumbnailPath: reference.thumbnailPath ?? undefined,
+    generationJobId: reference.generationJobId ?? undefined,
+    createdAt: iso(reference.createdAt),
+  };
+}
+
 function mapSceneAssetRequirement(requirement: {
   id: string;
   sceneId: string;
@@ -931,6 +980,17 @@ export async function getScriptAnalysisGraphForProject(projectId: string): Promi
     : [];
   const shotIds = shots.map((shot) => shot.id);
   const assets = (await prisma.asset.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } })).map(mapAsset);
+  const assetIds = assets.map((asset) => asset.id);
+  const assetVersions = assetIds.length
+    ? (await prisma.assetVersion.findMany({ where: { assetId: { in: assetIds } }, orderBy: { createdAt: "asc" } })).map(mapAssetVersion)
+    : [];
+  const assetVersionIds = assetVersions.map((version) => version.id);
+  const assetReferences = assetVersionIds.length
+    ? (await prisma.assetReference.findMany({
+        where: { assetVersionId: { in: assetVersionIds } },
+        orderBy: { createdAt: "asc" },
+      })).map(mapAssetReference)
+    : [];
   const sceneAssetRequirements = sceneIds.length
     ? (await prisma.sceneAssetReq.findMany({ where: { sceneId: { in: sceneIds } }, orderBy: { createdAt: "asc" } })).map(
         mapSceneAssetRequirement,
@@ -953,8 +1013,8 @@ export async function getScriptAnalysisGraphForProject(projectId: string): Promi
     shots,
     assets,
     assetDetails: [],
-    assetVersions: [],
-    assetReferences: [],
+    assetVersions,
+    assetReferences,
     storyboardFrames: [],
     frameVersions: [],
     reviewNotes: [],
@@ -1258,6 +1318,38 @@ export async function persistAssetState(asset: Asset) {
       description: asset.description,
       firstAppearance: toPrismaJson(asset.firstAppearance),
       isUserEdited: asset.isUserEdited ?? false,
+    },
+  }).catch(() => undefined);
+}
+
+export async function persistAssetVersionAndReference(input: {
+  version: AssetVersion;
+  reference: AssetReference;
+}) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.assetVersion.create({
+    data: {
+      id: input.version.id,
+      assetId: input.version.assetId,
+      versionNumber: input.version.versionNumber,
+      description: input.version.description,
+      promptFragments: toPrismaJson(input.version.promptFragments),
+      status: input.version.status,
+    },
+  }).catch(() => undefined);
+  await prisma.assetReference.create({
+    data: {
+      id: input.reference.id,
+      assetVersionId: input.reference.assetVersionId,
+      referenceType: input.reference.referenceType,
+      filePath: input.reference.filePath,
+      mimeType: input.reference.mimeType,
+      width: input.reference.width,
+      height: input.reference.height,
+      thumbnailPath: input.reference.thumbnailPath,
+      generationJobId: input.reference.generationJobId,
     },
   }).catch(() => undefined);
 }

@@ -71,6 +71,14 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
     update: vi.fn(),
   },
+  assetVersion: {
+    create: vi.fn(),
+    findMany: vi.fn(),
+  },
+  assetReference: {
+    create: vi.fn(),
+    findMany: vi.fn(),
+  },
   sceneAssetReq: {
     createMany: vi.fn(),
     deleteMany: vi.fn(),
@@ -505,11 +513,34 @@ describe("Prisma repository mode", () => {
       detectedBy: "ai",
       createdAt: timestamp,
     };
+    const assetVersion = {
+      id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      assetId: asset.id,
+      versionNumber: 1,
+      description: "Uploaded reference.",
+      promptFragments: { style: "soft daylight" },
+      status: "draft",
+      createdAt: timestamp,
+    };
+    const assetReference = {
+      id: "abababab-abab-4aba-8aba-abababababab",
+      assetVersionId: assetVersion.id,
+      referenceType: "front",
+      filePath: "storage/projects/project/assets/reference.png",
+      mimeType: "image/png",
+      width: 1024,
+      height: 1024,
+      thumbnailPath: "storage/projects/project/assets/reference-thumb.png",
+      generationJobId: null,
+      createdAt: timestamp,
+    };
     prismaMock.script.findMany.mockResolvedValue([script]);
     prismaMock.scriptVersion.findMany.mockResolvedValue([version]);
     prismaMock.scene.findMany.mockResolvedValue([scene]);
     prismaMock.shot.findMany.mockResolvedValue([shot]);
     prismaMock.asset.findMany.mockResolvedValue([asset]);
+    prismaMock.assetVersion.findMany.mockResolvedValue([assetVersion]);
+    prismaMock.assetReference.findMany.mockResolvedValue([assetReference]);
     prismaMock.sceneAssetReq.findMany.mockResolvedValue([sceneReq]);
     prismaMock.shotAssetReq.findMany.mockResolvedValue([shotReq]);
     prismaMock.generationJob.findMany.mockResolvedValue([]);
@@ -521,6 +552,16 @@ describe("Prisma repository mode", () => {
     expect(graph.scenes[0]).toMatchObject({ id: scene.id, heading: "INT. ROOM - DAY" });
     expect(graph.shots[0]).toMatchObject({ id: shot.id, action: "Anna waits." });
     expect(graph.assets[0]).toMatchObject({ id: asset.id, canonicalName: "Room" });
+    expect(graph.assetVersions[0]).toMatchObject({
+      id: assetVersion.id,
+      assetId: asset.id,
+      promptFragments: { style: "soft daylight" },
+    });
+    expect(graph.assetReferences[0]).toMatchObject({
+      id: assetReference.id,
+      assetVersionId: assetVersion.id,
+      thumbnailPath: "storage/projects/project/assets/reference-thumb.png",
+    });
     expect(graph.sceneAssetRequirements[0]).toMatchObject({ sceneId: scene.id, assetId: asset.id });
     expect(graph.shotAssetRequirements[0]).toMatchObject({ shotId: shot.id, assetId: asset.id });
   });
@@ -579,5 +620,49 @@ describe("Prisma repository mode", () => {
       skipDuplicates: true,
     });
     expect(prismaMock.sceneAssetReq.deleteMany).toHaveBeenCalledWith({ where: { id: requirement.id } });
+  });
+
+  it("persists Asset Bible versions and references through Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const version = {
+      id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      assetId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      versionNumber: 1,
+      description: "Uploaded reference.",
+      status: "draft" as const,
+      createdAt: timestamp.toISOString(),
+    };
+    const reference = {
+      id: "abababab-abab-4aba-8aba-abababababab",
+      assetVersionId: version.id,
+      referenceType: "front" as const,
+      filePath: "storage/projects/project/assets/reference.png",
+      mimeType: "image/png",
+      width: 1024,
+      height: 1024,
+      thumbnailPath: "storage/projects/project/assets/reference.png",
+      createdAt: timestamp.toISOString(),
+    };
+
+    prismaMock.assetVersion.create.mockResolvedValue(version);
+    prismaMock.assetReference.create.mockResolvedValue(reference);
+    await repository.persistAssetVersionAndReference({ version, reference });
+
+    expect(prismaMock.assetVersion.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: version.id,
+        assetId: version.assetId,
+        versionNumber: 1,
+        description: "Uploaded reference.",
+      }),
+    });
+    expect(prismaMock.assetReference.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: reference.id,
+        assetVersionId: version.id,
+        referenceType: "front",
+        mimeType: "image/png",
+      }),
+    });
   });
 });
