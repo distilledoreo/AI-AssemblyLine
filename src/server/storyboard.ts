@@ -11,6 +11,7 @@ import {
   persistReviewNoteState,
   persistStoryboardFrameState,
 } from "@/server/repository";
+import { isRedisQueueEnabled } from "@/server/queue";
 import { composeStoryboardPrompt } from "@/server/promptEngine";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
@@ -22,7 +23,6 @@ export async function generateStoryboardFrame(input: {
   keyframeIndex?: number;
   userDirection?: string;
 }) {
-  const store = getStore();
   const graph = getScriptAnalysisGraph(input.projectId);
   const shot = graph.shots.find((candidate) => candidate.id === input.shotId);
   if (!shot) throw new NotFoundError("Shot not found.");
@@ -35,12 +35,54 @@ export async function generateStoryboardFrame(input: {
   if (keyframeIndex < 0 || keyframeIndex > 8) {
     throw new AppError("Storyboard keyframes must be between 1 and 9.", 400, "bad_keyframe");
   }
+  const job = createGenerationJob({
+    projectId: input.projectId,
+    type: "storyboard_frame",
+    providerSlug: "openai",
+    modelId: "gpt-image-1",
+    inputPayload: {
+      projectId: input.projectId,
+      shotId: input.shotId,
+      keyframeIndex,
+      userDirection: input.userDirection,
+    },
+  });
+  if (isRedisQueueEnabled()) {
+    return getScriptAnalysisGraph(input.projectId);
+  }
+  return processStoryboardFrameJob({
+    projectId: input.projectId,
+    shotId: input.shotId,
+    keyframeIndex,
+    userDirection: input.userDirection,
+    jobId: job.id,
+  });
+}
+
+export async function processStoryboardFrameJob(input: {
+  projectId: string;
+  shotId: string;
+  keyframeIndex: number;
+  userDirection?: string;
+  jobId: string;
+}) {
+  const store = getStore();
+  const graph = getScriptAnalysisGraph(input.projectId);
+  const shot = graph.shots.find((candidate) => candidate.id === input.shotId);
+  if (!shot) throw new NotFoundError("Shot not found.");
+  if (shot.status !== "ready" && shot.status !== "storyboarded") {
+    throw new AppError("Storyboard generation requires approved or locked shot assets.", 409, "shot_blocked");
+  }
+  const scene = graph.scenes.find((candidate) => candidate.id === shot.sceneId);
+  if (!scene) throw new NotFoundError("Scene not found.");
+  const job = store.generationJobs.find((candidate) => candidate.id === input.jobId);
+  if (!job) throw new NotFoundError("Generation job not found.");
   let frame = store.storyboardFrames.find(
-    (candidate) => candidate.shotId === shot.id && candidate.keyframeIndex === keyframeIndex,
+    (candidate) => candidate.shotId === shot.id && candidate.keyframeIndex === input.keyframeIndex,
   );
   const timestamp = nowIso();
   if (!frame) {
-    frame = { id: createId(), shotId: shot.id, keyframeIndex, createdAt: timestamp, updatedAt: timestamp };
+    frame = { id: createId(), shotId: shot.id, keyframeIndex: input.keyframeIndex, createdAt: timestamp, updatedAt: timestamp };
     store.storyboardFrames.push(frame);
   }
   const requiredAssetIds = new Set(graph.shotAssetRequirements.filter((req) => req.shotId === shot.id).map((req) => req.assetId));
@@ -51,13 +93,8 @@ export async function generateStoryboardFrame(input: {
     assets: graph.assets.filter((asset) => requiredAssetIds.has(asset.id)),
     userDirection: input.userDirection,
   });
-  const job = createGenerationJob({
-    projectId: input.projectId,
-    type: "storyboard_frame",
-    providerSlug: "openai",
-    modelId: "gpt-image-1",
-    inputPayload: prompt,
-  });
+  job.status = "running";
+  job.startedAt = nowIso();
   const result = await new OpenAIAdapter("mock").generateImage(prompt, {
     modelId: "gpt-image-1",
     width: 1024,
@@ -67,7 +104,7 @@ export async function generateStoryboardFrame(input: {
   const versionNumber = store.frameVersions.filter((version) => version.frameId === frame.id).length + 1;
   const dir = path.join(projectFolderPath(input.projectId, "storyboards"), shot.id);
   await mkdir(dir, { recursive: true });
-  const filePath = path.join(dir, `frame-${keyframeIndex + 1}-v${versionNumber}.png`);
+  const filePath = path.join(dir, `frame-${input.keyframeIndex + 1}-v${versionNumber}.png`);
   await writeFile(filePath, result.images[0].data);
   const version: FrameVersion = {
     id: createId(),

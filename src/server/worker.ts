@@ -2,12 +2,16 @@ import type { Job } from "bullmq";
 import { createGenerationWorker, isRedisQueueEnabled } from "@/server/queue";
 import { processAssetReferenceJob } from "@/server/assetBible";
 import { processScriptAnalysisJob } from "@/server/scriptAnalysis";
+import { processStoryboardFrameJob } from "@/server/storyboard";
 
 type WorkerJobData = {
   projectId?: string;
   scriptVersionId?: string;
   assetId?: string;
   providerSlug?: "openai" | "stability";
+  shotId?: string;
+  keyframeIndex?: number;
+  userDirection?: string;
 };
 
 async function processAnalysisJob(job: Job<WorkerJobData>) {
@@ -25,18 +29,30 @@ async function processAnalysisJob(job: Job<WorkerJobData>) {
 }
 
 async function processImageJob(job: Job<WorkerJobData>) {
-  if (job.name !== "asset_reference") {
-    throw new Error(`Unsupported image job type: ${job.name}`);
+  if (job.name === "asset_reference") {
+    if (!job.data.projectId || !job.data.assetId || !job.data.providerSlug) {
+      throw new Error("Asset reference jobs require projectId, assetId, and providerSlug.");
+    }
+    return processAssetReferenceJob({
+      projectId: job.data.projectId,
+      assetId: job.data.assetId,
+      providerSlug: job.data.providerSlug,
+      jobId: String(job.id),
+    });
   }
-  if (!job.data.projectId || !job.data.assetId || !job.data.providerSlug) {
-    throw new Error("Asset reference jobs require projectId, assetId, and providerSlug.");
+  if (job.name === "storyboard_frame") {
+    if (!job.data.projectId || !job.data.shotId || typeof job.data.keyframeIndex !== "number") {
+      throw new Error("Storyboard frame jobs require projectId, shotId, and keyframeIndex.");
+    }
+    return processStoryboardFrameJob({
+      projectId: job.data.projectId,
+      shotId: job.data.shotId,
+      keyframeIndex: job.data.keyframeIndex,
+      userDirection: job.data.userDirection,
+      jobId: String(job.id),
+    });
   }
-  return processAssetReferenceJob({
-    projectId: job.data.projectId,
-    assetId: job.data.assetId,
-    providerSlug: job.data.providerSlug,
-    jobId: String(job.id),
-  });
+  throw new Error(`Unsupported image job type: ${job.name}`);
 }
 
 export function startGenerationWorkers() {
