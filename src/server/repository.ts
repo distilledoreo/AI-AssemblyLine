@@ -17,6 +17,9 @@ import type {
   ProviderKey,
   RightsPolicy,
   Asset,
+  AssetDetail,
+  AssetReference,
+  AssetVersion,
   Scene,
   SceneAssetRequirement,
   Session,
@@ -49,6 +52,9 @@ type StoreState = {
   scenes: Scene[];
   shots: Shot[];
   assets: Asset[];
+  assetDetails: AssetDetail[];
+  assetVersions: AssetVersion[];
+  assetReferences: AssetReference[];
   sceneAssetRequirements: SceneAssetRequirement[];
   shotAssetRequirements: ShotAssetRequirement[];
 };
@@ -74,6 +80,9 @@ function createInitialState(): StoreState {
     scenes: [],
     shots: [],
     assets: [],
+    assetDetails: [],
+    assetVersions: [],
+    assetReferences: [],
     sceneAssetRequirements: [],
     shotAssetRequirements: [],
   };
@@ -326,6 +335,15 @@ export function getScriptAnalysisGraph(projectId: string): ScriptAnalysisGraph {
     scenes,
     shots,
     assets: store.assets.filter((asset) => asset.projectId === projectId),
+    assetDetails: store.assetDetails.filter((detail) =>
+      store.assets.some((asset) => asset.projectId === projectId && asset.id === detail.assetId),
+    ),
+    assetVersions: store.assetVersions.filter((version) =>
+      store.assets.some((asset) => asset.projectId === projectId && asset.id === version.assetId),
+    ),
+    assetReferences: store.assetReferences.filter((reference) =>
+      store.assetVersions.some((version) => version.id === reference.assetVersionId),
+    ),
     sceneAssetRequirements: store.sceneAssetRequirements.filter((requirement) =>
       sceneIds.has(requirement.sceneId),
     ),
@@ -375,6 +393,12 @@ export function deleteProject(projectId: string) {
   store.scriptVersions = store.scriptVersions.filter((version) => !versionIds.has(version.id));
   store.scripts = store.scripts.filter((script) => script.projectId !== projectId);
   store.assets = store.assets.filter((asset) => asset.projectId !== projectId);
+  store.assetDetails = store.assetDetails.filter((detail) => !assetIds.has(detail.assetId));
+  const versionIdsToDelete = new Set(
+    store.assetVersions.filter((version) => assetIds.has(version.assetId)).map((version) => version.id),
+  );
+  store.assetReferences = store.assetReferences.filter((reference) => !versionIdsToDelete.has(reference.assetVersionId));
+  store.assetVersions = store.assetVersions.filter((version) => !assetIds.has(version.assetId));
   if (store.projects.length === before) {
     throw new NotFoundError("Project not found.");
   }

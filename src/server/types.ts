@@ -36,6 +36,17 @@ export type ScriptAnalysisStatus = "pending" | "running" | "complete" | "failed"
 export type SceneStatus = "blocked" | "ready" | "in_progress" | "complete" | "superseded";
 export type ShotStatus = "blocked" | "ready" | "storyboarded" | "video_ready" | "complete" | "superseded";
 export type RequirementDetector = "ai" | "user";
+export type AssetVersionStatus = "draft" | "needs_review" | "approved" | "rejected" | "superseded";
+export type AssetReferenceType =
+  | "front"
+  | "side"
+  | "back"
+  | "expression_sheet"
+  | "pose_sheet"
+  | "scale"
+  | "turnaround"
+  | "detail"
+  | "other";
 
 export type User = {
   id: string;
@@ -210,6 +221,57 @@ export type Asset = {
   updatedAt: string;
 };
 
+export type AssetDetail = {
+  assetId: string;
+  role?: string;
+  narrativeDescription?: string;
+  physicalDescription?: string;
+  personalityNotes?: string;
+  performanceNotes?: string;
+  scaleReference?: string;
+  outfitName?: string;
+  storyContext?: string;
+  materialNotes?: string;
+  accessories?: string[];
+  colorPalette?: string[];
+  floorPlanNotes?: string;
+  entranceExitNotes?: string;
+  setDressing?: string;
+  lightingStates?: string[];
+  cameraSafeZones?: string;
+  speciesType?: string;
+  anatomyNotes?: string;
+  movementNotes?: string;
+  textureDetails?: string;
+  ownerOrScene?: string;
+  materialAndWear?: string;
+  interactionNotes?: string;
+  updatedAt: string;
+};
+
+export type AssetVersion = {
+  id: string;
+  assetId: string;
+  versionNumber: number;
+  description?: string;
+  promptFragments?: Record<string, string>;
+  status: AssetVersionStatus;
+  createdAt: string;
+};
+
+export type AssetReference = {
+  id: string;
+  assetVersionId: string;
+  referenceType: AssetReferenceType;
+  filePath: string;
+  mimeType: string;
+  width?: number;
+  height?: number;
+  thumbnailPath?: string;
+  generationJobId?: string;
+  createdAt: string;
+};
+
 export type SceneAssetRequirement = {
   id: string;
   sceneId: string;
@@ -234,6 +296,9 @@ export type ScriptAnalysisGraph = {
   scenes: Scene[];
   shots: Shot[];
   assets: Asset[];
+  assetDetails: AssetDetail[];
+  assetVersions: AssetVersion[];
+  assetReferences: AssetReference[];
   sceneAssetRequirements: SceneAssetRequirement[];
   shotAssetRequirements: ShotAssetRequirement[];
   jobs: GenerationJob[];

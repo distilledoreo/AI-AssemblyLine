@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, FileUp, GitBranch, Radio, RefreshCw, Save } from "lucide-react";
+import { Activity, FileUp, GitBranch, Images, Lock, Radio, RefreshCw, Save, Sparkles } from "lucide-react";
 import type {
   Asset,
   GenerationJob,
@@ -47,8 +47,11 @@ export function ProjectDashboardClient({
     source.addEventListener("connected", () => setConnectionState("live"));
     source.addEventListener("status_change", (message) => {
       const data = JSON.parse((message as MessageEvent).data);
-      setEvents((current) => [
-        {
+      setEvents((current) => {
+        if (current.some((event) => event.id === (message as MessageEvent).lastEventId)) {
+          return current;
+        }
+        return [{
           id: (message as MessageEvent).lastEventId,
           projectId: project.id,
           jobId: data.jobId,
@@ -57,8 +60,8 @@ export function ProjectDashboardClient({
           progressPct: data.progressPct,
           createdAt: data.timestamp,
         },
-        ...current,
-      ]);
+        ...current];
+      });
     });
     source.onerror = () => setConnectionState("reconnecting");
     return () => source.close();
@@ -127,18 +130,21 @@ export function ProjectDashboardClient({
   }
 
   async function approveAsset(asset: Asset) {
-    const response = await fetch(`/api/projects/${project.id}/assets/${asset.id}`, {
-      method: "PATCH",
+    await assetBibleAction({ action: "status", assetId: asset.id, status: "approved" });
+    setNotice(`${asset.canonicalName} approved.`);
+  }
+
+  async function assetBibleAction(payload: unknown) {
+    const response = await fetch(`/api/projects/${project.id}/asset-bible`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "approved" }),
+      body: JSON.stringify(payload),
     });
     const body = await response.json();
     if (response.ok) {
-      setAnalysisGraph((current) => ({
-        ...current,
-        assets: current.assets.map((candidate) => (candidate.id === asset.id ? body.asset : candidate)),
-      }));
-      setNotice(`${asset.canonicalName} approved.`);
+      setAnalysisGraph(body);
+    } else {
+      setError(body.error?.message ?? "Asset Bible action failed.");
     }
   }
 
@@ -308,13 +314,58 @@ export function ProjectDashboardClient({
                     <span>
                       {asset.canonicalName} <span className="meta">({asset.type})</span>
                     </span>
-                    <button className="button secondary" type="button" onClick={() => approveAsset(asset)}>
-                      <Save size={15} aria-hidden="true" />
-                      Approve
-                    </button>
+                    <div className="button-row">
+                      <button
+                        className="button secondary"
+                        type="button"
+                        onClick={() =>
+                          assetBibleAction({ action: "generate", assetId: asset.id, providerSlug: "stability" })
+                        }
+                      >
+                        <Sparkles size={15} aria-hidden="true" />
+                        Generate
+                      </button>
+                      <button className="button secondary" type="button" onClick={() => approveAsset(asset)}>
+                        <Save size={15} aria-hidden="true" />
+                        Approve
+                      </button>
+                      <button
+                        className="button secondary"
+                        type="button"
+                        onClick={() => assetBibleAction({ action: "status", assetId: asset.id, status: "locked" })}
+                      >
+                        <Lock size={15} aria-hidden="true" />
+                        Lock
+                      </button>
+                    </div>
                   </div>
                   <span className="status-pill">{asset.status}</span>
-                  <p className="meta">{asset.description}</p>
+                  <textarea
+                    aria-label={`Continuity notes for ${asset.canonicalName}`}
+                    defaultValue={asset.continuityNotes ?? asset.description ?? ""}
+                    rows={2}
+                    onBlur={(event) =>
+                      assetBibleAction({
+                        action: "detail",
+                        assetId: asset.id,
+                        detail: {
+                          narrativeDescription: event.currentTarget.value,
+                          physicalDescription: event.currentTarget.value,
+                        },
+                      })
+                    }
+                  />
+                  <p className="meta">
+                    {analysisGraph.assetVersions.filter((version) => version.assetId === asset.id).length} versions ·{" "}
+                    {
+                      analysisGraph.assetReferences.filter((reference) =>
+                        analysisGraph.assetVersions.some(
+                          (version) => version.id === reference.assetVersionId && version.assetId === asset.id,
+                        ),
+                      ).length
+                    }{" "}
+                    references
+                  </p>
                 </li>
               ))}
             </ul>
@@ -324,6 +375,24 @@ export function ProjectDashboardClient({
             {analysisGraph.sceneAssetRequirements.length} scene links ·{" "}
             {analysisGraph.shotAssetRequirements.length} shot links
           </div>
+        </section>
+
+        <section className="panel span-12" aria-labelledby="asset-bible-heading">
+          <div className="button-row" style={{ justifyContent: "space-between" }}>
+            <h2 id="asset-bible-heading">Asset Bible lifecycle</h2>
+            <span className="status-pill">
+              <Images size={14} aria-hidden="true" /> {analysisGraph.assetReferences.length} references
+            </span>
+          </div>
+          <div className="dependency-summary">
+            Scenes ready: {analysisGraph.scenes.filter((scene) => scene.status === "ready").length}/
+            {analysisGraph.scenes.length} · Shots ready:{" "}
+            {analysisGraph.shots.filter((shot) => shot.status === "ready").length}/{analysisGraph.shots.length}
+          </div>
+          <p className="meta">
+            Generate references only on request, review them as versions, then approve or lock assets to unlock
+            dependent scenes and shots.
+          </p>
         </section>
       </div>
     </>
