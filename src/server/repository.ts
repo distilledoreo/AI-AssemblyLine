@@ -1724,6 +1724,47 @@ export async function persistAssetState(asset: Asset) {
   }).catch(() => undefined);
 }
 
+export async function persistCreatedAssetState(asset: Asset) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.asset.create({
+    data: {
+      id: asset.id,
+      projectId: asset.projectId,
+      type: asset.type,
+      canonicalName: asset.canonicalName,
+      aliases: asset.aliases,
+      status: asset.status,
+      continuityNotes: asset.continuityNotes,
+      negativePrompts: asset.negativePrompts,
+      description: asset.description,
+      firstAppearance: toPrismaJson(asset.firstAppearance),
+      isUserEdited: asset.isUserEdited ?? false,
+      createdAt: new Date(asset.createdAt),
+      updatedAt: new Date(asset.updatedAt),
+    },
+  }).catch(() => undefined);
+}
+
+export async function persistAssetMergeState(input: { source: Asset; target: Asset }) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await Promise.all([
+    prisma.sceneAssetReq.updateMany({
+      where: { assetId: input.source.id },
+      data: { assetId: input.target.id },
+    }).catch(() => undefined),
+    prisma.shotAssetReq.updateMany({
+      where: { assetId: input.source.id },
+      data: { assetId: input.target.id },
+    }).catch(() => undefined),
+    persistAssetState(input.source),
+    persistAssetState(input.target),
+  ]);
+}
+
 export async function persistAssetDetailState(asset: Asset, detail: AssetDetail) {
   if (!isPrismaRepositoryEnabled()) {
     return;

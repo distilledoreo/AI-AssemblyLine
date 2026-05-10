@@ -148,11 +148,13 @@ const prismaMock = vi.hoisted(() => ({
     createMany: vi.fn(),
     deleteMany: vi.fn(),
     findMany: vi.fn(),
+    updateMany: vi.fn(),
   },
   shotAssetReq: {
     createMany: vi.fn(),
     deleteMany: vi.fn(),
     findMany: vi.fn(),
+    updateMany: vi.fn(),
   },
 }));
 
@@ -843,6 +845,64 @@ describe("Prisma repository mode", () => {
       skipDuplicates: true,
     });
     expect(prismaMock.sceneAssetReq.deleteMany).toHaveBeenCalledWith({ where: { id: requirement.id } });
+  });
+
+  it("persists Asset Bible merge and split corrections through Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const source = {
+      id: "cdcdcdcd-cdcd-4cdc-8dcd-cdcdcdcdcdcd",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      type: "location" as const,
+      canonicalName: "Duplicate Room",
+      aliases: [],
+      status: "superseded" as const,
+      isUserEdited: false,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const target = {
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      projectId: source.projectId,
+      type: "location" as const,
+      canonicalName: "Room",
+      aliases: ["Duplicate Room"],
+      status: "approved" as const,
+      isUserEdited: true,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+
+    prismaMock.asset.create.mockResolvedValue(source);
+    prismaMock.asset.update.mockResolvedValue(target);
+    prismaMock.sceneAssetReq.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.shotAssetReq.updateMany.mockResolvedValue({ count: 1 });
+
+    await repository.persistCreatedAssetState(source);
+    await repository.persistAssetMergeState({ source, target });
+
+    expect(prismaMock.asset.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: source.id,
+        projectId: source.projectId,
+        canonicalName: "Duplicate Room",
+      }),
+    });
+    expect(prismaMock.sceneAssetReq.updateMany).toHaveBeenCalledWith({
+      where: { assetId: source.id },
+      data: { assetId: target.id },
+    });
+    expect(prismaMock.shotAssetReq.updateMany).toHaveBeenCalledWith({
+      where: { assetId: source.id },
+      data: { assetId: target.id },
+    });
+    expect(prismaMock.asset.update).toHaveBeenCalledWith({
+      where: { id: source.id },
+      data: expect.objectContaining({ status: "superseded" }),
+    });
+    expect(prismaMock.asset.update).toHaveBeenCalledWith({
+      where: { id: target.id },
+      data: expect.objectContaining({ aliases: ["Duplicate Room"] }),
+    });
   });
 
   it("persists Asset Bible versions and references through Prisma", async () => {

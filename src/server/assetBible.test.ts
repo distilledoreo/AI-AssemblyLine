@@ -71,8 +71,8 @@ describe("asset bible lifecycle", () => {
       }),
     ).rejects.toMatchObject({ code: "unsupported_media_type" });
 
-    const split = splitAsset(asset.id, { canonicalName: "Duplicate Location" });
-    const merged = mergeAssets(split.id, asset.id);
+    const split = await splitAsset(asset.id, { canonicalName: "Duplicate Location" });
+    const merged = await mergeAssets(split.id, asset.id);
     expect(merged.aliases).toContain("Duplicate Location");
   });
 

@@ -6,6 +6,8 @@ import { AppError, NotFoundError } from "@/server/errors";
 import {
   createGenerationJob,
   getStore,
+  persistAssetMergeState,
+  persistCreatedAssetState,
   persistAssetDetailState,
   persistAssetState,
   persistAssetVersionAndReference,
@@ -189,7 +191,7 @@ export async function transitionAssetStatus(assetId: string, status: AssetStatus
   return asset;
 }
 
-export function mergeAssets(sourceAssetId: string, targetAssetId: string) {
+export async function mergeAssets(sourceAssetId: string, targetAssetId: string) {
   const store = getStore();
   const source = store.assets.find((asset) => asset.id === sourceAssetId);
   const target = store.assets.find((asset) => asset.id === targetAssetId);
@@ -206,10 +208,12 @@ export function mergeAssets(sourceAssetId: string, targetAssetId: string) {
   source.status = "superseded";
   source.updatedAt = nowIso();
   refreshReadiness(target.projectId);
+  await persistAssetMergeState({ source, target });
+  await refreshPrismaReadiness(target.projectId);
   return target;
 }
 
-export function splitAsset(assetId: string, input: { canonicalName: string; type?: AssetType }) {
+export async function splitAsset(assetId: string, input: { canonicalName: string; type?: AssetType }) {
   const store = getStore();
   const source = store.assets.find((asset) => asset.id === assetId);
   if (!source) {
@@ -227,6 +231,7 @@ export function splitAsset(assetId: string, input: { canonicalName: string; type
     updatedAt: timestamp,
   };
   store.assets.push(asset);
+  await persistCreatedAssetState(asset);
   return asset;
 }
 
