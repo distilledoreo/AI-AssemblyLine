@@ -70,6 +70,10 @@ test("creator can run the core project workflow and export a bundle", async ({ p
   await page.getByRole("link", { name: "Storyboard" }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/storyboard$`));
   await expect(page.getByRole("heading", { name: "Storyboard frames" })).toBeVisible();
+  await expect(page.getByLabel("Fabric storyboard markup canvas")).toBeVisible();
+  await page.getByRole("button", { name: "Rectangle" }).click();
+  await page.getByRole("button", { name: "Save markup" }).click();
+  await expect(page.getByText("Storyboard updated.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Export and operations" })).toHaveCount(0);
 
   await page.getByRole("link", { name: "Video" }).click();

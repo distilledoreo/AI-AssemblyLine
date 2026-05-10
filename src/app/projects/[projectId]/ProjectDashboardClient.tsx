@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { StoryboardMarkupCanvas } from "@/app/projects/[projectId]/StoryboardMarkupCanvas";
 import { Activity, Archive, Brush, FileUp, Film, Gauge, GitBranch, HardDrive, Images, Lock, Radio, RefreshCw, Save, Sparkles } from "lucide-react";
 import type {
   Asset,
@@ -553,23 +554,6 @@ export function ProjectDashboardClient({
                             type="button"
                             onClick={() =>
                               storyboardAction({
-                                action: "frame",
-                                frameVersionId: latest.id,
-                                annotations: {
-                                  library: "fabric-compatible-json",
-                                  objects: [{ type: "rect", left: 24, top: 24, width: 160, height: 90 }],
-                                },
-                              })
-                            }
-                          >
-                            <Brush size={15} aria-hidden="true" />
-                            Mark up
-                          </button>
-                          <button
-                            className="button secondary"
-                            type="button"
-                            onClick={() =>
-                              storyboardAction({
                                 action: "comment",
                                 frameVersionId: latest.id,
                                 body: "Frame composition reviewed.",
@@ -600,6 +584,18 @@ export function ProjectDashboardClient({
                     {versions.length} versions · latest {latest?.status ?? "not generated"}
                     {latest?.isStale ? " · stale" : ""}
                   </p>
+                  {latest ? (
+                    <StoryboardMarkupCanvas
+                      initialAnnotations={latest.annotations}
+                      onSave={(annotations) =>
+                        storyboardAction({
+                          action: "frame",
+                          frameVersionId: latest.id,
+                          annotations,
+                        })
+                      }
+                    />
+                  ) : null}
                 </li>
               );
             })}

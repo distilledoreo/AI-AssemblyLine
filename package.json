@@ -18,6 +18,7 @@
     "@auth/prisma-adapter": "latest",
     "@prisma/client": "^6.19.3",
     "bullmq": "latest",
+    "fabric": "^7.3.1",
     "ioredis": "latest",
     "lucide-react": "latest",
     "next": "latest",
