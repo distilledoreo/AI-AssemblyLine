@@ -53,7 +53,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     }
     if (body.action === "import") {
       assertProjectPermission(await getProjectRole(user.id, projectId), "export_project");
-      const imported = await importProjectBundle({ userId: user.id, manifestPath: body.manifestPath });
+      const imported = await importProjectBundle({ userId: user.id, manifestPath: body.manifestPath, projectId });
       return Response.json({ ...(await operationsPayload(projectId)), import: imported }, { status: 201 });
     }
     assertProjectPermission(await getProjectRole(user.id, projectId), "edit_project_settings");

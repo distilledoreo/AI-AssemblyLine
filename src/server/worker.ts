@@ -1,6 +1,7 @@
 import type { Job } from "bullmq";
 import { createGenerationWorker, isRedisQueueEnabled } from "@/server/queue";
 import { processAssetReferenceJob } from "@/server/assetBible";
+import { processExportProjectBundleJob, processImportProjectBundleJob } from "@/server/exportImport";
 import { processScriptAnalysisJob } from "@/server/scriptAnalysis";
 import { processStoryboardFrameJob } from "@/server/storyboard";
 import { processVideoClipJob } from "@/server/video";
@@ -15,6 +16,8 @@ type WorkerJobData = {
   userDirection?: string;
   mode?: "shot" | "scene";
   sceneId?: string;
+  userId?: string;
+  manifestPath?: string;
 };
 
 async function processAnalysisJob(job: Job<WorkerJobData>) {
@@ -75,6 +78,31 @@ async function processVideoJob(job: Job<WorkerJobData & { providerSlug?: "runway
   });
 }
 
+async function processProjectJob(job: Job<WorkerJobData>) {
+  if (job.name === "export") {
+    if (!job.data.projectId || !job.data.userId) {
+      throw new Error("Export jobs require projectId and userId.");
+    }
+    return processExportProjectBundleJob({
+      projectId: job.data.projectId,
+      userId: job.data.userId,
+      jobId: String(job.id),
+    });
+  }
+  if (job.name === "import") {
+    if (!job.data.projectId || !job.data.userId || !job.data.manifestPath) {
+      throw new Error("Import jobs require projectId, userId, and manifestPath.");
+    }
+    return processImportProjectBundleJob({
+      projectId: job.data.projectId,
+      userId: job.data.userId,
+      manifestPath: job.data.manifestPath,
+      jobId: String(job.id),
+    });
+  }
+  throw new Error(`Unsupported project job type: ${job.name}`);
+}
+
 export function startGenerationWorkers() {
   if (!isRedisQueueEnabled()) {
     return { started: false, workers: [] };
@@ -83,6 +111,7 @@ export function startGenerationWorkers() {
     createGenerationWorker("analysis", processAnalysisJob),
     createGenerationWorker("image", processImageJob),
     createGenerationWorker("video", processVideoJob),
+    createGenerationWorker("project", processProjectJob),
   ].filter(Boolean);
   return { started: workers.length > 0, workers };
 }

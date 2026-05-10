@@ -16,6 +16,7 @@ import {
   getStore,
   persistImportedProjectGraph,
 } from "@/server/repository";
+import { isRedisQueueEnabled } from "@/server/queue";
 import { ensureProjectStorage, projectFolderPath } from "@/server/storage";
 import type {
   Asset,
@@ -77,14 +78,29 @@ export async function exportProjectBundle(input: { projectId: string; userId: st
   if (!project) {
     throw new AppError("Project not found.", 404, "not_found");
   }
-  await ensureProjectStorage(input.projectId);
-  const dashboard = await getProjectDashboard(input.projectId);
-  const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const job = createGenerationJob({
     projectId: input.projectId,
     type: "export",
-    inputPayload: { bundleVersion: BUNDLE_VERSION },
+    inputPayload: { projectId: input.projectId, userId: input.userId, bundleVersion: BUNDLE_VERSION },
   });
+  if (isRedisQueueEnabled()) {
+    return { job, graph: await getScriptAnalysisGraphForProject(input.projectId) };
+  }
+  return processExportProjectBundleJob({ ...input, jobId: job.id });
+}
+
+export async function processExportProjectBundleJob(input: { projectId: string; userId: string; jobId: string }) {
+  const project = await getProject(input.projectId);
+  if (!project) {
+    throw new AppError("Project not found.", 404, "not_found");
+  }
+  const job = getStore().generationJobs.find((candidate) => candidate.id === input.jobId);
+  if (!job) {
+    throw new AppError("Export job not found.", 404, "not_found");
+  }
+  await ensureProjectStorage(input.projectId);
+  const dashboard = await getProjectDashboard(input.projectId);
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
   Object.assign(job, { status: "running", startedAt: nowIso() });
   addJobEvent({ jobId: job.id, projectId: input.projectId, eventType: "status_change", message: "Export started.", progressPct: 10 });
 
@@ -117,7 +133,7 @@ export async function exportProjectBundle(input: { projectId: string; userId: st
   });
   completeGenerationJob(job.id, { status: "complete", outputPayload: { manifestPath, bundleId: bundle.id } });
   addJobEvent({ jobId: job.id, projectId: input.projectId, eventType: "status_change", message: "Export complete.", progressPct: 100 });
-  return { bundle, manifestPath, manifest };
+  return { bundle, manifestPath, manifest, job };
 }
 
 function createMap<T extends { id: string }>(items: T[]) {
@@ -128,7 +144,23 @@ function mapId(map: Map<string, string>, id: string | undefined) {
   return id ? map.get(id) ?? id : undefined;
 }
 
-export async function importProjectBundle(input: { userId: string; manifestPath: string }) {
+export async function importProjectBundle(input: { userId: string; manifestPath: string; projectId?: string }) {
+  if (isRedisQueueEnabled()) {
+    const projectId = input.projectId;
+    if (!projectId) {
+      throw new AppError("Project ID is required to queue an import job.", 400, "missing_project_id");
+    }
+    const job = createGenerationJob({
+      projectId,
+      type: "import",
+      inputPayload: { userId: input.userId, manifestPath: input.manifestPath, projectId },
+    });
+    return { job };
+  }
+  return processImportProjectBundleJob(input);
+}
+
+export async function processImportProjectBundleJob(input: { userId: string; manifestPath: string; projectId?: string; jobId?: string }) {
   let manifest: ExportManifest;
   try {
     const raw = await readFile(input.manifestPath, "utf8");
@@ -150,12 +182,18 @@ export async function importProjectBundle(input: { userId: string; manifestPath:
     rightsPolicy: manifest.project.rightsPolicy,
   });
   const store = getStore();
-  const job = createGenerationJob({
-    projectId: project.id,
-    type: "import",
-    inputPayload: { sourceBundleVersion: manifest.bundleVersion, manifestPath: input.manifestPath },
-  });
+  const job = input.jobId
+    ? store.generationJobs.find((candidate) => candidate.id === input.jobId)
+    : createGenerationJob({
+        projectId: project.id,
+        type: "import",
+        inputPayload: { sourceBundleVersion: manifest.bundleVersion, manifestPath: input.manifestPath },
+      });
+  if (!job) {
+    throw new AppError("Import job not found.", 404, "not_found");
+  }
   Object.assign(job, { status: "running", startedAt: nowIso() });
+  addJobEvent({ jobId: job.id, projectId: job.projectId, eventType: "status_change", message: "Import started.", progressPct: 10 });
 
   const scriptMap = createMap(manifest.graph.scripts);
   const versionMap = createMap(manifest.graph.activeVersion ? [manifest.graph.activeVersion, ...manifest.graph.scripts.flatMap(() => [])] : []);
@@ -235,6 +273,6 @@ export async function importProjectBundle(input: { userId: string; manifestPath:
   });
 
   completeGenerationJob(job.id, { status: "complete", outputPayload: { importedProjectId: project.id } });
-  addJobEvent({ jobId: job.id, projectId: project.id, eventType: "status_change", message: "Import complete.", progressPct: 100 });
-  return { project, graph: getScriptAnalysisGraph(project.id) };
+  addJobEvent({ jobId: job.id, projectId: job.projectId, eventType: "status_change", message: "Import complete.", progressPct: 100 });
+  return { project, graph: getScriptAnalysisGraph(project.id), job };
 }

@@ -240,8 +240,12 @@ export function ProjectDashboardClient({
       setNotice(
         body.export?.manifestPath
           ? `Export complete: ${body.export.manifestPath}`
+          : body.export?.job
+            ? "Export queued."
           : body.import?.project?.title
             ? `Import complete: ${body.import.project.title}`
+            : body.import?.job
+              ? "Import queued."
             : "Project operations updated.",
       );
     } else {
