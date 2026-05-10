@@ -9,6 +9,7 @@ import {
   persistAssetDetailState,
   persistAssetState,
   persistAssetVersionAndReference,
+  persistProjectStyleState,
   refreshPrismaReadiness,
 } from "@/server/repository";
 import { createId, nowIso } from "@/server/ids";
@@ -229,13 +230,14 @@ export function splitAsset(assetId: string, input: { canonicalName: string; type
   return asset;
 }
 
-export function updateProjectStyle(projectId: string, input: Partial<ProjectStyle>) {
+export async function updateProjectStyle(projectId: string, input: Partial<ProjectStyle>) {
   const style = getStore().projectStyles.find((candidate) => candidate.projectId === projectId);
   if (!style) {
     throw new NotFoundError("Project style not found.");
   }
   const wasLocked = style.approvalStatus === "locked";
   Object.assign(style, input, { updatedAt: nowIso() });
+  await persistProjectStyleState(style);
   return {
     style,
     warning: wasLocked ? "Changing a locked style can stale approved storyboards and clips." : undefined,

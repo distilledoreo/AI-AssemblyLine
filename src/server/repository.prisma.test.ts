@@ -27,6 +27,9 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
     findUnique: vi.fn(),
   },
+  projectStyle: {
+    update: vi.fn(),
+  },
   providerKey: {
     create: vi.fn(),
     deleteMany: vi.fn(),
@@ -741,6 +744,38 @@ describe("Prisma repository mode", () => {
       create: expect.objectContaining({
         assetId: asset.id,
         setDressing: "Warm practical lamps.",
+      }),
+    });
+  });
+
+  it("persists project style updates through Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const style = {
+      id: "44444444-4444-4444-8444-444444444444",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      styleName: "Painterly Noir",
+      description: "High contrast production look.",
+      colorPalette: ["#111111", "#f8fafc"],
+      lightingRules: "Use motivated window light.",
+      renderingMedium: "digital painting",
+      lensLanguage: "Long lenses for close coverage.",
+      negativeConstraints: "Avoid plastic skin.",
+      modelPromptFragments: { openai: "cinematic noir" },
+      approvalStatus: "approved" as const,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+
+    prismaMock.projectStyle.update.mockResolvedValue(style);
+    await repository.persistProjectStyleState(style);
+
+    expect(prismaMock.projectStyle.update).toHaveBeenCalledWith({
+      where: { projectId: style.projectId },
+      data: expect.objectContaining({
+        styleName: "Painterly Noir",
+        colorPalette: ["#111111", "#f8fafc"],
+        modelPromptFragments: { openai: "cinematic noir" },
+        approvalStatus: "approved",
       }),
     });
   });

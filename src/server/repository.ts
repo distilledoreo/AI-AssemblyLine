@@ -1560,6 +1560,26 @@ export async function persistAssetDetailState(asset: Asset, detail: AssetDetail)
   }
 }
 
+export async function persistProjectStyleState(style: ProjectStyle) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.projectStyle.update({
+    where: { projectId: style.projectId },
+    data: {
+      styleName: style.styleName,
+      description: style.description,
+      colorPalette: toPrismaJson(style.colorPalette) ?? [],
+      lightingRules: style.lightingRules,
+      renderingMedium: style.renderingMedium,
+      lensLanguage: style.lensLanguage,
+      negativeConstraints: style.negativeConstraints,
+      modelPromptFragments: toPrismaJson(style.modelPromptFragments) ?? {},
+      approvalStatus: style.approvalStatus,
+    },
+  }).catch(() => undefined);
+}
+
 export async function persistAssetVersionAndReference(input: {
   version: AssetVersion;
   reference: AssetReference;

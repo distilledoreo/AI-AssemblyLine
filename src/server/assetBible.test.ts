@@ -11,6 +11,7 @@ import {
   mergeAssets,
   splitAsset,
   transitionAssetStatus,
+  updateProjectStyle,
   uploadAssetReference,
   upsertAssetDetail,
 } from "@/server/assetBible";
@@ -73,5 +74,20 @@ describe("asset bible lifecycle", () => {
     const split = splitAsset(asset.id, { canonicalName: "Duplicate Location" });
     const merged = mergeAssets(split.id, asset.id);
     expect(merged.aliases).toContain("Duplicate Location");
+  });
+
+  it("updates project style and warns when changing a locked style", async () => {
+    const graph = await analyzedProject();
+    const projectId = graph.assets[0].projectId;
+    const result = await updateProjectStyle(projectId, {
+      styleName: "Painterly Noir",
+      approvalStatus: "locked",
+    });
+    const warning = await updateProjectStyle(projectId, {
+      lightingRules: "Use motivated window light.",
+    });
+
+    expect(result.style.styleName).toBe("Painterly Noir");
+    expect(warning.warning).toMatch(/locked style/);
   });
 });

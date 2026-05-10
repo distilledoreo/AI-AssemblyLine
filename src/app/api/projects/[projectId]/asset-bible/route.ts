@@ -75,7 +75,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     if (body.action === "status") await transitionAssetStatus(body.assetId, body.status);
     if (body.action === "merge") mergeAssets(body.sourceAssetId, body.targetAssetId);
     if (body.action === "split") splitAsset(body.assetId, body);
-    if (body.action === "style") updateProjectStyle(projectId, body.style);
+    if (body.action === "style") await updateProjectStyle(projectId, body.style);
     return Response.json(await getScriptAnalysisGraphForProject(projectId));
   } catch (error) {
     return toErrorResponse(error);
