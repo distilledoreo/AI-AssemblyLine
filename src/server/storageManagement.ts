@@ -1,6 +1,6 @@
 import { readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
-import { getScriptAnalysisGraph } from "@/server/repository";
+import { getScriptAnalysisGraphForProject } from "@/server/repository";
 import { ensureProjectStorage, projectFolderPath, projectStorageFolders, projectStoragePath } from "@/server/storage";
 import type { StorageUsage } from "@/server/types";
 
@@ -22,8 +22,8 @@ async function walkFiles(root: string): Promise<string[]> {
   }
 }
 
-function referencedFiles(projectId: string) {
-  const graph = getScriptAnalysisGraph(projectId);
+async function referencedFiles(projectId: string) {
+  const graph = await getScriptAnalysisGraphForProject(projectId);
   return new Set(
     [
       ...graph.scripts.map((script) => script.filename),
@@ -42,7 +42,7 @@ export async function getProjectStorageUsage(projectId: string): Promise<Storage
   const files = await walkFiles(projectStoragePath(projectId));
   const stats = await Promise.all(files.map(async (file) => ({ file, stats: await stat(file) })));
   const totalBytes = stats.reduce((sum, item) => sum + item.stats.size, 0);
-  const references = referencedFiles(projectId);
+  const references = await referencedFiles(projectId);
   const orphanFiles = files.filter((file) => !references.has(path.resolve(file)) && !file.includes(`${path.sep}exports${path.sep}`));
   const thumbnailRoot = projectFolderPath(projectId, "thumbnails");
   const thumbnailFiles = files.filter((file) => path.resolve(file).startsWith(path.resolve(thumbnailRoot)));
