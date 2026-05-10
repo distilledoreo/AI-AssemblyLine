@@ -16,7 +16,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 | Redis-backed SSE | `emitProjectEvent` publishes to Redis and the SSE subscription listens on a Redis project channel when Redis mode is enabled. Local runtime verification is blocked until Redis is available. | Partially complete |
 | Real OpenAI calls | OpenAI adapter no longer throws for live keys. It calls `/v1/responses` for text/structured output and `/v1/images/generations` for images. Mocked HTTP tests cover payload and error-class mapping. | Partially complete |
 | Real OpenAI key smoke test | No real API key has been verified in this environment yet. | Blocked |
-| Dependency security audit | `npm audit --audit-level=moderate` reports a moderate PostCSS advisory through the current Next.js dependency. The available automated fix would downgrade Next.js to `9.3.3`, so this needs an upstream Next/PostCSS-compatible remediation instead of `--force`. | Not complete |
+| Dependency security audit | `package.json` uses an npm override to pin `postcss` to `8.5.14`, replacing the vulnerable `8.4.31` nested under Next.js. `npm audit --audit-level=moderate` now reports zero vulnerabilities and `npm ls postcss` shows Next and Vite both using `8.5.14`. | Passing |
 | Playwright E2E tests | `e2e/project-workflow.spec.ts` covers sign-in, project creation, script analysis, asset approval, storyboard frame approval, video generation, and export bundle UI. | Passing for current local workflow |
 | Multi-page workflow UI | Dedicated routes now exist for overview, script, Asset Bible, storyboard, and video workflows. E2E checks storyboard and video route filtering. | Passing for local workflow |
 | Storyboard drawing library | Fabric.js is installed and the storyboard page exposes a canvas with draw/select/rectangle/text/clear/save controls. E2E saves rectangle markup through the storyboard API. | Passing for local workflow |
@@ -25,13 +25,14 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
-- `npm test`: passing, 14 files and 35 tests.
+- `npm test`: passing, 14 files and 36 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
+- `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
+- `npm ls postcss`: Next.js and Vite both resolve to `postcss@8.5.14`.
 - `prisma validate`: passing when `DATABASE_URL` is set for schema validation.
 - `npm run test:e2e`: passing, 1 Chromium workflow test.
 - `QUEUE_MODE=inline npm run worker`: exits cleanly with Redis disabled message.
 - Local Postgres TCP check: failed on `127.0.0.1:5432`.
 - Local Redis TCP check: failed on `127.0.0.1:6379`.
 - Real OpenAI smoke-test preflight: `OPENAI_API_KEY` is not set in this environment.
-- `npm audit --audit-level=moderate`: failing due to a Next.js/PostCSS moderate advisory; the suggested `--force` fix is a breaking downgrade and was not applied.

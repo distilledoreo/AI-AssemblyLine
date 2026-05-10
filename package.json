@@ -42,5 +42,8 @@
     "prisma": "^6.19.3",
     "typescript": "latest",
     "vitest": "latest"
+  },
+  "overrides": {
+    "postcss": "8.5.14"
   }
 }
