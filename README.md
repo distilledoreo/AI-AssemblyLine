@@ -39,6 +39,7 @@ The app is designed for both single creators and production teams. It will analy
 - [Testing strategy](docs/testing-strategy.md) — test categories, provider mock factory, CI expectations.
 - [API reference](docs/api-reference.md) — project workflow and operations endpoints.
 - [Setup guide](docs/setup-guide.md) — local setup, verification commands, and export/import smoke test.
+- [Production readiness audit](docs/production-readiness-audit.md) — current evidence, blockers, and remaining production gaps.
 - [Implementation roadmap](docs/implementation-roadmap.md) — phased build order with deliverables and exit criteria.
 - [Phase 1 foundation](docs/phase-1-foundation.md) — runnable app shell, setup flow, auth/RBAC, provider keys, storage, queues, and SSE verification.
 - [Phase 2 script pipeline](docs/phase-2-script-pipeline.md) — upload, deterministic analysis, editable breakdown, re-analysis, and dependency graph verification.

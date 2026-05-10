@@ -1,0 +1,69 @@
+import { expect, test } from "@playwright/test";
+
+test("creator can run the core project workflow and export a bundle", async ({ page }) => {
+  await page.goto("/signin");
+  await page.getByRole("textbox", { name: "Email" }).fill(`e2e-${Date.now()}@example.com`);
+  await page.getByRole("textbox", { name: "Password" }).fill("assemblyline");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+
+  const projectId = await page.evaluate(async () => {
+    async function api(path: string, options: RequestInit = {}) {
+      const response = await fetch(path, {
+        credentials: "include",
+        ...options,
+        headers: { "Content-Type": "application/json", ...(options.headers ?? {}) },
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(`${path} failed: ${JSON.stringify(body)}`);
+      }
+      return body;
+    }
+
+    const workspace = await api("/api/workspaces", {
+      method: "POST",
+      body: JSON.stringify({ name: "E2E Studio" }),
+    });
+    const project = await api("/api/projects", {
+      method: "POST",
+      body: JSON.stringify({ workspaceId: workspace.workspace.id, title: "E2E Short" }),
+    });
+    let graph = await api(`/api/projects/${project.project.id}/scripts`, {
+      method: "POST",
+      body: JSON.stringify({
+        filename: "e2e-script.txt",
+        text: "INT. STUDIO - DAY\nMIRA\nThe camera line comes alive.\nMira holds a prism toward the lens.",
+      }),
+    });
+    for (const asset of graph.assets) {
+      graph = await api(`/api/projects/${project.project.id}/asset-bible`, {
+        method: "POST",
+        body: JSON.stringify({ action: "status", assetId: asset.id, status: "approved" }),
+      });
+    }
+    graph = await api(`/api/projects/${project.project.id}/storyboards`, {
+      method: "POST",
+      body: JSON.stringify({ action: "generate", shotId: graph.shots[0].id, keyframeIndex: 0 }),
+    });
+    graph = await api(`/api/projects/${project.project.id}/storyboards`, {
+      method: "POST",
+      body: JSON.stringify({ action: "frame", frameVersionId: graph.frameVersions[0].id, status: "approved" }),
+    });
+    await api(`/api/projects/${project.project.id}/videos`, {
+      method: "POST",
+      body: JSON.stringify({ action: "generate", mode: "shot", shotId: graph.shots[0].id, providerSlug: "runway" }),
+    });
+    await api(`/api/projects/${project.project.id}/operations`, {
+      method: "POST",
+      body: JSON.stringify({ action: "export" }),
+    });
+    return project.project.id;
+  });
+
+  await page.goto(`/projects/${projectId}`);
+  await expect(page.getByRole("heading", { name: "Export and operations" })).toBeVisible();
+  await expect(page.getByText("Bundle version")).toBeVisible();
+  await expect(page.getByText("bytedance-seedance, pika, luma, elevenlabs")).toBeVisible();
+  await expect(page.getByText("Approved frames: 1")).toBeVisible();
+});

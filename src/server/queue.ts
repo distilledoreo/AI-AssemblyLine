@@ -31,7 +31,13 @@ let redisConnection: IORedis | undefined;
 let redisPublisher: IORedis | undefined;
 
 function redisEnabled() {
-  return process.env.NODE_ENV !== "test" && process.env.QUEUE_MODE !== "inline";
+  if (process.env.NODE_ENV === "test" || process.env.QUEUE_MODE === "inline") {
+    return false;
+  }
+  if (process.env.QUEUE_MODE === "redis" || process.env.NODE_ENV === "production") {
+    return true;
+  }
+  return Boolean(process.env.REDIS_URL);
 }
 
 function getRedisConnection() {
@@ -70,7 +76,7 @@ function getBullQueue(name: string) {
   if (existing) {
     return existing;
   }
-  const queue = new Queue(`assemblyline:${name}`, { connection });
+  const queue = new Queue(`assemblyline-${name}`, { connection });
   queues.set(name, queue);
   return queue;
 }
