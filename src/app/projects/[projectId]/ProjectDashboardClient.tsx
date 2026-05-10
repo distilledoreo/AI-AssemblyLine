@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, FileUp, GitBranch, Images, Lock, Radio, RefreshCw, Save, Sparkles } from "lucide-react";
+import { Activity, Brush, FileUp, GitBranch, Images, Lock, Radio, RefreshCw, Save, Sparkles } from "lucide-react";
 import type {
   Asset,
   GenerationJob,
@@ -145,6 +145,21 @@ export function ProjectDashboardClient({
       setAnalysisGraph(body);
     } else {
       setError(body.error?.message ?? "Asset Bible action failed.");
+    }
+  }
+
+  async function storyboardAction(payload: unknown) {
+    const response = await fetch(`/api/projects/${project.id}/storyboards`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await response.json();
+    if (response.ok) {
+      setAnalysisGraph(body);
+      setNotice("Storyboard updated.");
+    } else {
+      setError(body.error?.message ?? "Storyboard action failed.");
     }
   }
 
@@ -387,12 +402,106 @@ export function ProjectDashboardClient({
           <div className="dependency-summary">
             Scenes ready: {analysisGraph.scenes.filter((scene) => scene.status === "ready").length}/
             {analysisGraph.scenes.length} · Shots ready:{" "}
-            {analysisGraph.shots.filter((shot) => shot.status === "ready").length}/{analysisGraph.shots.length}
+            {analysisGraph.shots.filter((shot) => ["ready", "storyboarded", "video_ready", "complete"].includes(shot.status)).length}/
+            {analysisGraph.shots.length}
           </div>
           <p className="meta">
             Generate references only on request, review them as versions, then approve or lock assets to unlock
             dependent scenes and shots.
           </p>
+        </section>
+
+        <section className="panel span-12" aria-labelledby="storyboard-heading">
+          <div className="button-row" style={{ justifyContent: "space-between" }}>
+            <h2 id="storyboard-heading">Storyboard frames</h2>
+            <span className="status-pill">
+              <Brush size={14} aria-hidden="true" /> {analysisGraph.frameVersions.length} versions
+            </span>
+          </div>
+          <ul className="list">
+            {analysisGraph.shots.map((shot) => {
+              const frame = analysisGraph.storyboardFrames.find((candidate) => candidate.shotId === shot.id);
+              const versions = frame
+                ? analysisGraph.frameVersions.filter((version) => version.frameId === frame.id)
+                : [];
+              const latest = versions.at(-1);
+              return (
+                <li className="list-item column" key={shot.id}>
+                  <div className="button-row" style={{ justifyContent: "space-between" }}>
+                    <span>
+                      Shot {shot.shotNumber}: {shot.action}
+                    </span>
+                    <div className="button-row">
+                      <button
+                        className="button secondary"
+                        type="button"
+                        onClick={() => storyboardAction({ action: "generate", shotId: shot.id, keyframeIndex: 0 })}
+                      >
+                        <Sparkles size={15} aria-hidden="true" />
+                        Generate frame
+                      </button>
+                      {latest ? (
+                        <>
+                          <button
+                            className="button secondary"
+                            type="button"
+                            onClick={() =>
+                              storyboardAction({
+                                action: "frame",
+                                frameVersionId: latest.id,
+                                annotations: {
+                                  library: "fabric-compatible-json",
+                                  objects: [{ type: "rect", left: 24, top: 24, width: 160, height: 90 }],
+                                },
+                              })
+                            }
+                          >
+                            <Brush size={15} aria-hidden="true" />
+                            Mark up
+                          </button>
+                          <button
+                            className="button secondary"
+                            type="button"
+                            onClick={() =>
+                              storyboardAction({
+                                action: "comment",
+                                frameVersionId: latest.id,
+                                body: "Frame composition reviewed.",
+                              })
+                            }
+                          >
+                            Comment
+                          </button>
+                          <button
+                            className="button secondary"
+                            type="button"
+                            onClick={() =>
+                              storyboardAction({
+                                action: "frame",
+                                frameVersionId: latest.id,
+                                status: "approved",
+                              })
+                            }
+                          >
+                            <Save size={15} aria-hidden="true" />
+                            Approve frame
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                  <p className="meta">
+                    {versions.length} versions · latest {latest?.status ?? "not generated"}
+                    {latest?.isStale ? " · stale" : ""}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="dependency-summary">
+            Approved frames: {analysisGraph.frameVersions.filter((version) => version.status === "approved").length} ·
+            Comments: {analysisGraph.reviewNotes.length}
+          </div>
         </section>
       </div>
     </>

@@ -15,11 +15,13 @@ import type {
   ProjectRole,
   ProjectStyle,
   ProviderKey,
+  ReviewNote,
   RightsPolicy,
   Asset,
   AssetDetail,
   AssetReference,
   AssetVersion,
+  FrameVersion,
   Scene,
   SceneAssetRequirement,
   Session,
@@ -28,6 +30,7 @@ import type {
   Script,
   ScriptAnalysisGraph,
   ScriptVersion,
+  StoryboardFrame,
   User,
   Workspace,
   WorkspaceMember,
@@ -55,6 +58,9 @@ type StoreState = {
   assetDetails: AssetDetail[];
   assetVersions: AssetVersion[];
   assetReferences: AssetReference[];
+  storyboardFrames: StoryboardFrame[];
+  frameVersions: FrameVersion[];
+  reviewNotes: ReviewNote[];
   sceneAssetRequirements: SceneAssetRequirement[];
   shotAssetRequirements: ShotAssetRequirement[];
 };
@@ -83,6 +89,9 @@ function createInitialState(): StoreState {
     assetDetails: [],
     assetVersions: [],
     assetReferences: [],
+    storyboardFrames: [],
+    frameVersions: [],
+    reviewNotes: [],
     sceneAssetRequirements: [],
     shotAssetRequirements: [],
   };
@@ -344,6 +353,11 @@ export function getScriptAnalysisGraph(projectId: string): ScriptAnalysisGraph {
     assetReferences: store.assetReferences.filter((reference) =>
       store.assetVersions.some((version) => version.id === reference.assetVersionId),
     ),
+    storyboardFrames: store.storyboardFrames.filter((frame) => shotIds.has(frame.shotId)),
+    frameVersions: store.frameVersions.filter((version) =>
+      store.storyboardFrames.some((frame) => shotIds.has(frame.shotId) && frame.id === version.frameId),
+    ),
+    reviewNotes: store.reviewNotes.filter((note) => note.projectId === projectId),
     sceneAssetRequirements: store.sceneAssetRequirements.filter((requirement) =>
       sceneIds.has(requirement.sceneId),
     ),
@@ -399,6 +413,10 @@ export function deleteProject(projectId: string) {
   );
   store.assetReferences = store.assetReferences.filter((reference) => !versionIdsToDelete.has(reference.assetVersionId));
   store.assetVersions = store.assetVersions.filter((version) => !assetIds.has(version.assetId));
+  const frameIds = new Set(store.storyboardFrames.filter((frame) => shotIds.has(frame.shotId)).map((frame) => frame.id));
+  store.frameVersions = store.frameVersions.filter((version) => !frameIds.has(version.frameId));
+  store.storyboardFrames = store.storyboardFrames.filter((frame) => !shotIds.has(frame.shotId));
+  store.reviewNotes = store.reviewNotes.filter((note) => note.projectId !== projectId);
   if (store.projects.length === before) {
     throw new NotFoundError("Project not found.");
   }

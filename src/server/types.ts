@@ -47,6 +47,7 @@ export type AssetReferenceType =
   | "turnaround"
   | "detail"
   | "other";
+export type FrameVersionStatus = "draft" | "needs_review" | "approved" | "rejected" | "superseded" | "stale";
 
 export type User = {
   id: string;
@@ -299,8 +300,49 @@ export type ScriptAnalysisGraph = {
   assetDetails: AssetDetail[];
   assetVersions: AssetVersion[];
   assetReferences: AssetReference[];
+  storyboardFrames: StoryboardFrame[];
+  frameVersions: FrameVersion[];
+  reviewNotes: ReviewNote[];
   sceneAssetRequirements: SceneAssetRequirement[];
   shotAssetRequirements: ShotAssetRequirement[];
   jobs: GenerationJob[];
   events: JobEvent[];
+};
+
+export type StoryboardFrame = {
+  id: string;
+  shotId: string;
+  keyframeIndex: number;
+  sketchFilePath?: string;
+  sketchWarning?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FrameVersion = {
+  id: string;
+  frameId: string;
+  versionNumber: number;
+  prompt: string;
+  filePath: string;
+  thumbnailPath?: string;
+  status: FrameVersionStatus;
+  isStale: boolean;
+  generationJobId?: string;
+  annotations?: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type ReviewNote = {
+  id: string;
+  projectId: string;
+  authorId: string;
+  targetType: "asset_version" | "frame_version" | "clip_version";
+  targetId: string;
+  parentNoteId?: string;
+  body: string;
+  markupFilePath?: string;
+  status: "open" | "resolved" | "dismissed";
+  createdAt: string;
+  updatedAt: string;
 };

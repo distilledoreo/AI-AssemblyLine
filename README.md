@@ -41,6 +41,7 @@ The app is designed for both single creators and production teams. It will analy
 - [Phase 1 foundation](docs/phase-1-foundation.md) — runnable app shell, setup flow, auth/RBAC, provider keys, storage, queues, and SSE verification.
 - [Phase 2 script pipeline](docs/phase-2-script-pipeline.md) — upload, deterministic analysis, editable breakdown, re-analysis, and dependency graph verification.
 - [Phase 3 Asset Bible](docs/phase-3-asset-bible.md) — asset details, references, generation, versioning, approval, locking, merge/split, and dependency unlocking.
+- [Phase 4 storyboard](docs/phase-4-storyboard.md) — prompt composition, frame generation, markup, comments, approval, and staleness.
 
 ## MVP scope
 
@@ -48,7 +49,7 @@ See the [product plan](docs/product-plan.md#mvp-scope) for the full MVP feature 
 
 ## Development status
 
-Phase 3 Asset Bible implementation is underway. The repository now includes a Next.js App Router scaffold, TypeScript service layer, Prisma/Postgres schema, Auth.js/NextAuth configuration, RBAC checks, encrypted provider key storage, BullMQ queue metadata, local filesystem storage helpers, API routes, an SSE project event endpoint, deterministic script analysis, and an Asset Bible workflow with details, generated/uploaded references, versions, lifecycle transitions, and dependency unlocking.
+Phase 4 storyboard implementation is underway. The repository now includes a Next.js App Router scaffold, TypeScript service layer, Prisma/Postgres schema, Auth.js/NextAuth configuration, RBAC checks, encrypted provider key storage, BullMQ queue metadata, local filesystem storage helpers, API routes, an SSE project event endpoint, deterministic script analysis, an Asset Bible workflow, and storyboard frame generation with prompt composition, markup, comments, and approval.
 
 The [implementation roadmap](docs/implementation-roadmap.md) remains the build order across seven phases. Each phase must be implemented, documented, tested, run, verified, committed, and pushed before the next phase begins.
 

@@ -6,6 +6,7 @@ import { AppError, NotFoundError } from "@/server/errors";
 import { createGenerationJob, getStore } from "@/server/repository";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
+import { markFramesStaleForAsset } from "@/server/storyboard";
 import type {
   Asset,
   AssetDetail,
@@ -158,8 +159,12 @@ export function transitionAssetStatus(assetId: string, status: AssetStatus) {
   if (asset.status === "locked" && status !== "locked") {
     asset.continuityNotes = `${asset.continuityNotes ?? ""}\nUnlocked after warning acknowledgement.`.trim();
   }
+  const wasApproved = ["approved", "locked"].includes(asset.status);
   asset.status = status;
   asset.updatedAt = nowIso();
+  if (wasApproved && !["approved", "locked"].includes(status)) {
+    markFramesStaleForAsset(asset.projectId, asset.id);
+  }
   refreshReadiness(asset.projectId);
   return asset;
 }
