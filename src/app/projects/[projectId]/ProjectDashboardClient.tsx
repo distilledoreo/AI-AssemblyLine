@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, Brush, FileUp, Film, GitBranch, Images, Lock, Radio, RefreshCw, Save, Sparkles } from "lucide-react";
+import { Activity, Archive, Brush, FileUp, Film, Gauge, GitBranch, HardDrive, Images, Lock, Radio, RefreshCw, Save, Sparkles } from "lucide-react";
 import type {
   Asset,
+  ExportBundle,
   GenerationJob,
   JobEvent,
   Project,
@@ -11,6 +12,7 @@ import type {
   Scene,
   ScriptAnalysisGraph,
   Shot,
+  StorageUsage,
 } from "@/server/types";
 
 const sampleScript = `INT. COFFEE SHOP - MORNING
@@ -21,6 +23,18 @@ David holds a brass key and scans the room.
 EXT. ALLEY - NIGHT
 Anna follows David through rain and neon.
 Close on the brass key in her hand.`;
+
+type OperationsPayload = {
+  bundles: ExportBundle[];
+  storage: StorageUsage;
+  metrics: {
+    totalJobs: number;
+    jobsByStatus: Record<string, number>;
+    jobsByType: Record<string, number>;
+    sentryEnabled: boolean;
+  };
+  adapters: Array<{ slug: string; capabilities: { models?: string[]; maxDurationSeconds?: number } }>;
+};
 
 export function ProjectDashboardClient({
   project,
@@ -43,6 +57,7 @@ export function ProjectDashboardClient({
   const [scriptText, setScriptText] = useState(sampleScript);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [operations, setOperations] = useState<OperationsPayload | null>(null);
 
   useEffect(() => {
     const source = new EventSource(`/api/projects/${project.id}/events`);
@@ -67,6 +82,15 @@ export function ProjectDashboardClient({
     });
     source.onerror = () => setConnectionState("reconnecting");
     return () => source.close();
+  }, [project.id]);
+
+  useEffect(() => {
+    fetch(`/api/projects/${project.id}/operations`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body) => {
+        if (body) setOperations(body);
+      })
+      .catch(() => undefined);
   }, [project.id]);
 
   async function uploadScript() {
@@ -192,6 +216,30 @@ export function ProjectDashboardClient({
       setNotice(body.inviteToken ? `Invitation created. Token: ${body.inviteToken}` : "Collaboration updated.");
     } else {
       setError(body.error?.message ?? "Collaboration action failed.");
+    }
+  }
+
+  async function operationsAction(payload: unknown) {
+    setNotice("");
+    setError("");
+    const response = await fetch(`/api/projects/${project.id}/operations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await response.json();
+    if (response.ok) {
+      setOperations(body);
+      if (body.graph) setAnalysisGraph(body.graph);
+      setNotice(
+        body.export?.manifestPath
+          ? `Export complete: ${body.export.manifestPath}`
+          : body.import?.project?.title
+            ? `Import complete: ${body.import.project.title}`
+            : "Project operations updated.",
+      );
+    } else {
+      setError(body.error?.message ?? "Project operation failed.");
     }
   }
 
@@ -638,6 +686,70 @@ export function ProjectDashboardClient({
                 <span className="meta">{activity.eventType}</span>
               </li>
             ))}
+          </ul>
+        </section>
+
+        <section className="panel span-12" aria-labelledby="operations-heading">
+          <div className="button-row" style={{ justifyContent: "space-between" }}>
+            <h2 id="operations-heading">Export and operations</h2>
+            <span className="status-pill">
+              <Gauge size={14} aria-hidden="true" /> {operations?.metrics.totalJobs ?? analysisGraph.jobs.length} jobs
+            </span>
+          </div>
+          <div className="button-row">
+            <button
+              aria-label="Export complete project bundle"
+              className="button secondary"
+              type="button"
+              onClick={() => operationsAction({ action: "export" })}
+            >
+              <Archive size={15} aria-hidden="true" />
+              Export bundle
+            </button>
+            {operations?.bundles.at(-1) ? (
+              <button
+                aria-label="Import latest exported project bundle into a new project"
+                className="button secondary"
+                type="button"
+                onClick={() => operationsAction({ action: "import", manifestPath: operations.bundles.at(-1)?.manifestPath })}
+              >
+                <Archive size={15} aria-hidden="true" />
+                Import latest
+              </button>
+            ) : null}
+            <button
+              aria-label="Clear generated thumbnail cache"
+              className="button secondary"
+              type="button"
+              onClick={() => operationsAction({ action: "clear_thumbnails" })}
+            >
+              <HardDrive size={15} aria-hidden="true" />
+              Clear thumbnails
+            </button>
+          </div>
+          <ul className="list" style={{ marginTop: 12 }}>
+            <li className="list-item">
+              <span>Bundle version</span>
+              <span className="meta">{operations?.bundles.at(-1)?.bundleVersion ?? 1}</span>
+            </li>
+            <li className="list-item">
+              <span>Storage</span>
+              <span className="meta">
+                {operations ? `${operations.storage.fileCount} files · ${operations.storage.warningLevel}` : "calculating"}
+              </span>
+            </li>
+            <li className="list-item">
+              <span>Orphans</span>
+              <span className="meta">{operations?.storage.orphanFiles.length ?? 0}</span>
+            </li>
+            <li className="list-item">
+              <span>Sentry</span>
+              <span className="meta">{operations?.metrics.sentryEnabled ? "enabled" : "disabled"}</span>
+            </li>
+            <li className="list-item">
+              <span>Additional adapters</span>
+              <span className="meta">{operations?.adapters.map((adapter) => adapter.slug).join(", ") ?? "loading"}</span>
+            </li>
           </ul>
         </section>
       </div>

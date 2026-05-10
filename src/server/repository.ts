@@ -36,6 +36,7 @@ import type {
   Invitation,
   Assignment,
   ActivityEvent,
+  ExportBundle,
   User,
   Workspace,
   WorkspaceMember,
@@ -71,6 +72,7 @@ type StoreState = {
   invitations: Invitation[];
   assignments: Assignment[];
   activityEvents: ActivityEvent[];
+  exportBundles: ExportBundle[];
   sceneAssetRequirements: SceneAssetRequirement[];
   shotAssetRequirements: ShotAssetRequirement[];
 };
@@ -107,6 +109,7 @@ function createInitialState(): StoreState {
     invitations: [],
     assignments: [],
     activityEvents: [],
+    exportBundles: [],
     sceneAssetRequirements: [],
     shotAssetRequirements: [],
   };
@@ -449,9 +452,36 @@ export function deleteProject(projectId: string) {
   store.invitations = store.invitations.filter((invitation) => invitation.projectId !== projectId);
   store.assignments = store.assignments.filter((assignment) => assignment.projectId !== projectId);
   store.activityEvents = store.activityEvents.filter((activity) => activity.projectId !== projectId);
+  store.exportBundles = store.exportBundles.filter((bundle) => bundle.projectId !== projectId);
   if (store.projects.length === before) {
     throw new NotFoundError("Project not found.");
   }
+}
+
+export function addExportBundle(bundle: ExportBundle) {
+  getStore().exportBundles.push(bundle);
+  return bundle;
+}
+
+export function listExportBundles(projectId: string) {
+  return getStore().exportBundles.filter((bundle) => bundle.projectId === projectId);
+}
+
+export function completeGenerationJob(
+  jobId: string,
+  input: { status: GenerationJob["status"]; outputPayload?: unknown; errorMessage?: string },
+) {
+  const job = getStore().generationJobs.find((candidate) => candidate.id === jobId);
+  if (!job) {
+    throw new NotFoundError("Generation job not found.");
+  }
+  Object.assign(job, {
+    status: input.status,
+    outputPayload: input.outputPayload,
+    errorMessage: input.errorMessage,
+    completedAt: nowIso(),
+  });
+  return job;
 }
 
 export function saveProviderKey(

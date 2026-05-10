@@ -37,6 +37,8 @@ The app is designed for both single creators and production teams. It will analy
 
 - [Deployment and configuration](docs/deployment-and-config.md) — environment variables, API key encryption, local dev setup, observability.
 - [Testing strategy](docs/testing-strategy.md) — test categories, provider mock factory, CI expectations.
+- [API reference](docs/api-reference.md) — project workflow and operations endpoints.
+- [Setup guide](docs/setup-guide.md) — local setup, verification commands, and export/import smoke test.
 - [Implementation roadmap](docs/implementation-roadmap.md) — phased build order with deliverables and exit criteria.
 - [Phase 1 foundation](docs/phase-1-foundation.md) — runnable app shell, setup flow, auth/RBAC, provider keys, storage, queues, and SSE verification.
 - [Phase 2 script pipeline](docs/phase-2-script-pipeline.md) — upload, deterministic analysis, editable breakdown, re-analysis, and dependency graph verification.
@@ -44,6 +46,7 @@ The app is designed for both single creators and production teams. It will analy
 - [Phase 4 storyboard](docs/phase-4-storyboard.md) — prompt composition, frame generation, markup, comments, approval, and staleness.
 - [Phase 5 video](docs/phase-5-video.md) — shot and scene clip generation, video adapters, polling metadata, media inspection, and clip approval.
 - [Phase 6 collaboration](docs/phase-6-collaboration.md) — invitations, member roles, assignments, activity feed, and locked asset warnings.
+- [Phase 7 export/import/polish](docs/phase-7-export-import-polish.md) — portable bundles, import, remaining adapters, observability, storage management, and accessibility polish.
 
 ## MVP scope
 
@@ -51,7 +54,7 @@ See the [product plan](docs/product-plan.md#mvp-scope) for the full MVP feature 
 
 ## Development status
 
-Phase 6 collaboration implementation is underway. The repository now includes a Next.js App Router scaffold, TypeScript service layer, Prisma/Postgres schema, Auth.js/NextAuth configuration, RBAC checks, encrypted provider key storage, BullMQ queue metadata, local filesystem storage helpers, API routes, an SSE project event endpoint, deterministic script analysis, Asset Bible, storyboard/video workflows, and collaboration controls for invitations, assignments, member roles, and activity tracking.
+Phase 7 export/import and polish implementation is underway. The repository now includes a Next.js App Router scaffold, TypeScript service layer, Prisma/Postgres schema, Auth.js/NextAuth configuration, RBAC checks, encrypted provider key storage, BullMQ queue metadata, local filesystem storage helpers, API routes, an SSE project event endpoint, deterministic script analysis, Asset Bible, storyboard/video workflows, collaboration controls, versioned project export/import, remaining provider adapter capability snapshots, job metrics, structured logging, and storage management helpers.
 
 The [implementation roadmap](docs/implementation-roadmap.md) remains the build order across seven phases. Each phase must be implemented, documented, tested, run, verified, committed, and pushed before the next phase begins.
 
@@ -64,5 +67,5 @@ npm test
 npm run dev
 ```
 
-Open `http://localhost:3000/signin`, sign in with any valid email and a password of at least four characters, create a workspace and project, save an OpenAI key, then open the project dashboard to verify the live SSE connection. Use the Script analysis panel to upload sample script text, review the generated breakdown, generate and approve Asset Bible references, and confirm required scenes/shots unlock as assets are approved.
+Open `http://localhost:3000/signin`, sign in with any valid email and a password of at least four characters, create a workspace and project, save an OpenAI key, then open the project dashboard to verify the live SSE connection. Use the Script analysis panel to upload sample script text, review the generated breakdown, generate and approve Asset Bible references, approve storyboard frames and video clips, invite or assign collaborators, then export and import a project bundle from the operations panel.
 

@@ -354,6 +354,29 @@ export type ActivityEvent = {
   createdAt: string;
 };
 
+export type ExportBundle = {
+  id: string;
+  projectId: string;
+  bundleVersion: number;
+  manifestPath: string;
+  mediaFileCount: number;
+  metadataRecordCount: number;
+  createdById: string;
+  createdAt: string;
+};
+
+export type StorageWarningLevel = "ok" | "warning" | "critical";
+
+export type StorageUsage = {
+  projectId: string;
+  totalBytes: number;
+  fileCount: number;
+  orphanFiles: string[];
+  thumbnailFiles: string[];
+  warningLevel: StorageWarningLevel;
+  warningMessage?: string;
+};
+
 export type VideoClip = {
   id: string;
   shotId?: string;
