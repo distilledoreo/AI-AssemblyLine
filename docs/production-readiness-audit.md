@@ -17,6 +17,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 | Real OpenAI calls | OpenAI adapter no longer throws for live keys. It calls `/v1/responses` for text/structured output and `/v1/images/generations` for images. Mocked HTTP tests cover payload and error-class mapping. | Partially complete |
 | Real OpenAI key smoke test | No real API key has been verified in this environment yet. | Blocked |
 | Health checks | `GET /api/health` now actively checks Postgres with `SELECT 1` and Redis with `PING`, returning `503` and dependency error details when either dependency is unreachable. `health.test.ts` covers healthy and degraded dependency states. | Passing for mocked dependencies; blocked for local real services |
+| Local dependency bring-up | `compose.yaml` defines PostgreSQL 16 and Redis 7 with health checks and persistent volumes. `npm run services:up`, `services:down`, and `services:logs` wrap Docker Compose for local production-like dependencies. Runtime verification is blocked because Docker is not installed in this environment. | Partially complete |
 | Dependency security audit | `package.json` uses an npm override to pin `postcss` to `8.5.14`, replacing the vulnerable `8.4.31` nested under Next.js. `npm audit --audit-level=moderate` now reports zero vulnerabilities and `npm ls postcss` shows Next and Vite both using `8.5.14`. | Passing |
 | Playwright E2E tests | `e2e/project-workflow.spec.ts` covers sign-in, project creation, script analysis, asset approval, storyboard frame approval, video generation, and export bundle UI. | Passing for current local workflow |
 | Multi-page workflow UI | Dedicated routes now exist for overview, script, Asset Bible, storyboard, and video workflows. E2E checks storyboard and video route filtering. | Passing for local workflow |
@@ -35,6 +36,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - `npm run test:e2e`: passing, 1 Chromium workflow test.
 - `QUEUE_MODE=inline npm run worker`: exits cleanly with Redis disabled message.
 - `GET /api/health` against the live local dev server returns `503` with `status: "degraded"` and dependency error details.
+- Docker preflight: `docker --version` and `docker compose version` fail because Docker is not installed in this environment.
 - Local Postgres TCP check: failed on `127.0.0.1:5432`.
 - Local Redis TCP check: failed on `127.0.0.1:6379`.
 - Real OpenAI smoke-test preflight: `OPENAI_API_KEY` is not set in this environment.

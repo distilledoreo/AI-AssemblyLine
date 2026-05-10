@@ -77,6 +77,9 @@ git clone <repo-url>
 cd ai-assemblyline
 pnpm install
 
+# Start local Postgres and Redis if you use Docker
+pnpm services:up
+
 # Set up environment
 cp .env.example .env
 # Edit .env with your database URL, Redis URL, and generate secrets
@@ -93,9 +96,12 @@ If `pnpm` is not installed, use the equivalent npm commands:
 
 ```bash
 npm install
+npm run services:up
 npm run prisma:generate
 npm run dev
 ```
+
+The checked-in `compose.yaml` starts PostgreSQL 16 on `localhost:5432` and Redis 7 on `localhost:6379`, matching `.env.example`. Stop those services with `npm run services:down`; inspect logs with `npm run services:logs`.
 
 To exercise BullMQ locally, set `QUEUE_MODE=redis`, make sure Redis is reachable at `REDIS_URL`, and run the worker in a second terminal:
 

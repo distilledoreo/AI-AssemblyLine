@@ -6,11 +6,14 @@ Install dependencies and start the app:
 
 ```bash
 npm install
+npm run services:up  # requires Docker; starts local Postgres and Redis
 npm run prisma:generate
 npm run dev
 ```
 
 Open `http://localhost:3000/signin`, sign in with any valid email and a password of at least four characters, then create a workspace and project.
+
+If Docker is not available, run PostgreSQL 15+ and Redis 7+ yourself using the URLs from `.env.example`. Stop the checked-in Docker services with `npm run services:down`.
 
 ## Environment
 
