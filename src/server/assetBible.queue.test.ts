@@ -43,6 +43,14 @@ describe("asset reference queue handoff", () => {
       updatedAt: timestamp,
     };
     repository.getStore().assets.push(asset);
+    repository.getStore().assetVersions.push({
+      id: "22222222-2222-4222-8222-222222222222",
+      assetId: asset.id,
+      versionNumber: 7,
+      description: "Existing production reference.",
+      status: "approved",
+      createdAt: timestamp,
+    });
 
     const queued = await generateAssetReference({
       projectId: project.id,
@@ -56,6 +64,7 @@ describe("asset reference queue handoff", () => {
       status: "queued",
       inputPayload: { projectId: project.id, assetId: asset.id, providerSlug: "stability" },
     });
+    expect(queued.graph.jobs[0]).toMatchObject({ id: queued.job.id, status: "queued" });
     expect(pendingGraph.assetReferences).toHaveLength(0);
 
     const completed = await processAssetReferenceJob({
@@ -67,6 +76,7 @@ describe("asset reference queue handoff", () => {
     const completedGraph = repository.getScriptAnalysisGraph(project.id);
 
     expect(completed.reference.mimeType).toBe("image/png");
+    expect(completed.version.versionNumber).toBe(8);
     expect(completedGraph.assetReferences).toHaveLength(1);
     expect(completedGraph.jobs[0]).toMatchObject({ type: "asset_reference", status: "complete" });
     expect(completedGraph.events.map((event) => event.message)).toContain("Asset reference generation started.");

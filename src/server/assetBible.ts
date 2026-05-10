@@ -8,7 +8,8 @@ import {
   completeGenerationJob,
   createGenerationJob,
   decryptProjectProviderKey,
-  getScriptAnalysisGraph,
+  getAssetById,
+  getScriptAnalysisGraphForProject,
   getStore,
   markGenerationJobRunning,
   persistAssetMergeState,
@@ -32,6 +33,7 @@ import type {
   AssetType,
   AssetVersion,
   ProjectStyle,
+  ScriptAnalysisGraph,
 } from "@/server/types";
 
 async function openAiApiKeyForProject(projectId: string) {
@@ -71,15 +73,7 @@ export function createAssetVersion(assetId: string, input: { description?: strin
   if (!asset) {
     throw new NotFoundError("Asset not found.");
   }
-  const versionNumber = store.assetVersions.filter((version) => version.assetId === assetId).length + 1;
-  const version: AssetVersion = {
-    id: createId(),
-    assetId,
-    versionNumber,
-    description: input.description ?? asset.description,
-    status: input.status ?? "draft",
-    createdAt: nowIso(),
-  };
+  const version = buildAssetVersion(asset, store.assetVersions, input);
   store.assetVersions.push(version);
   if (asset.status === "missing") {
     asset.status = "draft";
@@ -129,11 +123,8 @@ export async function generateAssetReference(input: {
   assetId: string;
   providerSlug: "openai" | "stability";
 }) {
-  const store = getStore();
-  const asset = store.assets.find((candidate) => candidate.id === input.assetId && candidate.projectId === input.projectId);
-  if (!asset) {
-    throw new NotFoundError("Asset not found.");
-  }
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
+  const asset = await resolveProjectAsset(input.projectId, input.assetId, graph);
   const adapter = input.providerSlug === "stability" ? new StabilityAdapter() : new OpenAIAdapter(await openAiApiKeyForProject(input.projectId));
   const job = createGenerationJob({
     projectId: input.projectId,
@@ -143,7 +134,7 @@ export async function generateAssetReference(input: {
     inputPayload: { projectId: input.projectId, assetId: asset.id, providerSlug: input.providerSlug },
   });
   if (isRedisQueueEnabled()) {
-    return { job, graph: getScriptAnalysisGraph(input.projectId) };
+    return { job, graph: await getScriptAnalysisGraphForProject(input.projectId) };
   }
   return processAssetReferenceJob({
     projectId: input.projectId,
@@ -160,10 +151,9 @@ export async function processAssetReferenceJob(input: {
   jobId: string;
 }) {
   const store = getStore();
-  const asset = store.assets.find((candidate) => candidate.id === input.assetId && candidate.projectId === input.projectId);
-  if (!asset) {
-    throw new NotFoundError("Asset not found.");
-  }
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
+  const asset = await resolveProjectAsset(input.projectId, input.assetId, graph);
+  mirrorAssetForLegacyState(asset);
   const job = await markGenerationJobRunning(input.jobId);
   if (!job) {
     throw new NotFoundError("Generation job not found.");
@@ -186,7 +176,12 @@ export async function processAssetReferenceJob(input: {
     },
     { modelId: job.modelId ?? "mock-image", width: 1024, height: 1024, count: 1 },
   );
-  const version = createAssetVersion(asset.id, { description: `Generated ${input.providerSlug} reference sheet.` });
+  const version = buildAssetVersion(
+    asset,
+    [...store.assetVersions, ...graph.assetVersions],
+    { description: `Generated ${input.providerSlug} reference sheet.` },
+  );
+  store.assetVersions.push(version);
   const dir = path.join(projectFolderPath(input.projectId, "assets"), asset.id);
   await mkdir(dir, { recursive: true });
   const filePath = path.join(dir, `${version.versionNumber}-${input.providerSlug}-reference.png`);
@@ -208,7 +203,7 @@ export async function processAssetReferenceJob(input: {
   asset.updatedAt = nowIso();
   await persistAssetState(asset);
   await persistAssetVersionAndReference({ version, reference });
-  completeGenerationJob(job.id, { status: "complete", outputPayload: { assetVersionId: version.id, referenceId: reference.id } });
+  await completeGenerationJob(job.id, { status: "complete", outputPayload: { assetVersionId: version.id, referenceId: reference.id } });
   addJobEvent({
     jobId: job.id,
     projectId: input.projectId,
@@ -301,6 +296,36 @@ export async function updateProjectStyle(projectId: string, input: Partial<Proje
 function validateImageMime(mimeType: string) {
   if (!["image/png", "image/jpeg", "image/webp", "image/tiff", "image/bmp"].includes(mimeType)) {
     throw new AppError("Unsupported reference image format.", 400, "unsupported_media_type");
+  }
+}
+
+function buildAssetVersion(asset: Asset, knownVersions: AssetVersion[], input: { description?: string; status?: AssetVersion["status"] }) {
+  const versionNumber =
+    knownVersions
+      .filter((version) => version.assetId === asset.id)
+      .reduce((max, version) => Math.max(max, version.versionNumber), 0) + 1;
+  return {
+    id: createId(),
+    assetId: asset.id,
+    versionNumber,
+    description: input.description ?? asset.description,
+    status: input.status ?? "draft",
+    createdAt: nowIso(),
+  };
+}
+
+async function resolveProjectAsset(projectId: string, assetId: string, graph: ScriptAnalysisGraph) {
+  const asset = graph.assets.find((candidate) => candidate.id === assetId) ?? (await getAssetById(assetId));
+  if (!asset || asset.projectId !== projectId) {
+    throw new NotFoundError("Asset not found.");
+  }
+  return asset;
+}
+
+function mirrorAssetForLegacyState(asset: Asset) {
+  const store = getStore();
+  if (!store.assets.some((candidate) => candidate.id === asset.id)) {
+    store.assets.push(asset);
   }
 }
 
