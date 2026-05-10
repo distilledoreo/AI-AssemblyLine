@@ -4,7 +4,7 @@ import { sessionCookieName } from "@/shared/session";
 
 const protectedPrefixes = ["/dashboard", "/projects", "/settings"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const isProtected = protectedPrefixes.some((prefix) =>
     request.nextUrl.pathname.startsWith(prefix),
   );
