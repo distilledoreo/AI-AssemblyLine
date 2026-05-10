@@ -425,6 +425,120 @@ function mapAsset(asset: {
   };
 }
 
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.map(String) : [];
+}
+
+function mapCharacterDetail(
+  detail: {
+    assetId: string;
+    role?: string | null;
+    narrativeDescription?: string | null;
+    physicalDescription?: string | null;
+    personalityNotes?: string | null;
+    performanceNotes?: string | null;
+    scaleReference?: string | null;
+  },
+  updatedAt: Date | string,
+): AssetDetail {
+  return {
+    assetId: detail.assetId,
+    role: detail.role ?? undefined,
+    narrativeDescription: detail.narrativeDescription ?? undefined,
+    physicalDescription: detail.physicalDescription ?? undefined,
+    personalityNotes: detail.personalityNotes ?? undefined,
+    performanceNotes: detail.performanceNotes ?? undefined,
+    scaleReference: detail.scaleReference ?? undefined,
+    updatedAt: iso(updatedAt),
+  };
+}
+
+function mapWardrobeDetail(
+  detail: {
+    assetId: string;
+    outfitName?: string | null;
+    storyContext?: string | null;
+    materialNotes?: string | null;
+    accessories?: unknown;
+    colorPalette?: unknown;
+  },
+  updatedAt: Date | string,
+): AssetDetail {
+  return {
+    assetId: detail.assetId,
+    outfitName: detail.outfitName ?? undefined,
+    storyContext: detail.storyContext ?? undefined,
+    materialNotes: detail.materialNotes ?? undefined,
+    accessories: stringArray(detail.accessories),
+    colorPalette: stringArray(detail.colorPalette),
+    updatedAt: iso(updatedAt),
+  };
+}
+
+function mapLocationDetail(
+  detail: {
+    assetId: string;
+    floorPlanNotes?: string | null;
+    entranceExitNotes?: string | null;
+    setDressing?: string | null;
+    lightingStates?: unknown;
+    cameraSafeZones?: string | null;
+  },
+  updatedAt: Date | string,
+): AssetDetail {
+  return {
+    assetId: detail.assetId,
+    floorPlanNotes: detail.floorPlanNotes ?? undefined,
+    entranceExitNotes: detail.entranceExitNotes ?? undefined,
+    setDressing: detail.setDressing ?? undefined,
+    lightingStates: stringArray(detail.lightingStates),
+    cameraSafeZones: detail.cameraSafeZones ?? undefined,
+    updatedAt: iso(updatedAt),
+  };
+}
+
+function mapCreatureDetail(
+  detail: {
+    assetId: string;
+    speciesType?: string | null;
+    anatomyNotes?: string | null;
+    scaleReference?: string | null;
+    movementNotes?: string | null;
+    textureDetails?: string | null;
+  },
+  updatedAt: Date | string,
+): AssetDetail {
+  return {
+    assetId: detail.assetId,
+    speciesType: detail.speciesType ?? undefined,
+    anatomyNotes: detail.anatomyNotes ?? undefined,
+    scaleReference: detail.scaleReference ?? undefined,
+    movementNotes: detail.movementNotes ?? undefined,
+    textureDetails: detail.textureDetails ?? undefined,
+    updatedAt: iso(updatedAt),
+  };
+}
+
+function mapPropDetail(
+  detail: {
+    assetId: string;
+    ownerOrScene?: string | null;
+    materialAndWear?: string | null;
+    scaleReference?: string | null;
+    interactionNotes?: string | null;
+  },
+  updatedAt: Date | string,
+): AssetDetail {
+  return {
+    assetId: detail.assetId,
+    ownerOrScene: detail.ownerOrScene ?? undefined,
+    materialAndWear: detail.materialAndWear ?? undefined,
+    scaleReference: detail.scaleReference ?? undefined,
+    interactionNotes: detail.interactionNotes ?? undefined,
+    updatedAt: iso(updatedAt),
+  };
+}
+
 function mapAssetVersion(version: {
   id: string;
   assetId: string;
@@ -981,6 +1095,23 @@ export async function getScriptAnalysisGraphForProject(projectId: string): Promi
   const shotIds = shots.map((shot) => shot.id);
   const assets = (await prisma.asset.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } })).map(mapAsset);
   const assetIds = assets.map((asset) => asset.id);
+  const assetUpdatedAt = new Map(assets.map((asset) => [asset.id, asset.updatedAt]));
+  const [characterDetails, wardrobeDetails, locationDetails, creatureDetails, propDetails] = assetIds.length
+    ? await Promise.all([
+        prisma.characterDetail.findMany({ where: { assetId: { in: assetIds } }, orderBy: { assetId: "asc" } }),
+        prisma.wardrobeDetail.findMany({ where: { assetId: { in: assetIds } }, orderBy: { assetId: "asc" } }),
+        prisma.locationDetail.findMany({ where: { assetId: { in: assetIds } }, orderBy: { assetId: "asc" } }),
+        prisma.creatureDetail.findMany({ where: { assetId: { in: assetIds } }, orderBy: { assetId: "asc" } }),
+        prisma.propDetail.findMany({ where: { assetId: { in: assetIds } }, orderBy: { assetId: "asc" } }),
+      ])
+    : [[], [], [], [], []];
+  const assetDetails = [
+    ...characterDetails.map((detail) => mapCharacterDetail(detail, assetUpdatedAt.get(detail.assetId) ?? new Date())),
+    ...wardrobeDetails.map((detail) => mapWardrobeDetail(detail, assetUpdatedAt.get(detail.assetId) ?? new Date())),
+    ...locationDetails.map((detail) => mapLocationDetail(detail, assetUpdatedAt.get(detail.assetId) ?? new Date())),
+    ...creatureDetails.map((detail) => mapCreatureDetail(detail, assetUpdatedAt.get(detail.assetId) ?? new Date())),
+    ...propDetails.map((detail) => mapPropDetail(detail, assetUpdatedAt.get(detail.assetId) ?? new Date())),
+  ];
   const assetVersions = assetIds.length
     ? (await prisma.assetVersion.findMany({ where: { assetId: { in: assetIds } }, orderBy: { createdAt: "asc" } })).map(mapAssetVersion)
     : [];
@@ -1012,7 +1143,7 @@ export async function getScriptAnalysisGraphForProject(projectId: string): Promi
     scenes,
     shots,
     assets,
-    assetDetails: [],
+    assetDetails,
     assetVersions,
     assetReferences,
     storyboardFrames: [],
@@ -1320,6 +1451,113 @@ export async function persistAssetState(asset: Asset) {
       isUserEdited: asset.isUserEdited ?? false,
     },
   }).catch(() => undefined);
+}
+
+export async function persistAssetDetailState(asset: Asset, detail: AssetDetail) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await persistAssetState(asset);
+  if (asset.type === "character") {
+    await prisma.characterDetail.upsert({
+      where: { assetId: asset.id },
+      update: {
+        role: detail.role ?? "supporting",
+        narrativeDescription: detail.narrativeDescription ?? "",
+        physicalDescription: detail.physicalDescription ?? "",
+        personalityNotes: detail.personalityNotes,
+        performanceNotes: detail.performanceNotes,
+        scaleReference: detail.scaleReference,
+      },
+      create: {
+        assetId: asset.id,
+        role: detail.role ?? "supporting",
+        narrativeDescription: detail.narrativeDescription ?? "",
+        physicalDescription: detail.physicalDescription ?? "",
+        personalityNotes: detail.personalityNotes,
+        performanceNotes: detail.performanceNotes,
+        scaleReference: detail.scaleReference,
+      },
+    }).catch(() => undefined);
+  }
+  if (asset.type === "wardrobe") {
+    await prisma.wardrobeDetail.upsert({
+      where: { assetId: asset.id },
+      update: {
+        outfitName: detail.outfitName ?? asset.canonicalName,
+        storyContext: detail.storyContext ?? "",
+        materialNotes: detail.materialNotes,
+        accessories: toPrismaJson(detail.accessories ?? []),
+        colorPalette: toPrismaJson(detail.colorPalette ?? []),
+      },
+      create: {
+        assetId: asset.id,
+        outfitName: detail.outfitName ?? asset.canonicalName,
+        storyContext: detail.storyContext ?? "",
+        materialNotes: detail.materialNotes,
+        accessories: toPrismaJson(detail.accessories ?? []) ?? [],
+        colorPalette: toPrismaJson(detail.colorPalette ?? []) ?? [],
+      },
+    }).catch(() => undefined);
+  }
+  if (asset.type === "location") {
+    await prisma.locationDetail.upsert({
+      where: { assetId: asset.id },
+      update: {
+        floorPlanNotes: detail.floorPlanNotes,
+        entranceExitNotes: detail.entranceExitNotes,
+        setDressing: detail.setDressing,
+        lightingStates: toPrismaJson(detail.lightingStates),
+        cameraSafeZones: detail.cameraSafeZones,
+      },
+      create: {
+        assetId: asset.id,
+        floorPlanNotes: detail.floorPlanNotes,
+        entranceExitNotes: detail.entranceExitNotes,
+        setDressing: detail.setDressing,
+        lightingStates: toPrismaJson(detail.lightingStates),
+        cameraSafeZones: detail.cameraSafeZones,
+      },
+    }).catch(() => undefined);
+  }
+  if (asset.type === "creature") {
+    await prisma.creatureDetail.upsert({
+      where: { assetId: asset.id },
+      update: {
+        speciesType: detail.speciesType ?? asset.canonicalName,
+        anatomyNotes: detail.anatomyNotes,
+        scaleReference: detail.scaleReference,
+        movementNotes: detail.movementNotes,
+        textureDetails: detail.textureDetails,
+      },
+      create: {
+        assetId: asset.id,
+        speciesType: detail.speciesType ?? asset.canonicalName,
+        anatomyNotes: detail.anatomyNotes,
+        scaleReference: detail.scaleReference,
+        movementNotes: detail.movementNotes,
+        textureDetails: detail.textureDetails,
+      },
+    }).catch(() => undefined);
+  }
+  if (asset.type === "prop") {
+    await prisma.propDetail.upsert({
+      where: { assetId: asset.id },
+      update: {
+        ownerOrScene: detail.ownerOrScene,
+        materialAndWear: detail.materialAndWear,
+        scaleReference: detail.scaleReference,
+        interactionNotes: detail.interactionNotes,
+      },
+      create: {
+        assetId: asset.id,
+        ownerOrScene: detail.ownerOrScene,
+        materialAndWear: detail.materialAndWear,
+        scaleReference: detail.scaleReference,
+        interactionNotes: detail.interactionNotes,
+      },
+    }).catch(() => undefined);
+  }
 }
 
 export async function persistAssetVersionAndReference(input: {

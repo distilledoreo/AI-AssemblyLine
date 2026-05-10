@@ -6,6 +6,7 @@ import { AppError, NotFoundError } from "@/server/errors";
 import {
   createGenerationJob,
   getStore,
+  persistAssetDetailState,
   persistAssetState,
   persistAssetVersionAndReference,
   refreshPrismaReadiness,
@@ -24,7 +25,7 @@ import type {
   ProjectStyle,
 } from "@/server/types";
 
-export function upsertAssetDetail(assetId: string, input: Partial<AssetDetail>) {
+export async function upsertAssetDetail(assetId: string, input: Partial<AssetDetail>) {
   const store = getStore();
   const asset = store.assets.find((candidate) => candidate.id === assetId);
   if (!asset) {
@@ -38,6 +39,7 @@ export function upsertAssetDetail(assetId: string, input: Partial<AssetDetail>) 
   if (existing) {
     Object.assign(existing, input, { updatedAt: timestamp });
     asset.updatedAt = timestamp;
+    await persistAssetDetailState(asset, existing);
     return existing;
   }
   const detail = { assetId, ...input, updatedAt: timestamp };
@@ -46,6 +48,7 @@ export function upsertAssetDetail(assetId: string, input: Partial<AssetDetail>) 
   if (asset.status === "missing") {
     asset.status = "draft";
   }
+  await persistAssetDetailState(asset, detail);
   return detail;
 }
 

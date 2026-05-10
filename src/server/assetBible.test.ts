@@ -37,7 +37,7 @@ describe("asset bible lifecycle", () => {
     const graph = await analyzedProject();
     const asset = graph.assets.find((candidate) => candidate.canonicalName === "Anna")!;
 
-    upsertAssetDetail(asset.id, {
+    await upsertAssetDetail(asset.id, {
       narrativeDescription: "Lead character.",
       physicalDescription: "Curly hair and nervous energy.",
     });

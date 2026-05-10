@@ -71,6 +71,26 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
     update: vi.fn(),
   },
+  characterDetail: {
+    findMany: vi.fn(),
+    upsert: vi.fn(),
+  },
+  wardrobeDetail: {
+    findMany: vi.fn(),
+    upsert: vi.fn(),
+  },
+  locationDetail: {
+    findMany: vi.fn(),
+    upsert: vi.fn(),
+  },
+  creatureDetail: {
+    findMany: vi.fn(),
+    upsert: vi.fn(),
+  },
+  propDetail: {
+    findMany: vi.fn(),
+    upsert: vi.fn(),
+  },
   assetVersion: {
     create: vi.fn(),
     findMany: vi.fn(),
@@ -534,11 +554,25 @@ describe("Prisma repository mode", () => {
       generationJobId: null,
       createdAt: timestamp,
     };
+    const locationDetail = {
+      id: "12121212-1212-4121-8121-121212121212",
+      assetId: asset.id,
+      floorPlanNotes: "One practical counter and a back exit.",
+      entranceExitNotes: null,
+      setDressing: "Warm practical lamps.",
+      lightingStates: ["day", "night"],
+      cameraSafeZones: null,
+    };
     prismaMock.script.findMany.mockResolvedValue([script]);
     prismaMock.scriptVersion.findMany.mockResolvedValue([version]);
     prismaMock.scene.findMany.mockResolvedValue([scene]);
     prismaMock.shot.findMany.mockResolvedValue([shot]);
     prismaMock.asset.findMany.mockResolvedValue([asset]);
+    prismaMock.characterDetail.findMany.mockResolvedValue([]);
+    prismaMock.wardrobeDetail.findMany.mockResolvedValue([]);
+    prismaMock.locationDetail.findMany.mockResolvedValue([locationDetail]);
+    prismaMock.creatureDetail.findMany.mockResolvedValue([]);
+    prismaMock.propDetail.findMany.mockResolvedValue([]);
     prismaMock.assetVersion.findMany.mockResolvedValue([assetVersion]);
     prismaMock.assetReference.findMany.mockResolvedValue([assetReference]);
     prismaMock.sceneAssetReq.findMany.mockResolvedValue([sceneReq]);
@@ -552,6 +586,12 @@ describe("Prisma repository mode", () => {
     expect(graph.scenes[0]).toMatchObject({ id: scene.id, heading: "INT. ROOM - DAY" });
     expect(graph.shots[0]).toMatchObject({ id: shot.id, action: "Anna waits." });
     expect(graph.assets[0]).toMatchObject({ id: asset.id, canonicalName: "Room" });
+    expect(graph.assetDetails[0]).toMatchObject({
+      assetId: asset.id,
+      floorPlanNotes: "One practical counter and a back exit.",
+      lightingStates: ["day", "night"],
+      updatedAt: timestamp.toISOString(),
+    });
     expect(graph.assetVersions[0]).toMatchObject({
       id: assetVersion.id,
       assetId: asset.id,
@@ -662,6 +702,45 @@ describe("Prisma repository mode", () => {
         assetVersionId: version.id,
         referenceType: "front",
         mimeType: "image/png",
+      }),
+    });
+  });
+
+  it("persists typed Asset Bible details through Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const asset = {
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      type: "location" as const,
+      canonicalName: "Room",
+      aliases: [],
+      status: "draft" as const,
+      isUserEdited: true,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const detail = {
+      assetId: asset.id,
+      floorPlanNotes: "One practical counter and a back exit.",
+      lightingStates: ["day", "night"],
+      setDressing: "Warm practical lamps.",
+      updatedAt: timestamp.toISOString(),
+    };
+
+    prismaMock.asset.update.mockResolvedValue(asset);
+    prismaMock.locationDetail.upsert.mockResolvedValue(detail);
+    await repository.persistAssetDetailState(asset, detail);
+
+    expect(prismaMock.asset.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: asset.id } }));
+    expect(prismaMock.locationDetail.upsert).toHaveBeenCalledWith({
+      where: { assetId: asset.id },
+      update: expect.objectContaining({
+        floorPlanNotes: "One practical counter and a back exit.",
+        lightingStates: ["day", "night"],
+      }),
+      create: expect.objectContaining({
+        assetId: asset.id,
+        setDressing: "Warm practical lamps.",
       }),
     });
   });
