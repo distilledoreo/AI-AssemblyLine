@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Activity, Archive, Brush, FileUp, Film, Gauge, GitBranch, HardDrive, Images, Lock, Radio, RefreshCw, Save, Sparkles } from "lucide-react";
 import type {
   Asset,
@@ -36,6 +37,8 @@ type OperationsPayload = {
   adapters: Array<{ slug: string; capabilities: { models?: string[]; maxDurationSeconds?: number } }>;
 };
 
+export type ProjectDashboardView = "overview" | "script" | "asset-bible" | "storyboard" | "video";
+
 export function ProjectDashboardClient({
   project,
   style,
@@ -43,6 +46,7 @@ export function ProjectDashboardClient({
   initialEvents,
   initialAnalysisGraph,
   currentUserId,
+  view = "overview",
 }: Readonly<{
   project: Project;
   style?: ProjectStyle;
@@ -50,6 +54,7 @@ export function ProjectDashboardClient({
   initialEvents: JobEvent[];
   initialAnalysisGraph: ScriptAnalysisGraph;
   currentUserId: string;
+  view?: ProjectDashboardView;
 }>) {
   const [connectionState, setConnectionState] = useState("connecting");
   const [events, setEvents] = useState(initialEvents);
@@ -243,6 +248,15 @@ export function ProjectDashboardClient({
     }
   }
 
+  const show = (target: ProjectDashboardView) => view === "overview" || view === target;
+  const workflowLinks: Array<{ href: string; label: string; target: ProjectDashboardView }> = [
+    { href: `/projects/${project.id}`, label: "Overview", target: "overview" },
+    { href: `/projects/${project.id}/script`, label: "Script", target: "script" },
+    { href: `/projects/${project.id}/asset-bible`, label: "Asset Bible", target: "asset-bible" },
+    { href: `/projects/${project.id}/storyboard`, label: "Storyboard", target: "storyboard" },
+    { href: `/projects/${project.id}/video`, label: "Video", target: "video" },
+  ];
+
   return (
     <>
       <div className="topline">
@@ -254,11 +268,23 @@ export function ProjectDashboardClient({
           <Radio size={13} aria-hidden="true" /> SSE {connectionState}
         </span>
       </div>
+      <nav aria-label="Project workflow" className="button-row" style={{ marginBottom: 16 }}>
+        {workflowLinks.map((link) => (
+          <Link
+            aria-current={view === link.target ? "page" : undefined}
+            className={`button secondary ${view === link.target ? "live" : ""}`}
+            href={link.href}
+            key={link.href}
+          >
+            {link.label}
+          </Link>
+        ))}
+      </nav>
       {notice ? <p className="notice">{notice}</p> : null}
       {error ? <p className="error">{error}</p> : null}
 
       <div className="grid">
-        <section className="panel span-6" aria-labelledby="overview-heading">
+        <section className="panel span-6" hidden={!show("overview")} aria-labelledby="overview-heading">
           <h2 id="overview-heading">Overview</h2>
           <ul className="list">
             <li className="list-item">
@@ -280,7 +306,7 @@ export function ProjectDashboardClient({
           </ul>
         </section>
 
-        <section className="panel span-6" aria-labelledby="style-heading">
+        <section className="panel span-6" hidden={!show("overview")} aria-labelledby="style-heading">
           <h2 id="style-heading">Project style</h2>
           {style ? (
             <ul className="list">
@@ -295,7 +321,7 @@ export function ProjectDashboardClient({
           )}
         </section>
 
-        <section className="panel span-6" aria-labelledby="jobs-heading">
+        <section className="panel span-6" hidden={!show("overview")} aria-labelledby="jobs-heading">
           <h2 id="jobs-heading">Jobs</h2>
           {initialJobs.length === 0 ? (
             <p className="notice">No jobs have been queued yet.</p>
@@ -311,7 +337,7 @@ export function ProjectDashboardClient({
           )}
         </section>
 
-        <section className="panel span-6" aria-labelledby="events-heading">
+        <section className="panel span-6" hidden={!show("overview")} aria-labelledby="events-heading">
           <h2 id="events-heading">
             <Activity size={17} aria-hidden="true" /> Live events
           </h2>
@@ -329,7 +355,7 @@ export function ProjectDashboardClient({
           )}
         </section>
 
-        <section className="panel span-12" aria-labelledby="script-heading">
+        <section className="panel span-12" hidden={!show("script")} aria-labelledby="script-heading">
           <div className="button-row" style={{ justifyContent: "space-between" }}>
             <h2 id="script-heading">Script analysis</h2>
             <div className="button-row">
@@ -356,7 +382,7 @@ export function ProjectDashboardClient({
           </p>
         </section>
 
-        <section className="panel span-6" aria-labelledby="scene-list-heading">
+        <section className="panel span-6" hidden={!show("script")} aria-labelledby="scene-list-heading">
           <h2 id="scene-list-heading">Scenes and shots</h2>
           {analysisGraph.scenes.length === 0 ? (
             <p className="notice">Upload a script to create the editable scene and shot breakdown.</p>
@@ -397,7 +423,7 @@ export function ProjectDashboardClient({
           )}
         </section>
 
-        <section className="panel span-6" aria-labelledby="asset-list-heading">
+        <section className="panel span-6" hidden={!show("script")} aria-labelledby="asset-list-heading">
           <h2 id="asset-list-heading">Assets and requirements</h2>
           {analysisGraph.assets.length === 0 ? (
             <p className="notice">Detected characters, locations, wardrobe, creatures, and props appear here.</p>
@@ -472,7 +498,7 @@ export function ProjectDashboardClient({
           </div>
         </section>
 
-        <section className="panel span-12" aria-labelledby="asset-bible-heading">
+        <section className="panel span-12" hidden={!show("asset-bible")} aria-labelledby="asset-bible-heading">
           <div className="button-row" style={{ justifyContent: "space-between" }}>
             <h2 id="asset-bible-heading">Asset Bible lifecycle</h2>
             <span className="status-pill">
@@ -491,7 +517,7 @@ export function ProjectDashboardClient({
           </p>
         </section>
 
-        <section className="panel span-12" aria-labelledby="storyboard-heading">
+        <section className="panel span-12" hidden={!show("storyboard")} aria-labelledby="storyboard-heading">
           <div className="button-row" style={{ justifyContent: "space-between" }}>
             <h2 id="storyboard-heading">Storyboard frames</h2>
             <span className="status-pill">
@@ -584,7 +610,7 @@ export function ProjectDashboardClient({
           </div>
         </section>
 
-        <section className="panel span-12" aria-labelledby="video-heading">
+        <section className="panel span-12" hidden={!show("video")} aria-labelledby="video-heading">
           <div className="button-row" style={{ justifyContent: "space-between" }}>
             <h2 id="video-heading">Video clips</h2>
             <span className="status-pill">
@@ -649,7 +675,7 @@ export function ProjectDashboardClient({
           </div>
         </section>
 
-        <section className="panel span-12" aria-labelledby="collaboration-heading">
+        <section className="panel span-12" hidden={!show("overview")} aria-labelledby="collaboration-heading">
           <div className="button-row" style={{ justifyContent: "space-between" }}>
             <h2 id="collaboration-heading">Collaboration</h2>
             <span className="status-pill">{analysisGraph.assignments.length} assignments</span>
@@ -689,7 +715,7 @@ export function ProjectDashboardClient({
           </ul>
         </section>
 
-        <section className="panel span-12" aria-labelledby="operations-heading">
+        <section className="panel span-12" hidden={!show("overview")} aria-labelledby="operations-heading">
           <div className="button-row" style={{ justifyContent: "space-between" }}>
             <h2 id="operations-heading">Export and operations</h2>
             <span className="status-pill">

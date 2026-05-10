@@ -17,7 +17,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 | Real OpenAI calls | OpenAI adapter no longer throws for live keys. It calls `/v1/responses` for text/structured output and `/v1/images/generations` for images. Mocked HTTP tests cover payload and error-class mapping. | Partially complete |
 | Real OpenAI key smoke test | No real API key has been verified in this environment yet. | Blocked |
 | Playwright E2E tests | `e2e/project-workflow.spec.ts` covers sign-in, project creation, script analysis, asset approval, storyboard frame approval, video generation, and export bundle UI. | Passing for current local workflow |
-| Multi-page workflow UI | Project dashboard is still primarily monolithic. | Not complete |
+| Multi-page workflow UI | Dedicated routes now exist for overview, script, Asset Bible, storyboard, and video workflows. E2E checks storyboard and video route filtering. | In progress |
 | Storyboard drawing library | No tldraw or Fabric.js integration yet. | Not complete |
 | OAuth for OpenAI/ChatGPT and Google AI Pro | Feasibility and supported OAuth flows still need verification against current official docs. | Not complete |
 | Production runtime verification | Postgres and Redis are not currently reachable on local default ports. | Blocked |

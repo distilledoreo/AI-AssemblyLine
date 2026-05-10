@@ -58,3 +58,4 @@ For browser verification, start the dev server and exercise the relevant dashboa
 4. Click **Export bundle** in the project operations panel.
 5. Click **Import latest** and confirm a new imported project is created.
 6. Confirm the operations panel shows job metrics, storage usage, adapter capabilities, and Sentry status.
+7. Use the workflow navigation to open `/script`, `/asset-bible`, `/storyboard`, and `/video` project pages for focused review.

@@ -66,4 +66,13 @@ test("creator can run the core project workflow and export a bundle", async ({ p
   await expect(page.getByText("Bundle version")).toBeVisible();
   await expect(page.getByText("bytedance-seedance, pika, luma, elevenlabs")).toBeVisible();
   await expect(page.getByText("Approved frames: 1")).toBeVisible();
+
+  await page.getByRole("link", { name: "Storyboard" }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/storyboard$`));
+  await expect(page.getByRole("heading", { name: "Storyboard frames" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Export and operations" })).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Video" }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/video$`));
+  await expect(page.getByRole("heading", { name: "Video clips" })).toBeVisible();
 });
