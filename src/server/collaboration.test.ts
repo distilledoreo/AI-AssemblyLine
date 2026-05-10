@@ -30,15 +30,15 @@ describe("collaboration workflow", () => {
       text: "INT. ROOM - DAY\nANNA\nAnna waits.",
     });
 
-    const invite = createInvitation({
+    const invite = await createInvitation({
       workspaceId: workspace.id,
       projectId: project.id,
       email: artist.email,
       role: "artist",
       invitedById: owner.id,
     });
-    acceptInvitation(invite.token, artist.id);
-    assignProjectTarget({
+    await acceptInvitation(invite.token, artist.id);
+    await assignProjectTarget({
       projectId: project.id,
       userId: artist.id,
       targetType: "scene",
@@ -65,7 +65,7 @@ describe("collaboration workflow", () => {
       text: "INT. ROOM - DAY\nANNA\nAnna waits.",
     });
 
-    addProjectMember({ projectId: project.id, userId: reviewer.id, role: "reviewer", actorId: owner.id });
+    await addProjectMember({ projectId: project.id, userId: reviewer.id, role: "reviewer", actorId: owner.id });
     await transitionAssetStatus(graph.assets[0].id, "locked");
 
     await expect(upsertAssetDetail(graph.assets[0].id, { narrativeDescription: "Change" })).rejects.toThrow(/locked/);

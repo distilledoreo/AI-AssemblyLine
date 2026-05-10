@@ -26,6 +26,7 @@ const prismaMock = vi.hoisted(() => ({
   projectMember: {
     findMany: vi.fn(),
     findUnique: vi.fn(),
+    upsert: vi.fn(),
   },
   projectStyle: {
     update: vi.fn(),
@@ -125,6 +126,19 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
+  },
+  invitation: {
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    upsert: vi.fn(),
+  },
+  assignment: {
+    findMany: vi.fn(),
+    upsert: vi.fn(),
+  },
+  activityEvent: {
+    create: vi.fn(),
+    findMany: vi.fn(),
   },
   sceneAssetReq: {
     createMany: vi.fn(),
@@ -646,6 +660,41 @@ describe("Prisma repository mode", () => {
       generationJobId: null,
       createdAt: timestamp,
     };
+    const invitation = {
+      id: "18181818-1818-4181-8181-181818181818",
+      workspaceId: "22222222-2222-4222-8222-222222222222",
+      projectId: script.projectId,
+      email: "artist@example.com",
+      tokenHash: "hashed-token",
+      scope: "project",
+      role: "artist",
+      status: "accepted",
+      expiresAt: new Date("2026-05-17T12:00:00.000Z"),
+      invitedById: "11111111-1111-4111-8111-111111111111",
+      acceptedAt: timestamp,
+      createdAt: timestamp,
+    };
+    const assignment = {
+      id: "19191919-1919-4191-8191-191919191919",
+      projectId: script.projectId,
+      userId: "11111111-1111-4111-8111-111111111111",
+      targetType: "scene",
+      sceneId: scene.id,
+      shotId: null,
+      assetId: null,
+      status: "open",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const activityEvent = {
+      id: "20202020-2020-4202-8202-202020202020",
+      projectId: script.projectId,
+      actorId: "11111111-1111-4111-8111-111111111111",
+      eventType: "assignment_created",
+      message: "Assigned scene.",
+      metadata: { assignmentId: assignment.id },
+      createdAt: timestamp,
+    };
     prismaMock.script.findMany.mockResolvedValue([script]);
     prismaMock.scriptVersion.findMany.mockResolvedValue([version]);
     prismaMock.scene.findMany.mockResolvedValue([scene]);
@@ -665,6 +714,9 @@ describe("Prisma repository mode", () => {
     prismaMock.reviewNote.findMany.mockResolvedValue([reviewNote]);
     prismaMock.videoClip.findMany.mockResolvedValue([videoClip]);
     prismaMock.clipVersion.findMany.mockResolvedValue([clipVersion]);
+    prismaMock.invitation.findMany.mockResolvedValue([invitation]);
+    prismaMock.assignment.findMany.mockResolvedValue([assignment]);
+    prismaMock.activityEvent.findMany.mockResolvedValue([activityEvent]);
     prismaMock.generationJob.findMany.mockResolvedValue([]);
     prismaMock.jobEvent.findMany.mockResolvedValue([]);
 
@@ -714,6 +766,20 @@ describe("Prisma repository mode", () => {
       id: clipVersion.id,
       clipId: videoClip.id,
       sourceFrameVersionIds: [frameVersion.id],
+    });
+    expect(graph.invitations[0]).toMatchObject({
+      id: invitation.id,
+      email: "artist@example.com",
+      status: "accepted",
+    });
+    expect(graph.assignments[0]).toMatchObject({
+      id: assignment.id,
+      sceneId: scene.id,
+      status: "open",
+    });
+    expect(graph.activityEvents[0]).toMatchObject({
+      eventType: "assignment_created",
+      metadata: { assignmentId: assignment.id },
     });
     expect(graph.sceneAssetRequirements[0]).toMatchObject({ sceneId: scene.id, assetId: asset.id });
     expect(graph.shotAssetRequirements[0]).toMatchObject({ shotId: shot.id, assetId: asset.id });
@@ -1019,6 +1085,85 @@ describe("Prisma repository mode", () => {
     expect(prismaMock.clipVersion.update).toHaveBeenCalledWith({
       where: { id: version.id },
       data: expect.objectContaining({ status: "approved", isStale: false }),
+    });
+  });
+
+  it("persists collaboration records through Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const invitation = {
+      id: "18181818-1818-4181-8181-181818181818",
+      workspaceId: "22222222-2222-4222-8222-222222222222",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      email: "artist@example.com",
+      tokenHash: "hashed-token",
+      scope: "project" as const,
+      role: "artist",
+      status: "accepted" as const,
+      expiresAt: "2026-05-17T12:00:00.000Z",
+      invitedById: "11111111-1111-4111-8111-111111111111",
+      acceptedAt: timestamp.toISOString(),
+      createdAt: timestamp.toISOString(),
+    };
+    const member = {
+      id: "21212121-2121-4212-8212-212121212121",
+      projectId: invitation.projectId,
+      userId: "22222222-2222-4222-8222-222222222222",
+      role: "artist" as const,
+      joinedAt: timestamp.toISOString(),
+    };
+    const assignment = {
+      id: "19191919-1919-4191-8191-191919191919",
+      projectId: invitation.projectId,
+      userId: member.userId,
+      targetType: "scene" as const,
+      sceneId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      status: "open" as const,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const activity = {
+      id: "20202020-2020-4202-8202-202020202020",
+      projectId: invitation.projectId,
+      actorId: "11111111-1111-4111-8111-111111111111",
+      eventType: "assignment_created",
+      message: "Assigned scene.",
+      metadata: { assignmentId: assignment.id },
+      createdAt: timestamp.toISOString(),
+    };
+
+    prismaMock.invitation.findUnique.mockResolvedValue({ ...invitation, expiresAt: timestamp, acceptedAt: timestamp, createdAt: timestamp });
+    prismaMock.invitation.upsert.mockResolvedValue(invitation);
+    prismaMock.projectMember.upsert.mockResolvedValue(member);
+    prismaMock.assignment.upsert.mockResolvedValue(assignment);
+    prismaMock.activityEvent.create.mockResolvedValue(activity);
+
+    await expect(repository.findInvitationByTokenHash("hashed-token")).resolves.toMatchObject({ id: invitation.id });
+    await repository.persistInvitationState(invitation);
+    await repository.persistProjectMemberState(member);
+    await repository.persistAssignmentState(assignment);
+    await repository.persistActivityEventState(activity);
+
+    expect(prismaMock.invitation.upsert).toHaveBeenCalledWith({
+      where: { id: invitation.id },
+      update: expect.objectContaining({ status: "accepted", acceptedAt: expect.any(Date) }),
+      create: expect.objectContaining({ id: invitation.id, tokenHash: "hashed-token" }),
+    });
+    expect(prismaMock.projectMember.upsert).toHaveBeenCalledWith({
+      where: { projectId_userId: { projectId: member.projectId, userId: member.userId } },
+      update: { role: "artist" },
+      create: expect.objectContaining({ id: member.id, role: "artist" }),
+    });
+    expect(prismaMock.assignment.upsert).toHaveBeenCalledWith({
+      where: { id: assignment.id },
+      update: expect.objectContaining({ targetType: "scene", sceneId: assignment.sceneId }),
+      create: expect.objectContaining({ id: assignment.id, status: "open" }),
+    });
+    expect(prismaMock.activityEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: activity.id,
+        eventType: "assignment_created",
+        metadata: { assignmentId: assignment.id },
+      }),
     });
   });
 

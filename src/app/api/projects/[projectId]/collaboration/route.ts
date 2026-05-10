@@ -36,17 +36,17 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     const { projectId } = await context.params;
     const body = collaborationActionSchema.parse(await request.json());
     if (body.action === "accept") {
-      acceptInvitation(body.token, user.id);
+      await acceptInvitation(body.token, user.id);
       return Response.json(await getScriptAnalysisGraphForProject(projectId));
     }
     assertProjectPermission(await getProjectRole(user.id, projectId), "manage_project_members");
     if (body.action === "invite") {
       const project = await getProject(projectId);
-      const result = createInvitation({ workspaceId: project!.workspaceId, projectId, email: body.email, role: body.role, invitedById: user.id });
+      const result = await createInvitation({ workspaceId: project!.workspaceId, projectId, email: body.email, role: body.role, invitedById: user.id });
       return Response.json({ ...(await getScriptAnalysisGraphForProject(projectId)), inviteToken: result.token }, { status: 201 });
     }
-    if (body.action === "member") addProjectMember({ projectId, userId: body.userId, role: body.role, actorId: user.id });
-    if (body.action === "assign") assignProjectTarget({ projectId, userId: body.userId, targetType: body.targetType, sceneId: body.sceneId, shotId: body.shotId, assetId: body.assetId, actorId: user.id });
+    if (body.action === "member") await addProjectMember({ projectId, userId: body.userId, role: body.role, actorId: user.id });
+    if (body.action === "assign") await assignProjectTarget({ projectId, userId: body.userId, targetType: body.targetType, sceneId: body.sceneId, shotId: body.shotId, assetId: body.assetId, actorId: user.id });
     return Response.json(await getScriptAnalysisGraphForProject(projectId));
   } catch (error) {
     return toErrorResponse(error);

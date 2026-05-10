@@ -715,6 +715,87 @@ function mapClipVersion(version: {
   };
 }
 
+function mapInvitation(invitation: {
+  id: string;
+  workspaceId: string;
+  projectId?: string | null;
+  email: string;
+  tokenHash: string;
+  scope: Invitation["scope"];
+  role: string;
+  status: Invitation["status"];
+  expiresAt: Date | string;
+  invitedById: string;
+  acceptedAt?: Date | string | null;
+  createdAt: Date | string;
+}): Invitation {
+  return {
+    id: invitation.id,
+    workspaceId: invitation.workspaceId,
+    projectId: invitation.projectId ?? undefined,
+    email: invitation.email,
+    tokenHash: invitation.tokenHash,
+    scope: invitation.scope,
+    role: invitation.role,
+    status: invitation.status,
+    expiresAt: iso(invitation.expiresAt),
+    invitedById: invitation.invitedById,
+    acceptedAt: invitation.acceptedAt ? iso(invitation.acceptedAt) : undefined,
+    createdAt: iso(invitation.createdAt),
+  };
+}
+
+function mapAssignment(assignment: {
+  id: string;
+  projectId: string;
+  userId: string;
+  targetType: string;
+  sceneId?: string | null;
+  shotId?: string | null;
+  assetId?: string | null;
+  status: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}): Assignment {
+  return {
+    id: assignment.id,
+    projectId: assignment.projectId,
+    userId: assignment.userId,
+    targetType: ["scene", "shot", "asset"].includes(assignment.targetType)
+      ? (assignment.targetType as Assignment["targetType"])
+      : "scene",
+    sceneId: assignment.sceneId ?? undefined,
+    shotId: assignment.shotId ?? undefined,
+    assetId: assignment.assetId ?? undefined,
+    status: assignment.status === "complete" ? "complete" : "open",
+    createdAt: iso(assignment.createdAt),
+    updatedAt: iso(assignment.updatedAt),
+  };
+}
+
+function mapActivityEvent(event: {
+  id: string;
+  projectId: string;
+  actorId?: string | null;
+  eventType: string;
+  message: string;
+  metadata?: unknown;
+  createdAt: Date | string;
+}): ActivityEvent {
+  return {
+    id: event.id,
+    projectId: event.projectId,
+    actorId: event.actorId ?? undefined,
+    eventType: event.eventType,
+    message: event.message,
+    metadata:
+      event.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata)
+        ? (event.metadata as Record<string, unknown>)
+        : undefined,
+    createdAt: iso(event.createdAt),
+  };
+}
+
 function mapSceneAssetRequirement(requirement: {
   id: string;
   sceneId: string;
@@ -1293,6 +1374,11 @@ export async function getScriptAnalysisGraphForProject(projectId: string): Promi
         orderBy: [{ clipId: "asc" }, { versionNumber: "asc" }],
       })).map(mapClipVersion)
     : [];
+  const [invitations, assignments, activityEvents] = await Promise.all([
+    prisma.invitation.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } }),
+    prisma.assignment.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } }),
+    prisma.activityEvent.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } }),
+  ]);
   const [jobs, events] = await Promise.all([
     prisma.generationJob.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } }),
     prisma.jobEvent.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } }),
@@ -1312,9 +1398,9 @@ export async function getScriptAnalysisGraphForProject(projectId: string): Promi
     reviewNotes,
     videoClips,
     clipVersions,
-    invitations: [],
-    assignments: [],
-    activityEvents: [],
+    invitations: invitations.map(mapInvitation),
+    assignments: assignments.map(mapAssignment),
+    activityEvents: activityEvents.map(mapActivityEvent),
     sceneAssetRequirements,
     shotAssetRequirements,
     jobs: jobs.map(mapJob),
@@ -1909,6 +1995,116 @@ export async function persistClipVersionState(version: ClipVersion) {
     data: {
       status: version.status,
       isStale: version.isStale,
+    },
+  }).catch(() => undefined);
+}
+
+export async function findInvitationByTokenHash(tokenHash: string) {
+  if (isPrismaRepositoryEnabled()) {
+    const invitation = await prisma.invitation.findUnique({ where: { tokenHash } }).catch(() => undefined);
+    if (invitation) {
+      return mapInvitation(invitation);
+    }
+  }
+  return getStore().invitations.find((candidate) => candidate.tokenHash === tokenHash);
+}
+
+export async function persistInvitationState(invitation: Invitation) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.invitation.upsert({
+    where: { id: invitation.id },
+    update: {
+      workspaceId: invitation.workspaceId,
+      projectId: invitation.projectId,
+      email: invitation.email,
+      tokenHash: invitation.tokenHash,
+      scope: invitation.scope,
+      role: invitation.role,
+      status: invitation.status,
+      expiresAt: new Date(invitation.expiresAt),
+      invitedById: invitation.invitedById,
+      acceptedAt: invitation.acceptedAt ? new Date(invitation.acceptedAt) : null,
+    },
+    create: {
+      id: invitation.id,
+      workspaceId: invitation.workspaceId,
+      projectId: invitation.projectId,
+      email: invitation.email,
+      tokenHash: invitation.tokenHash,
+      scope: invitation.scope,
+      role: invitation.role,
+      status: invitation.status,
+      expiresAt: new Date(invitation.expiresAt),
+      invitedById: invitation.invitedById,
+      acceptedAt: invitation.acceptedAt ? new Date(invitation.acceptedAt) : null,
+      createdAt: new Date(invitation.createdAt),
+    },
+  }).catch(() => undefined);
+}
+
+export async function persistProjectMemberState(member: ProjectMember) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.projectMember.upsert({
+    where: { projectId_userId: { projectId: member.projectId, userId: member.userId } },
+    update: { role: member.role },
+    create: {
+      id: member.id,
+      projectId: member.projectId,
+      userId: member.userId,
+      role: member.role,
+      joinedAt: new Date(member.joinedAt),
+    },
+  }).catch(() => undefined);
+}
+
+export async function persistAssignmentState(assignment: Assignment) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.assignment.upsert({
+    where: { id: assignment.id },
+    update: {
+      projectId: assignment.projectId,
+      userId: assignment.userId,
+      targetType: assignment.targetType,
+      sceneId: assignment.sceneId,
+      shotId: assignment.shotId,
+      assetId: assignment.assetId,
+      status: assignment.status,
+      updatedAt: new Date(assignment.updatedAt),
+    },
+    create: {
+      id: assignment.id,
+      projectId: assignment.projectId,
+      userId: assignment.userId,
+      targetType: assignment.targetType,
+      sceneId: assignment.sceneId,
+      shotId: assignment.shotId,
+      assetId: assignment.assetId,
+      status: assignment.status,
+      createdAt: new Date(assignment.createdAt),
+      updatedAt: new Date(assignment.updatedAt),
+    },
+  }).catch(() => undefined);
+}
+
+export async function persistActivityEventState(event: ActivityEvent) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.activityEvent.create({
+    data: {
+      id: event.id,
+      projectId: event.projectId,
+      actorId: event.actorId,
+      eventType: event.eventType,
+      message: event.message,
+      metadata: toPrismaJson(event.metadata),
+      createdAt: new Date(event.createdAt),
     },
   }).catch(() => undefined);
 }
