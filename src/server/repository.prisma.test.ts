@@ -140,6 +140,10 @@ const prismaMock = vi.hoisted(() => ({
     create: vi.fn(),
     findMany: vi.fn(),
   },
+  exportBundle: {
+    create: vi.fn(),
+    findMany: vi.fn(),
+  },
   sceneAssetReq: {
     createMany: vi.fn(),
     deleteMany: vi.fn(),
@@ -1164,6 +1168,41 @@ describe("Prisma repository mode", () => {
         eventType: "assignment_created",
         metadata: { assignmentId: assignment.id },
       }),
+    });
+  });
+
+  it("persists and lists export bundle records through Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const bundle = {
+      id: "23232323-2323-4232-8232-232323232323",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      bundleVersion: 1,
+      manifestPath: "storage/projects/project/exports/project.assemblyline-bundle.json",
+      mediaFileCount: 3,
+      metadataRecordCount: 24,
+      createdById: "11111111-1111-4111-8111-111111111111",
+      generationJobId: "99999999-9999-4999-8999-999999999999",
+      createdAt: timestamp.toISOString(),
+    };
+    prismaMock.exportBundle.create.mockResolvedValue(bundle);
+    prismaMock.exportBundle.findMany.mockResolvedValue([{ ...bundle, createdAt: timestamp }]);
+
+    await repository.addExportBundle(bundle);
+    await expect(repository.listExportBundles(bundle.projectId)).resolves.toEqual([
+      expect.objectContaining({ id: bundle.id, manifestPath: bundle.manifestPath }),
+    ]);
+
+    expect(prismaMock.exportBundle.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: bundle.id,
+        projectId: bundle.projectId,
+        manifestPath: bundle.manifestPath,
+        mediaFileCount: 3,
+      }),
+    });
+    expect(prismaMock.exportBundle.findMany).toHaveBeenCalledWith({
+      where: { projectId: bundle.projectId },
+      orderBy: { createdAt: "desc" },
     });
   });
 

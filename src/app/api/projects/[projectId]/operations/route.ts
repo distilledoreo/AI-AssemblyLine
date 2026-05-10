@@ -16,10 +16,14 @@ const operationSchema = z.discriminatedUnion("action", [
 ]);
 
 async function operationsPayload(projectId: string) {
-  const [storage, metrics] = await Promise.all([getProjectStorageUsage(projectId), getProjectJobMetrics(projectId)]);
+  const [storage, metrics, bundles] = await Promise.all([
+    getProjectStorageUsage(projectId),
+    getProjectJobMetrics(projectId),
+    listExportBundles(projectId),
+  ]);
   return {
     graph: await getScriptAnalysisGraphForProject(projectId),
-    bundles: listExportBundles(projectId),
+    bundles,
     storage,
     metrics,
     adapters: getRemainingAdapterCapabilities(),

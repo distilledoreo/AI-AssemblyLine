@@ -12,6 +12,7 @@ import {
   getProject,
   getProjectDashboard,
   getScriptAnalysisGraph,
+  getScriptAnalysisGraphForProject,
   getStore,
 } from "@/server/repository";
 import { ensureProjectStorage, projectFolderPath } from "@/server/storage";
@@ -77,7 +78,7 @@ export async function exportProjectBundle(input: { projectId: string; userId: st
   }
   await ensureProjectStorage(input.projectId);
   const dashboard = await getProjectDashboard(input.projectId);
-  const graph = getScriptAnalysisGraph(input.projectId);
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const job = createGenerationJob({
     projectId: input.projectId,
     type: "export",
@@ -103,7 +104,7 @@ export async function exportProjectBundle(input: { projectId: string; userId: st
   const manifestPath = path.join(projectFolderPath(input.projectId, "exports"), `${safeTitle}-${Date.now()}.assemblyline-bundle.json`);
   await writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
 
-  const bundle = addExportBundle({
+  const bundle = await addExportBundle({
     id: createId(),
     projectId: input.projectId,
     bundleVersion: BUNDLE_VERSION,

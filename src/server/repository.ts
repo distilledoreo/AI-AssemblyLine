@@ -796,6 +796,30 @@ function mapActivityEvent(event: {
   };
 }
 
+function mapExportBundle(bundle: {
+  id: string;
+  projectId: string;
+  bundleVersion: number;
+  manifestPath: string;
+  archivePath?: string | null;
+  mediaFileCount: number;
+  metadataRecordCount: number;
+  createdById?: string | null;
+  generationJobId?: string | null;
+  createdAt: Date | string;
+}): ExportBundle {
+  return {
+    id: bundle.id,
+    projectId: bundle.projectId,
+    bundleVersion: bundle.bundleVersion,
+    manifestPath: bundle.manifestPath,
+    mediaFileCount: bundle.mediaFileCount,
+    metadataRecordCount: bundle.metadataRecordCount,
+    createdById: bundle.createdById ?? "",
+    createdAt: iso(bundle.createdAt),
+  };
+}
+
 function mapSceneAssetRequirement(requirement: {
   id: string;
   sceneId: string;
@@ -2267,12 +2291,38 @@ export async function deleteProject(projectId: string) {
   }
 }
 
-export function addExportBundle(bundle: ExportBundle) {
-  getStore().exportBundles.push(bundle);
+export async function addExportBundle(bundle: ExportBundle) {
+  const store = getStore();
+  if (!store.exportBundles.some((candidate) => candidate.id === bundle.id)) {
+    store.exportBundles.push(bundle);
+  }
+  if (isPrismaRepositoryEnabled()) {
+    await prisma.exportBundle.create({
+      data: {
+        id: bundle.id,
+        projectId: bundle.projectId,
+        bundleVersion: bundle.bundleVersion,
+        manifestPath: bundle.manifestPath,
+        mediaFileCount: bundle.mediaFileCount,
+        metadataRecordCount: bundle.metadataRecordCount,
+        createdById: bundle.createdById,
+        createdAt: new Date(bundle.createdAt),
+      },
+    }).catch(() => undefined);
+  }
   return bundle;
 }
 
-export function listExportBundles(projectId: string) {
+export async function listExportBundles(projectId: string) {
+  if (isPrismaRepositoryEnabled()) {
+    const bundles = await prisma.exportBundle.findMany({
+      where: { projectId },
+      orderBy: { createdAt: "desc" },
+    }).catch(() => undefined);
+    if (bundles) {
+      return bundles.map(mapExportBundle);
+    }
+  }
   return getStore().exportBundles.filter((bundle) => bundle.projectId === projectId);
 }
 

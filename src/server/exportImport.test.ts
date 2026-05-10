@@ -31,7 +31,7 @@ async function createPortableProject() {
   await Promise.all(analyzed.assets.map((asset) => transitionAssetStatus(asset.id, "approved")));
   const ready = getScriptAnalysisGraph(project.id);
   const storyboard = await generateStoryboardFrame({ projectId: project.id, shotId: ready.shots[0].id });
-  updateFrameVersion({ projectId: project.id, frameVersionId: storyboard.frameVersions[0].id, status: "approved" });
+  await updateFrameVersion({ projectId: project.id, frameVersionId: storyboard.frameVersions[0].id, status: "approved" });
   await generateVideoClip({ projectId: project.id, mode: "shot", shotId: ready.shots[0].id, providerSlug: "runway" });
   return { user, project };
 }
