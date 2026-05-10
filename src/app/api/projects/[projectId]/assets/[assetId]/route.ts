@@ -22,7 +22,7 @@ export async function PATCH(
     const user = await requireCurrentUser();
     const { projectId, assetId } = await context.params;
     assertProjectPermission(await getProjectRole(user.id, projectId), "edit_asset_requirements");
-    return Response.json({ asset: updateAsset(assetId, assetUpdateSchema.parse(await request.json())) });
+    return Response.json({ asset: await updateAsset(assetId, assetUpdateSchema.parse(await request.json())) });
   } catch (error) {
     return toErrorResponse(error);
   }

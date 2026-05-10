@@ -23,7 +23,7 @@ export async function PATCH(
     const user = await requireCurrentUser();
     const { projectId, shotId } = await context.params;
     assertProjectPermission(await getProjectRole(user.id, projectId), "edit_scene_shot_metadata");
-    return Response.json({ shot: updateShot(shotId, shotUpdateSchema.parse(await request.json())) });
+    return Response.json({ shot: await updateShot(shotId, shotUpdateSchema.parse(await request.json())) });
   } catch (error) {
     return toErrorResponse(error);
   }

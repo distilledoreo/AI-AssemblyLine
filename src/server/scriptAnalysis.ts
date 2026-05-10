@@ -11,8 +11,14 @@ import {
   getScriptAnalysisGraph,
   getStore,
   deleteSceneAssetRequirement,
+  getAssetById,
+  getSceneById,
+  getShotById,
   persistGeneratedScriptAnalysis,
+  persistAssetState,
   persistSceneAssetRequirement,
+  persistSceneState,
+  persistShotState,
   refreshPrismaReadiness,
   updateScriptVersionAnalysisStatus,
 } from "@/server/repository";
@@ -487,31 +493,35 @@ async function persistAnalysis(
   refreshReadiness(projectId);
 }
 
-export function updateScene(sceneId: string, input: Partial<Pick<Scene, "heading" | "summary" | "locationHint" | "status">>) {
-  const scene = getStore().scenes.find((candidate) => candidate.id === sceneId);
+export async function updateScene(sceneId: string, input: Partial<Pick<Scene, "heading" | "summary" | "locationHint" | "status">>) {
+  const scene = await getSceneById(sceneId);
   if (!scene) {
     throw new NotFoundError("Scene not found.");
   }
   Object.assign(scene, input, { isUserEdited: true, updatedAt: nowIso() });
+  await persistSceneState(scene);
   return scene;
 }
 
-export function updateShot(shotId: string, input: Partial<Pick<Shot, "action" | "cameraAngle" | "cameraMovement" | "lensNotes" | "lightingNotes" | "userDirection" | "status">>) {
-  const shot = getStore().shots.find((candidate) => candidate.id === shotId);
+export async function updateShot(shotId: string, input: Partial<Pick<Shot, "action" | "cameraAngle" | "cameraMovement" | "lensNotes" | "lightingNotes" | "userDirection" | "status">>) {
+  const shot = await getShotById(shotId);
   if (!shot) {
     throw new NotFoundError("Shot not found.");
   }
   Object.assign(shot, input, { isUserEdited: true, updatedAt: nowIso() });
+  await persistShotState(shot);
   return shot;
 }
 
-export function updateAsset(assetId: string, input: Partial<Pick<Asset, "canonicalName" | "type" | "status" | "description" | "continuityNotes" | "negativePrompts">>) {
-  const asset = getStore().assets.find((candidate) => candidate.id === assetId);
+export async function updateAsset(assetId: string, input: Partial<Pick<Asset, "canonicalName" | "type" | "status" | "description" | "continuityNotes" | "negativePrompts">>) {
+  const asset = await getAssetById(assetId);
   if (!asset) {
     throw new NotFoundError("Asset not found.");
   }
   Object.assign(asset, input, { isUserEdited: true, updatedAt: nowIso() });
   refreshReadiness(asset.projectId);
+  await persistAssetState(asset);
+  await refreshPrismaReadiness(asset.projectId);
   return asset;
 }
 

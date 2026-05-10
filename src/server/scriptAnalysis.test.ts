@@ -69,8 +69,8 @@ describe("script analysis pipeline", () => {
     const firstScene = graph.scenes[0];
     const firstShot = graph.shots.find((shot) => shot.sceneId === firstScene.id);
 
-    updateScene(firstScene.id, { summary: "User-confirmed coffee shop beat." });
-    updateShot(firstShot!.id, { userDirection: "Hold on Anna before revealing the key." });
+    await updateScene(firstScene.id, { summary: "User-confirmed coffee shop beat." });
+    await updateShot(firstShot!.id, { userDirection: "Hold on Anna before revealing the key." });
     await runScriptAnalysis(project.id, graph.activeVersion?.id);
 
     const updatedGraph = getScriptAnalysisGraph(project.id);

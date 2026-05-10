@@ -1724,6 +1724,82 @@ export async function persistAssetState(asset: Asset) {
   }).catch(() => undefined);
 }
 
+export async function getSceneById(sceneId: string) {
+  const local = getStore().scenes.find((candidate) => candidate.id === sceneId);
+  if (local) {
+    return local;
+  }
+  if (!isPrismaRepositoryEnabled()) {
+    return undefined;
+  }
+  const scene = await prisma.scene.findUnique({ where: { id: sceneId } }).catch(() => undefined);
+  return scene ? mapScene(scene) : undefined;
+}
+
+export async function getShotById(shotId: string) {
+  const local = getStore().shots.find((candidate) => candidate.id === shotId);
+  if (local) {
+    return local;
+  }
+  if (!isPrismaRepositoryEnabled()) {
+    return undefined;
+  }
+  const shot = await prisma.shot.findUnique({ where: { id: shotId } }).catch(() => undefined);
+  return shot ? mapShot(shot) : undefined;
+}
+
+export async function getAssetById(assetId: string) {
+  const local = getStore().assets.find((candidate) => candidate.id === assetId);
+  if (local) {
+    return local;
+  }
+  if (!isPrismaRepositoryEnabled()) {
+    return undefined;
+  }
+  const asset = await prisma.asset.findUnique({ where: { id: assetId } }).catch(() => undefined);
+  return asset ? mapAsset(asset) : undefined;
+}
+
+export async function persistSceneState(scene: Scene) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.scene.update({
+    where: { id: scene.id },
+    data: {
+      heading: scene.heading,
+      summary: scene.summary,
+      scriptStartLine: scene.scriptStartLine,
+      scriptEndLine: scene.scriptEndLine,
+      locationHint: scene.locationHint,
+      status: scene.status,
+      isUserEdited: scene.isUserEdited ?? false,
+      warnings: toPrismaJson(scene.warnings ?? []) ?? [],
+      updatedAt: new Date(scene.updatedAt),
+    },
+  }).catch(() => undefined);
+}
+
+export async function persistShotState(shot: Shot) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.shot.update({
+    where: { id: shot.id },
+    data: {
+      action: shot.action,
+      cameraAngle: shot.cameraAngle,
+      cameraMovement: shot.cameraMovement,
+      lensNotes: shot.lensNotes,
+      lightingNotes: shot.lightingNotes,
+      userDirection: shot.userDirection,
+      status: shot.status,
+      isUserEdited: shot.isUserEdited ?? false,
+      updatedAt: new Date(shot.updatedAt),
+    },
+  }).catch(() => undefined);
+}
+
 export async function persistCreatedAssetState(asset: Asset) {
   if (!isPrismaRepositoryEnabled()) {
     return;

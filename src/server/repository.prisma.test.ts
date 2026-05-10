@@ -64,6 +64,7 @@ const prismaMock = vi.hoisted(() => ({
     create: vi.fn(),
     createMany: vi.fn(),
     deleteMany: vi.fn(),
+    findUnique: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
   },
@@ -71,6 +72,7 @@ const prismaMock = vi.hoisted(() => ({
     create: vi.fn(),
     createMany: vi.fn(),
     deleteMany: vi.fn(),
+    findUnique: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
   },
@@ -78,6 +80,7 @@ const prismaMock = vi.hoisted(() => ({
     create: vi.fn(),
     createMany: vi.fn(),
     findFirst: vi.fn(),
+    findUnique: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
   },
@@ -559,6 +562,137 @@ describe("Prisma repository mode", () => {
     expect(prismaMock.scriptVersion.update).toHaveBeenCalledWith({
       where: { id: "88888888-8888-4888-8888-888888888888" },
       data: { analysisStatus: "complete" },
+    });
+  });
+
+  it("reads and persists scene, shot, and asset editor mutations through Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const scene = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      scriptVersionId: "88888888-8888-4888-8888-888888888888",
+      sceneNumber: 1,
+      heading: "INT. ROOM - DAY",
+      summary: "Anna waits.",
+      scriptStartLine: 1,
+      scriptEndLine: 3,
+      locationHint: "Room",
+      status: "blocked",
+      isUserEdited: false,
+      warnings: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const shot = {
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      sceneId: scene.id,
+      shotNumber: 1,
+      action: "Anna waits.",
+      cameraAngle: "wide",
+      cameraMovement: "static",
+      lensNotes: null,
+      lightingNotes: null,
+      userDirection: null,
+      status: "blocked",
+      isUserEdited: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const asset = {
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      type: "location",
+      canonicalName: "Room",
+      aliases: ["INT. ROOM - DAY"],
+      status: "missing",
+      continuityNotes: null,
+      negativePrompts: null,
+      description: "Location inferred from heading.",
+      firstAppearance: { sceneNumber: 1 },
+      isUserEdited: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    prismaMock.scene.findUnique.mockResolvedValue(scene);
+    prismaMock.shot.findUnique.mockResolvedValue(shot);
+    prismaMock.asset.findUnique.mockResolvedValue(asset);
+    prismaMock.scene.update.mockResolvedValue({});
+    prismaMock.shot.update.mockResolvedValue({});
+    prismaMock.asset.update.mockResolvedValue({});
+
+    expect(await repository.getSceneById(scene.id)).toMatchObject({ id: scene.id, summary: "Anna waits." });
+    expect(await repository.getShotById(shot.id)).toMatchObject({ id: shot.id, action: "Anna waits." });
+    expect(await repository.getAssetById(asset.id)).toMatchObject({ id: asset.id, canonicalName: "Room" });
+
+    await repository.persistSceneState({
+      id: scene.id,
+      scriptVersionId: scene.scriptVersionId,
+      sceneNumber: scene.sceneNumber,
+      heading: scene.heading,
+      summary: "User-edited beat.",
+      scriptStartLine: scene.scriptStartLine,
+      scriptEndLine: scene.scriptEndLine,
+      locationHint: scene.locationHint,
+      status: "ready",
+      isUserEdited: true,
+      warnings: [],
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    });
+    await repository.persistShotState({
+      id: shot.id,
+      sceneId: shot.sceneId,
+      shotNumber: shot.shotNumber,
+      action: "Anna opens the window.",
+      cameraAngle: shot.cameraAngle,
+      cameraMovement: shot.cameraMovement,
+      lensNotes: undefined,
+      lightingNotes: undefined,
+      userDirection: "Hold on Anna.",
+      status: "ready",
+      isUserEdited: true,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    });
+    await repository.persistAssetState({
+      id: asset.id,
+      projectId: asset.projectId,
+      type: "location",
+      canonicalName: "Workshop",
+      aliases: asset.aliases,
+      status: "approved",
+      continuityNotes: "Keep the workbench camera-left.",
+      negativePrompts: undefined,
+      description: asset.description,
+      firstAppearance: { sceneNumber: 1 },
+      isUserEdited: true,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    });
+
+    expect(prismaMock.scene.update).toHaveBeenCalledWith({
+      where: { id: scene.id },
+      data: expect.objectContaining({
+        summary: "User-edited beat.",
+        status: "ready",
+        isUserEdited: true,
+      }),
+    });
+    expect(prismaMock.shot.update).toHaveBeenCalledWith({
+      where: { id: shot.id },
+      data: expect.objectContaining({
+        action: "Anna opens the window.",
+        userDirection: "Hold on Anna.",
+        isUserEdited: true,
+      }),
+    });
+    expect(prismaMock.asset.update).toHaveBeenCalledWith({
+      where: { id: asset.id },
+      data: expect.objectContaining({
+        canonicalName: "Workshop",
+        status: "approved",
+        isUserEdited: true,
+      }),
     });
   });
 
