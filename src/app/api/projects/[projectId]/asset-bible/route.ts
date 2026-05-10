@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { toErrorResponse } from "@/server/errors";
-import { getProjectRole, getScriptAnalysisGraph } from "@/server/repository";
+import { getProjectRole, getScriptAnalysisGraphForProject } from "@/server/repository";
 import { assertProjectPermission } from "@/server/rbac";
 import { requireCurrentUser } from "@/server/session";
 import {
@@ -40,7 +40,7 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
     assertProjectPermission(await getProjectRole(user.id, projectId), "view_project_dashboard");
-    return Response.json(getScriptAnalysisGraph(projectId));
+    return Response.json(await getScriptAnalysisGraphForProject(projectId));
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -66,7 +66,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
         mimeType: file.type,
         referenceType: "other",
       });
-      return Response.json(getScriptAnalysisGraph(projectId), { status: 201 });
+      return Response.json(await getScriptAnalysisGraphForProject(projectId), { status: 201 });
     }
 
     const body = jsonActionSchema.parse(await request.json());
@@ -76,7 +76,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     if (body.action === "merge") mergeAssets(body.sourceAssetId, body.targetAssetId);
     if (body.action === "split") splitAsset(body.assetId, body);
     if (body.action === "style") updateProjectStyle(projectId, body.style);
-    return Response.json(getScriptAnalysisGraph(projectId));
+    return Response.json(await getScriptAnalysisGraphForProject(projectId));
   } catch (error) {
     return toErrorResponse(error);
   }

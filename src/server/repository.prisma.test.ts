@@ -35,17 +35,21 @@ const prismaMock = vi.hoisted(() => ({
   },
   generationJob: {
     create: vi.fn(),
+    findMany: vi.fn(),
     update: vi.fn(),
   },
   jobEvent: {
     create: vi.fn(),
+    findMany: vi.fn(),
   },
   script: {
     create: vi.fn(),
     findFirst: vi.fn(),
+    findMany: vi.fn(),
   },
   scriptVersion: {
     create: vi.fn(),
+    findMany: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
   },
@@ -64,15 +68,18 @@ const prismaMock = vi.hoisted(() => ({
   asset: {
     create: vi.fn(),
     findFirst: vi.fn(),
+    findMany: vi.fn(),
     update: vi.fn(),
   },
   sceneAssetReq: {
     createMany: vi.fn(),
     deleteMany: vi.fn(),
+    findMany: vi.fn(),
   },
   shotAssetReq: {
     createMany: vi.fn(),
     deleteMany: vi.fn(),
+    findMany: vi.fn(),
   },
 }));
 
@@ -417,5 +424,104 @@ describe("Prisma repository mode", () => {
       where: { id: "88888888-8888-4888-8888-888888888888" },
       data: { analysisStatus: "complete" },
     });
+  });
+
+  it("reads script analysis graph records back from Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const script = {
+      id: "99999999-9999-4999-8999-999999999999",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      filename: "pilot.txt",
+      createdAt: timestamp,
+    };
+    const version = {
+      id: "88888888-8888-4888-8888-888888888888",
+      scriptId: script.id,
+      versionNumber: 1,
+      filePath: "storage/projects/project/uploads/v1-pilot.txt",
+      rawText: "INT. ROOM - DAY\nANNA\nAnna waits.",
+      analysisStatus: "complete",
+      isActive: true,
+      createdAt: timestamp,
+    };
+    const scene = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      scriptVersionId: version.id,
+      sceneNumber: 1,
+      heading: "INT. ROOM - DAY",
+      summary: "Anna waits.",
+      scriptStartLine: 1,
+      scriptEndLine: 3,
+      locationHint: "Room",
+      status: "blocked",
+      isUserEdited: false,
+      warnings: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const shot = {
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      sceneId: scene.id,
+      shotNumber: 1,
+      action: "Anna waits.",
+      cameraAngle: "establishing wide",
+      cameraMovement: "static",
+      lensNotes: null,
+      lightingNotes: null,
+      userDirection: null,
+      status: "blocked",
+      isUserEdited: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const asset = {
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      projectId: script.projectId,
+      type: "location",
+      canonicalName: "Room",
+      aliases: ["INT. ROOM - DAY"],
+      status: "missing",
+      continuityNotes: null,
+      negativePrompts: null,
+      description: "Location inferred from heading.",
+      firstAppearance: { sceneNumber: 1 },
+      isUserEdited: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const sceneReq = {
+      id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      sceneId: scene.id,
+      assetId: asset.id,
+      isOptional: false,
+      detectedBy: "ai",
+      createdAt: timestamp,
+    };
+    const shotReq = {
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      shotId: shot.id,
+      assetId: asset.id,
+      isOptional: false,
+      detectedBy: "ai",
+      createdAt: timestamp,
+    };
+    prismaMock.script.findMany.mockResolvedValue([script]);
+    prismaMock.scriptVersion.findMany.mockResolvedValue([version]);
+    prismaMock.scene.findMany.mockResolvedValue([scene]);
+    prismaMock.shot.findMany.mockResolvedValue([shot]);
+    prismaMock.asset.findMany.mockResolvedValue([asset]);
+    prismaMock.sceneAssetReq.findMany.mockResolvedValue([sceneReq]);
+    prismaMock.shotAssetReq.findMany.mockResolvedValue([shotReq]);
+    prismaMock.generationJob.findMany.mockResolvedValue([]);
+    prismaMock.jobEvent.findMany.mockResolvedValue([]);
+
+    const graph = await repository.getScriptAnalysisGraphForProject(script.projectId);
+
+    expect(graph.activeVersion?.id).toBe(version.id);
+    expect(graph.scenes[0]).toMatchObject({ id: scene.id, heading: "INT. ROOM - DAY" });
+    expect(graph.shots[0]).toMatchObject({ id: shot.id, action: "Anna waits." });
+    expect(graph.assets[0]).toMatchObject({ id: asset.id, canonicalName: "Room" });
+    expect(graph.sceneAssetRequirements[0]).toMatchObject({ sceneId: scene.id, assetId: asset.id });
+    expect(graph.shotAssetRequirements[0]).toMatchObject({ shotId: shot.id, assetId: asset.id });
   });
 });

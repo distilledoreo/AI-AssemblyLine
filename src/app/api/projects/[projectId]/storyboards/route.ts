@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { toErrorResponse } from "@/server/errors";
-import { getProjectRole, getScriptAnalysisGraph } from "@/server/repository";
+import { getProjectRole, getScriptAnalysisGraphForProject } from "@/server/repository";
 import { assertProjectPermission } from "@/server/rbac";
 import { requireCurrentUser } from "@/server/session";
 import { addFrameComment, attachSketch, generateStoryboardFrame, updateFrameVersion } from "@/server/storyboard";
@@ -26,7 +26,7 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
     assertProjectPermission(await getProjectRole(user.id, projectId), "view_project_dashboard");
-    return Response.json(getScriptAnalysisGraph(projectId));
+    return Response.json(await getScriptAnalysisGraphForProject(projectId));
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -59,7 +59,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     if (body.action === "frame") return Response.json(updateFrameVersion({ projectId, ...body }));
     if (body.action === "comment") {
       addFrameComment({ projectId, authorId: user.id, frameVersionId: body.frameVersionId, body: body.body });
-      return Response.json(getScriptAnalysisGraph(projectId), { status: 201 });
+      return Response.json(await getScriptAnalysisGraphForProject(projectId), { status: 201 });
     }
   } catch (error) {
     return toErrorResponse(error);

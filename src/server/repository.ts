@@ -326,6 +326,141 @@ function mapScriptVersion(version: {
   };
 }
 
+function mapScene(scene: {
+  id: string;
+  scriptVersionId: string;
+  sceneNumber: number;
+  heading: string;
+  summary: string;
+  scriptStartLine: number;
+  scriptEndLine: number;
+  locationHint?: string | null;
+  status: Scene["status"];
+  isUserEdited: boolean;
+  warnings?: unknown;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}): Scene {
+  return {
+    id: scene.id,
+    scriptVersionId: scene.scriptVersionId,
+    sceneNumber: scene.sceneNumber,
+    heading: scene.heading,
+    summary: scene.summary,
+    scriptStartLine: scene.scriptStartLine,
+    scriptEndLine: scene.scriptEndLine,
+    locationHint: scene.locationHint ?? undefined,
+    status: scene.status,
+    isUserEdited: scene.isUserEdited,
+    warnings: Array.isArray(scene.warnings) ? scene.warnings.map(String) : undefined,
+    createdAt: iso(scene.createdAt),
+    updatedAt: iso(scene.updatedAt),
+  };
+}
+
+function mapShot(shot: {
+  id: string;
+  sceneId: string;
+  shotNumber: number;
+  action: string;
+  cameraAngle?: string | null;
+  cameraMovement?: string | null;
+  lensNotes?: string | null;
+  lightingNotes?: string | null;
+  userDirection?: string | null;
+  status: Shot["status"];
+  isUserEdited: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}): Shot {
+  return {
+    id: shot.id,
+    sceneId: shot.sceneId,
+    shotNumber: shot.shotNumber,
+    action: shot.action,
+    cameraAngle: shot.cameraAngle ?? undefined,
+    cameraMovement: shot.cameraMovement ?? undefined,
+    lensNotes: shot.lensNotes ?? undefined,
+    lightingNotes: shot.lightingNotes ?? undefined,
+    userDirection: shot.userDirection ?? undefined,
+    status: shot.status,
+    isUserEdited: shot.isUserEdited,
+    createdAt: iso(shot.createdAt),
+    updatedAt: iso(shot.updatedAt),
+  };
+}
+
+function mapAsset(asset: {
+  id: string;
+  projectId: string;
+  type: Asset["type"];
+  canonicalName: string;
+  aliases: unknown;
+  status: Asset["status"];
+  continuityNotes?: string | null;
+  negativePrompts?: string | null;
+  description?: string | null;
+  firstAppearance?: unknown;
+  isUserEdited: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}): Asset {
+  return {
+    id: asset.id,
+    projectId: asset.projectId,
+    type: asset.type,
+    canonicalName: asset.canonicalName,
+    aliases: Array.isArray(asset.aliases) ? asset.aliases.map(String) : [],
+    status: asset.status,
+    continuityNotes: asset.continuityNotes ?? undefined,
+    negativePrompts: asset.negativePrompts ?? undefined,
+    description: asset.description ?? undefined,
+    firstAppearance:
+      asset.firstAppearance && typeof asset.firstAppearance === "object"
+        ? (asset.firstAppearance as Asset["firstAppearance"])
+        : undefined,
+    isUserEdited: asset.isUserEdited,
+    createdAt: iso(asset.createdAt),
+    updatedAt: iso(asset.updatedAt),
+  };
+}
+
+function mapSceneAssetRequirement(requirement: {
+  id: string;
+  sceneId: string;
+  assetId: string;
+  isOptional: boolean;
+  detectedBy: SceneAssetRequirement["detectedBy"];
+  createdAt: Date | string;
+}): SceneAssetRequirement {
+  return {
+    id: requirement.id,
+    sceneId: requirement.sceneId,
+    assetId: requirement.assetId,
+    isOptional: requirement.isOptional,
+    detectedBy: requirement.detectedBy,
+    createdAt: iso(requirement.createdAt),
+  };
+}
+
+function mapShotAssetRequirement(requirement: {
+  id: string;
+  shotId: string;
+  assetId: string;
+  isOptional: boolean;
+  detectedBy: ShotAssetRequirement["detectedBy"];
+  createdAt: Date | string;
+}): ShotAssetRequirement {
+  return {
+    id: requirement.id,
+    shotId: requirement.shotId,
+    assetId: requirement.assetId,
+    isOptional: requirement.isOptional,
+    detectedBy: requirement.detectedBy,
+    createdAt: iso(requirement.createdAt),
+  };
+}
+
 function mapProviderKey(key: {
   id: string;
   workspaceId: string;
@@ -763,6 +898,75 @@ export function getScriptAnalysisGraph(projectId: string): ScriptAnalysisGraph {
     ),
     jobs: store.generationJobs.filter((job) => job.projectId === projectId),
     events: store.jobEvents.filter((event) => event.projectId === projectId),
+  };
+}
+
+export async function getScriptAnalysisGraphForProject(projectId: string): Promise<ScriptAnalysisGraph> {
+  if (!isPrismaRepositoryEnabled()) {
+    return getScriptAnalysisGraph(projectId);
+  }
+
+  const scripts = (await prisma.script.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } })).map(mapScript);
+  const scriptIds = scripts.map((script) => script.id);
+  const versions = scriptIds.length
+    ? (await prisma.scriptVersion.findMany({
+        where: { scriptId: { in: scriptIds } },
+        orderBy: [{ scriptId: "asc" }, { versionNumber: "asc" }],
+      })).map(mapScriptVersion)
+    : [];
+  const activeVersion = versions.find((version) => version.isActive);
+  const versionIds = versions.map((version) => version.id);
+  const scenes = versionIds.length
+    ? (await prisma.scene.findMany({
+        where: { scriptVersionId: { in: versionIds } },
+        orderBy: [{ scriptVersionId: "asc" }, { sceneNumber: "asc" }],
+      })).map(mapScene)
+    : [];
+  const sceneIds = scenes.map((scene) => scene.id);
+  const shots = sceneIds.length
+    ? (await prisma.shot.findMany({
+        where: { sceneId: { in: sceneIds } },
+        orderBy: [{ sceneId: "asc" }, { shotNumber: "asc" }],
+      })).map(mapShot)
+    : [];
+  const shotIds = shots.map((shot) => shot.id);
+  const assets = (await prisma.asset.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } })).map(mapAsset);
+  const sceneAssetRequirements = sceneIds.length
+    ? (await prisma.sceneAssetReq.findMany({ where: { sceneId: { in: sceneIds } }, orderBy: { createdAt: "asc" } })).map(
+        mapSceneAssetRequirement,
+      )
+    : [];
+  const shotAssetRequirements = shotIds.length
+    ? (await prisma.shotAssetReq.findMany({ where: { shotId: { in: shotIds } }, orderBy: { createdAt: "asc" } })).map(
+        mapShotAssetRequirement,
+      )
+    : [];
+  const [jobs, events] = await Promise.all([
+    prisma.generationJob.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } }),
+    prisma.jobEvent.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } }),
+  ]);
+
+  return {
+    scripts,
+    activeVersion,
+    scenes,
+    shots,
+    assets,
+    assetDetails: [],
+    assetVersions: [],
+    assetReferences: [],
+    storyboardFrames: [],
+    frameVersions: [],
+    reviewNotes: [],
+    videoClips: [],
+    clipVersions: [],
+    invitations: [],
+    assignments: [],
+    activityEvents: [],
+    sceneAssetRequirements,
+    shotAssetRequirements,
+    jobs: jobs.map(mapJob),
+    events: events.map(mapJobEvent),
   };
 }
 

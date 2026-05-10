@@ -3,7 +3,7 @@ import { getRemainingAdapterCapabilities } from "@/providers/extendedAdapters";
 import { toErrorResponse } from "@/server/errors";
 import { exportProjectBundle, importProjectBundle } from "@/server/exportImport";
 import { getProjectJobMetrics } from "@/server/observability";
-import { getProjectRole, getScriptAnalysisGraph, listExportBundles } from "@/server/repository";
+import { getProjectRole, getScriptAnalysisGraphForProject, listExportBundles } from "@/server/repository";
 import { assertProjectPermission } from "@/server/rbac";
 import { requireCurrentUser } from "@/server/session";
 import { cleanupOrphanFiles, clearThumbnailCache, getProjectStorageUsage } from "@/server/storageManagement";
@@ -18,7 +18,7 @@ const operationSchema = z.discriminatedUnion("action", [
 async function operationsPayload(projectId: string) {
   const [storage, metrics] = await Promise.all([getProjectStorageUsage(projectId), getProjectJobMetrics(projectId)]);
   return {
-    graph: getScriptAnalysisGraph(projectId),
+    graph: await getScriptAnalysisGraphForProject(projectId),
     bundles: listExportBundles(projectId),
     storage,
     metrics,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { toErrorResponse } from "@/server/errors";
-import { getProjectRole, getScriptAnalysisGraph } from "@/server/repository";
+import { getProjectRole, getScriptAnalysisGraphForProject } from "@/server/repository";
 import { assertProjectPermission } from "@/server/rbac";
 import { requireCurrentUser } from "@/server/session";
 import { generateVideoClip, updateClipVersion } from "@/server/video";
@@ -25,7 +25,7 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
     assertProjectPermission(await getProjectRole(user.id, projectId), "view_project_dashboard");
-    return Response.json(getScriptAnalysisGraph(projectId));
+    return Response.json(await getScriptAnalysisGraphForProject(projectId));
   } catch (error) {
     return toErrorResponse(error);
   }
