@@ -16,16 +16,36 @@ The app is designed for both single creators and production teams. It will analy
 
 ## Documentation
 
-- [Product plan](docs/product-plan.md)
-- [Asset Bible specification](docs/asset-bible.md)
-- [Storyboard and video workflow](docs/storyboard-and-video.md)
-- [Provider and model strategy](docs/provider-strategy.md)
-- [Data, collaboration, and export plan](docs/data-and-collaboration.md)
+### Product and workflow
 
-## MVP feature set
+- [Product plan](docs/product-plan.md) — goals, users, workflow, MVP scope, and non-goals.
+- [Asset Bible specification](docs/asset-bible.md) — visual style, asset types, lifecycle, and dependency logic.
+- [Storyboard and video workflow](docs/storyboard-and-video.md) — frame generation, sketch ingestion, drawing tools, versioning, and video modes.
 
-The MVP should include script upload, AI-assisted scene and shot breakdown, user-editable asset detection, Asset Bible records, optional on-request reference generation, sketch storyboard ingestion, storyboard editing with drawing and markup tools, shot-by-shot and scene-level video generation, real-time job updates, local media storage, and project export/import.
+### Architecture and engineering
+
+- [Data model](docs/data-model.md) — ERD, entity definitions, relationships, and cascading staleness rules.
+- [Authentication and access control](docs/auth-and-access.md) — auth provider, session model, RBAC, permission matrix.
+- [Script analysis pipeline](docs/script-analysis.md) — multi-pass LLM pipeline, chunking, validation, and user correction.
+- [Prompt engine](docs/prompt-engine.md) — prompt composition, conflict resolution, token budget, and provider translation.
+- [Provider and model strategy](docs/provider-strategy.md) — adapter interfaces, capability matrix, error classification.
+- [Job queue design](docs/job-queue-design.md) — BullMQ topology, retry policy, async polling, SSE event publishing.
+- [Media processing](docs/media-processing.md) — FFmpeg integration, thumbnails, format conversion, clip assembly.
+- [Data, collaboration, and export](docs/data-and-collaboration.md) — data objects, team roles, storage, export/import, script revisions.
+
+### Operations
+
+- [Deployment and configuration](docs/deployment-and-config.md) — environment variables, API key encryption, local dev setup, observability.
+- [Testing strategy](docs/testing-strategy.md) — test categories, provider mock factory, CI expectations.
+- [Implementation roadmap](docs/implementation-roadmap.md) — phased build order with deliverables and exit criteria.
+
+## MVP scope
+
+See the [product plan](docs/product-plan.md#mvp-scope) for the full MVP feature set and explicit non-goals.
 
 ## Development status
 
-This repository currently contains the initial product and architecture documentation. Implementation should proceed documentation-first: user-facing behavior, API settings, configuration options, and workflow changes must be documented as part of the same change that implements them.
+This repository contains the product and architecture documentation. Implementation should proceed documentation-first: user-facing behavior, API settings, configuration options, and workflow changes must be documented as part of the same change that implements them.
+
+The [implementation roadmap](docs/implementation-roadmap.md) defines the build order across seven phases, starting with the foundation (auth, data layer, provider framework, job queue) and progressing through script analysis, Asset Bible, storyboard, video, collaboration, and export.
+

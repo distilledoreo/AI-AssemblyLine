@@ -1,0 +1,121 @@
+# Deployment and Configuration
+
+This document covers environment configuration, secrets management, API key encryption, and local development setup for AI AssemblyLine.
+
+## Environment variables
+
+All configuration is driven by environment variables loaded from `.env` files (via `dotenv`) or the host environment. The app uses a validated config module that fails fast on startup if required variables are missing.
+
+### Required variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DATABASE_URL` | Postgres connection string | `postgresql://user:pass@localhost:5432/assemblyline` |
+| `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
+| `NEXTAUTH_URL` | Canonical app URL | `http://localhost:3000` |
+| `NEXTAUTH_SECRET` | NextAuth session signing secret (32+ chars) | Generated via `openssl rand -base64 32` |
+| `ENCRYPTION_KEY` | AES-256 key for provider API key encryption (32 bytes, base64) | Generated via `openssl rand -base64 32` |
+| `STORAGE_ROOT` | Root directory for local media storage | `./storage` |
+
+### Optional variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | App port | `3000` |
+| `ANALYSIS_QUEUE_CONCURRENCY` | Workers for script analysis queue | `2` |
+| `IMAGE_QUEUE_CONCURRENCY` | Workers for image generation queue | `3` |
+| `VIDEO_QUEUE_CONCURRENCY` | Workers for video generation queue | `2` |
+| `MEDIA_WORKER_CONCURRENCY` | Workers for FFmpeg media queue | `4` |
+| `PROJECT_QUEUE_CONCURRENCY` | Workers for export/import queue | `1` |
+| `MAX_UPLOAD_SIZE_MB` | Maximum file upload size | `100` |
+| `SESSION_MAX_AGE_DAYS` | Session expiry | `30` |
+| `LOG_LEVEL` | Logging verbosity | `info` |
+| `SENTRY_DSN` | Sentry error tracking DSN | None (disabled) |
+
+## API key encryption
+
+Provider API keys entered by users are encrypted before storage and decrypted only server-side when making provider API calls.
+
+### Encryption scheme
+
+- **Algorithm:** AES-256-GCM (authenticated encryption).
+- **Key:** The `ENCRYPTION_KEY` environment variable (32 bytes, base64-encoded).
+- **Nonce:** A unique 12-byte random nonce generated per key, stored alongside the ciphertext in the `ProviderKey` table (`keyNonce` column).
+- **Auth tag:** 16 bytes, appended to the ciphertext.
+
+### Key rotation
+
+If `ENCRYPTION_KEY` needs to be rotated:
+
+1. Set `ENCRYPTION_KEY_OLD` to the current key.
+2. Set `ENCRYPTION_KEY` to the new key.
+3. Run the `rotate-keys` CLI command, which re-encrypts all `ProviderKey` records.
+4. Remove `ENCRYPTION_KEY_OLD` after successful rotation.
+
+### Security rules
+
+- Provider API keys are **never** included in: API responses to the client, generation logs, prompt metadata, export bundles, error messages, or browser-accessible storage.
+- The decrypted key exists only in memory for the duration of a provider API call.
+- The `ProviderKey` table is excluded from all export queries.
+
+## Local development setup
+
+### Prerequisites
+
+- Node.js 20+
+- PostgreSQL 15+
+- Redis 7+
+- FFmpeg 6+ (on PATH)
+- pnpm (recommended) or npm
+
+### Quick start
+
+```bash
+# Clone and install
+git clone <repo-url>
+cd ai-assemblyline
+pnpm install
+
+# Set up environment
+cp .env.example .env
+# Edit .env with your database URL, Redis URL, and generate secrets
+
+# Set up database
+pnpm prisma migrate dev
+pnpm prisma db seed    # optional: seed with sample project
+
+# Start development
+pnpm dev               # starts Next.js + workers in watch mode
+```
+
+### Development mode
+
+In development:
+
+- Next.js runs with hot reload.
+- BullMQ workers run in the same process (single-process mode).
+- Redis can be a local instance or Docker container.
+- Provider adapters default to mock mode if no API keys are configured, returning placeholder outputs so the full workflow can be tested without spend.
+- File storage uses `./storage` relative to the project root.
+
+## Observability
+
+### Structured logging
+
+The app uses a structured logger (e.g. pino) with JSON output. Every log entry includes:
+
+- `timestamp`, `level`, `message`
+- `requestId` (for API routes)
+- `jobId` (for worker logs)
+- `userId` (when authenticated)
+- `projectId` (when in project context)
+
+### Error tracking
+
+When `SENTRY_DSN` is set, unhandled errors and failed generation jobs are reported to Sentry with context (job type, provider, model, error class).
+
+### Health checks
+
+- `GET /api/health` returns database and Redis connectivity status.
+- `GET /api/health/workers` returns queue status (active, waiting, failed counts per queue).
+- These endpoints are unauthenticated for use by load balancers and monitoring.

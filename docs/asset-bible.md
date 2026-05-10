@@ -1,6 +1,6 @@
 # Asset Bible Specification
 
-The Asset Bible is the continuity system for AI AssemblyLine. Every image and video generation should reference approved Asset Bible records whenever those assets appear in a scene or shot.
+The Asset Bible is the continuity system for AI AssemblyLine. Every image and video generation should reference approved Asset Bible records whenever those assets appear in a scene or shot. For the underlying data model and type-extension tables, see [data-model.md](data-model.md). For the versioning lifecycle of storyboard frames and video clips that depend on these assets, see [storyboard-and-video.md](storyboard-and-video.md).
 
 ## Global visual style
 
@@ -126,3 +126,5 @@ The system should ask for reference images for required assets, but it should on
 ## Scene and shot dependency logic
 
 Each scene and shot tracks the assets it requires. A scene or shot is storyboard-ready when all required assets for that specific unit are approved or locked. This enables partial progression through production without waiting for the entire Asset Bible to reach 100% completion.
+
+See [data-model.md](data-model.md) for the cascading staleness rules that apply when approved assets are superseded or the project style changes after storyboard frames or video clips have already been generated.

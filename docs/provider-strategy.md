@@ -1,6 +1,6 @@
 # Provider and Model Strategy
 
-AI AssemblyLine uses provider adapters so models and APIs can change without rewriting the production workflow.
+AI AssemblyLine uses provider adapters so models and APIs can change without rewriting the production workflow. For async provider integration (polling, webhooks), see [job-queue-design.md](job-queue-design.md). For prompt composition and provider translation, see [prompt-engine.md](prompt-engine.md).
 
 ## Provider principles
 
@@ -42,6 +42,100 @@ Used for text-to-video, image-to-video, storyboard-to-video, clip extension, and
 
 Not required for MVP lip sync, but the provider layer should allow future voice, music, sound effects, and dialogue timing integrations.
 
+## Adapter interface contracts
+
+Every adapter implements a category-specific interface. The interfaces below are in pseudocode TypeScript.
+
+### Text adapter
+
+```typescript
+interface TextAdapter {
+  slug: string;
+  analyzeScript(prompt: string, options: TextOptions): Promise<TextResult>;
+  generateStructuredOutput(prompt: string, schema: JSONSchema, options: TextOptions): Promise<TextResult>;
+  getCapabilities(): TextCapabilities;
+}
+
+interface TextOptions {
+  modelId: string;
+  maxTokens?: number;
+  temperature?: number;
+  responseFormat?: 'json' | 'text';
+}
+
+interface TextResult {
+  content: string;
+  usage: { inputTokens: number; outputTokens: number };
+  modelId: string;
+  providerJobId?: string;
+}
+```
+
+### Image adapter
+
+```typescript
+interface ImageAdapter {
+  slug: string;
+  generateImage(prompt: ComposedPrompt, options: ImageOptions): Promise<ImageResult>;
+  editImage?(baseImage: Buffer, prompt: ComposedPrompt, options: ImageOptions): Promise<ImageResult>;
+  getCapabilities(): ImageCapabilities;
+}
+
+interface ImageOptions {
+  modelId: string;
+  width: number;
+  height: number;
+  count?: number;
+  seed?: number;
+  qualityMode?: string;
+  referenceImages?: ReferenceAttachment[];
+}
+
+interface ImageResult {
+  images: { data: Buffer; mimeType: string }[];
+  usage?: { units: number };
+  modelId: string;
+  providerJobId?: string;
+  isAsync: boolean;
+}
+```
+
+### Video adapter
+
+```typescript
+interface VideoAdapter {
+  slug: string;
+  generateVideo(prompt: ComposedPrompt, options: VideoOptions): Promise<VideoResult>;
+  checkJobStatus?(providerJobId: string): Promise<AsyncJobStatus>;
+  getCapabilities(): VideoCapabilities;
+}
+
+interface VideoOptions {
+  modelId: string;
+  width: number;
+  height: number;
+  durationSeconds: number;
+  seed?: number;
+  startImage?: Buffer;
+  endImage?: Buffer;
+}
+
+interface VideoResult {
+  video?: { data: Buffer; mimeType: string };
+  providerJobId?: string;
+  isAsync: boolean;
+}
+
+interface AsyncJobStatus {
+  status: 'pending' | 'processing' | 'complete' | 'failed';
+  progress?: number;
+  resultUrl?: string;
+  error?: string;
+}
+```
+
+All adapters must handle provider-specific authentication internally using the decrypted API key passed at construction time. Adapters must never store or log API keys.
+
 ## Capability matrix fields
 
 Each provider/model entry should track:
@@ -61,16 +155,28 @@ Each provider/model entry should track:
 - supports 1080p or higher
 - maximum image count
 - maximum video duration
+- maximum prompt length (tokens or characters)
 - aspect ratios
 - average latency
 - requires asynchronous polling
 - supports webhooks
+- rate limit (requests per minute)
 - safety restrictions
 - cost notes entered by the user or admin
 
+### Capability matrix maintenance
+
+The capability matrix is **hard-coded per adapter** as a default and **user-editable per workspace**. This hybrid approach handles the reality that providers change models frequently:
+
+- Each adapter ships with a built-in capability snapshot for its supported models.
+- Workspace admins can override fields (e.g. adding a new model ID, adjusting rate limits) through the provider settings UI.
+- When the app updates, new adapter versions may include updated default capabilities. User overrides are preserved and take precedence.
+
 ## API key handling
 
-Users should add provider API keys through project or workspace settings. Keys should be encrypted at rest and never exposed in generation logs, prompts, exports, or client-side code.
+Users should add provider API keys through workspace settings. Keys are encrypted at rest using AES-256-GCM. See [deployment-and-config.md](deployment-and-config.md) for the encryption scheme, key rotation, and security rules.
+
+Keys are never exposed in generation logs, prompts, exports, or client-side code.
 
 ## Model selector behavior
 
@@ -87,3 +193,17 @@ For every generation job, users should be able to see and choose:
 - provider-specific options
 
 The app may recommend models, but final selection should remain transparent and user-controlled.
+
+## Error classification
+
+Provider errors are classified into categories that determine retry behavior (see [job-queue-design.md](job-queue-design.md) for retry policy):
+
+| Error class | Examples | User message |
+|------------|----------|--------------|
+| `retriable` | Network timeout, 500/502/503 from provider, connection reset | "Generation failed due to a temporary error. Retrying automatically." |
+| `rate_limit` | HTTP 429, provider-specific rate limit response | "Provider rate limit reached. The job will retry after a delay." |
+| `content_policy` | Provider rejects the prompt for safety reasons | "The provider rejected this generation due to content policy. Review your prompt and asset descriptions, then try again." |
+| `timeout` | Async job exceeded max poll duration | "The provider did not complete this job within the expected time. You can retry or try a different provider." |
+| `fatal` | Invalid API key (401/403), malformed request (400), unsupported operation | "Generation failed: [specific reason]. Check your provider settings." |
+
+Adapters are responsible for mapping provider-specific HTTP status codes and error responses to the correct error class.
