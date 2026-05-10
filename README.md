@@ -29,6 +29,7 @@ The app is designed for both single creators and production teams. It will analy
 - [Script analysis pipeline](docs/script-analysis.md) — multi-pass LLM pipeline, chunking, validation, and user correction.
 - [Prompt engine](docs/prompt-engine.md) — prompt composition, conflict resolution, token budget, and provider translation.
 - [Provider and model strategy](docs/provider-strategy.md) — adapter interfaces, capability matrix, error classification.
+- [Provider OAuth notes](docs/provider-oauth-notes.md) — feasibility notes for ChatGPT/OpenAI and Google AI/Gemini OAuth-style access.
 - [Job queue design](docs/job-queue-design.md) — BullMQ topology, retry policy, async polling, SSE event publishing.
 - [Media processing](docs/media-processing.md) — FFmpeg integration, thumbnails, format conversion, clip assembly.
 - [Data, collaboration, and export](docs/data-and-collaboration.md) — data objects, team roles, storage, export/import, script revisions.
