@@ -40,6 +40,14 @@ const prismaMock = vi.hoisted(() => ({
   jobEvent: {
     create: vi.fn(),
   },
+  script: {
+    create: vi.fn(),
+    findFirst: vi.fn(),
+  },
+  scriptVersion: {
+    create: vi.fn(),
+    updateMany: vi.fn(),
+  },
 }));
 
 vi.mock("@/server/prisma", () => ({ prisma: prismaMock }));
@@ -238,5 +246,48 @@ describe("Prisma repository mode", () => {
         outputPayload: { scenes: 1, shots: 1, assets: 2 },
       }),
     });
+  });
+
+  it("persists uploaded script versions through Prisma while mirroring the local graph", async () => {
+    prismaMock.script.findFirst.mockResolvedValue(undefined);
+    prismaMock.script.create.mockImplementation(async ({ data }) => ({
+      ...data,
+      createdAt: timestamp,
+    }));
+    prismaMock.scriptVersion.updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.scriptVersion.create.mockImplementation(async ({ data }) => ({
+      ...data,
+      createdAt: timestamp,
+    }));
+
+    const repository = await import("@/server/repository");
+    const created = await repository.createScriptVersionForProject({
+      projectId: "33333333-3333-4333-8333-333333333333",
+      filename: "pilot.txt",
+      filePath: "storage/projects/project/uploads/v1-pilot.txt",
+      rawText: "INT. ROOM - DAY\nANNA\nAnna waits.",
+    });
+
+    expect(prismaMock.script.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: created.script.id,
+        projectId: created.script.projectId,
+        filename: "pilot.txt",
+      }),
+    });
+    expect(prismaMock.scriptVersion.updateMany).toHaveBeenCalledWith({
+      where: { scriptId: created.script.id },
+      data: { isActive: false },
+    });
+    expect(prismaMock.scriptVersion.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: created.version.id,
+        scriptId: created.script.id,
+        versionNumber: 1,
+        analysisStatus: "pending",
+        isActive: true,
+      }),
+    });
+    expect(repository.getScriptAnalysisGraph(created.script.projectId).activeVersion?.id).toBe(created.version.id);
   });
 });

@@ -6,6 +6,7 @@ import {
   addJobEvent,
   createGenerationJob,
   completeGenerationJob,
+  createScriptVersionForProject,
   getProject,
   getScriptAnalysisGraph,
   getStore,
@@ -67,23 +68,21 @@ export async function uploadScriptForProject(input: {
 
   const store = getStore();
   const timestamp = nowIso();
-  const script =
-    store.scripts.find((candidate) => candidate.projectId === input.projectId) ??
-    {
-      id: createId(),
-      projectId: input.projectId,
-      filename: input.filename,
-      createdAt: timestamp,
-    };
-  if (!store.scripts.some((candidate) => candidate.id === script.id)) {
-    store.scripts.push(script);
-  }
+  const uploadDir = projectFolderPath(input.projectId, "uploads");
+  await mkdir(uploadDir, { recursive: true });
+  const safeName = input.filename.replace(/[^a-z0-9._-]/gi, "_") || "script.txt";
+  const versionNumber = store.scriptVersions.filter((version) =>
+    store.scripts.some((script) => script.projectId === input.projectId && script.id === version.scriptId),
+  ).length + 1;
+  const filePath = path.join(uploadDir, `v${versionNumber}-${safeName}`);
+  await writeFile(filePath, text, "utf8");
 
-  const existingVersions = store.scriptVersions.filter((version) => version.scriptId === script.id);
-  existingVersions.forEach((version) => {
-    version.isActive = false;
+  const { version, previousVersionIds } = await createScriptVersionForProject({
+    projectId: input.projectId,
+    filename: input.filename,
+    filePath,
+    rawText: text,
   });
-  const previousVersionIds = new Set(existingVersions.map((version) => version.id));
   const previousSceneIds = new Set(
     store.scenes
       .filter((scene) => previousVersionIds.has(scene.scriptVersionId))
@@ -99,25 +98,6 @@ export async function uploadScriptForProject(input: {
       shot.status = "superseded";
       shot.updatedAt = timestamp;
     });
-
-  const versionNumber = existingVersions.length + 1;
-  const uploadDir = projectFolderPath(input.projectId, "uploads");
-  await mkdir(uploadDir, { recursive: true });
-  const safeName = input.filename.replace(/[^a-z0-9._-]/gi, "_") || "script.txt";
-  const filePath = path.join(uploadDir, `v${versionNumber}-${safeName}`);
-  await writeFile(filePath, text, "utf8");
-
-  const version = {
-    id: createId(),
-    scriptId: script.id,
-    versionNumber,
-    filePath,
-    rawText: text,
-    analysisStatus: "pending" as const,
-    isActive: true,
-    createdAt: timestamp,
-  };
-  store.scriptVersions.push(version);
   const job = createScriptAnalysisJob(input.projectId, version.id);
   if (isRedisQueueEnabled()) {
     return getScriptAnalysisGraph(input.projectId);

@@ -290,6 +290,42 @@ function mapJobEvent(event: {
   };
 }
 
+function mapScript(script: {
+  id: string;
+  projectId: string;
+  filename: string;
+  createdAt: Date | string;
+}): Script {
+  return {
+    id: script.id,
+    projectId: script.projectId,
+    filename: script.filename,
+    createdAt: iso(script.createdAt),
+  };
+}
+
+function mapScriptVersion(version: {
+  id: string;
+  scriptId: string;
+  versionNumber: number;
+  filePath: string;
+  rawText: string;
+  analysisStatus: ScriptVersion["analysisStatus"];
+  isActive: boolean;
+  createdAt: Date | string;
+}): ScriptVersion {
+  return {
+    id: version.id,
+    scriptId: version.scriptId,
+    versionNumber: version.versionNumber,
+    filePath: version.filePath,
+    rawText: version.rawText,
+    analysisStatus: version.analysisStatus,
+    isActive: version.isActive,
+    createdAt: iso(version.createdAt),
+  };
+}
+
 function mapProviderKey(key: {
   id: string;
   workspaceId: string;
@@ -724,6 +760,81 @@ export function getScriptAnalysisGraph(projectId: string): ScriptAnalysisGraph {
     jobs: store.generationJobs.filter((job) => job.projectId === projectId),
     events: store.jobEvents.filter((event) => event.projectId === projectId),
   };
+}
+
+export async function createScriptVersionForProject(input: {
+  projectId: string;
+  filename: string;
+  filePath: string;
+  rawText: string;
+}) {
+  const store = getStore();
+  const timestamp = nowIso();
+  let script = store.scripts.find((candidate) => candidate.projectId === input.projectId);
+
+  if (isPrismaRepositoryEnabled()) {
+    const prismaScript =
+      (await prisma.script.findFirst({ where: { projectId: input.projectId }, orderBy: { createdAt: "asc" } })) ??
+      (await prisma.script.create({
+        data: {
+          id: script?.id ?? createId(),
+          projectId: input.projectId,
+          filename: input.filename,
+        },
+      }));
+    script = mapScript(prismaScript);
+  }
+
+  script ??= {
+    id: createId(),
+    projectId: input.projectId,
+    filename: input.filename,
+    createdAt: timestamp,
+  };
+  if (!store.scripts.some((candidate) => candidate.id === script.id)) {
+    store.scripts.push(script);
+  }
+
+  const existingVersions = store.scriptVersions.filter((version) => version.scriptId === script.id);
+  existingVersions.forEach((version) => {
+    version.isActive = false;
+  });
+  if (isPrismaRepositoryEnabled()) {
+    await prisma.scriptVersion.updateMany({
+      where: { scriptId: script.id },
+      data: { isActive: false },
+    });
+  }
+
+  const versionNumber = existingVersions.length + 1;
+  let version: ScriptVersion = {
+    id: createId(),
+    scriptId: script.id,
+    versionNumber,
+    filePath: input.filePath,
+    rawText: input.rawText,
+    analysisStatus: "pending",
+    isActive: true,
+    createdAt: timestamp,
+  };
+  if (isPrismaRepositoryEnabled()) {
+    version = mapScriptVersion(
+      await prisma.scriptVersion.create({
+        data: {
+          id: version.id,
+          scriptId: script.id,
+          versionNumber,
+          filePath: input.filePath,
+          rawText: input.rawText,
+          analysisStatus: "pending",
+          isActive: true,
+        },
+      }),
+    );
+  }
+  store.scriptVersions.push(version);
+
+  return { script, version, previousVersionIds: new Set(existingVersions.map((existing) => existing.id)) };
 }
 
 export async function updateProject(

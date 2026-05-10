@@ -10,8 +10,8 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 | Requirement | Evidence | Status |
 |-------------|----------|--------|
-| Prisma-backed repository layer | Auth sessions, workspace/project ownership, project CRUD/dashboard reads, provider-key storage, generation job creation/completion, and job-event writes now use Prisma when `REPOSITORY_MODE=prisma` or `NODE_ENV=production`. `repository.prisma.test.ts` forces Prisma mode with a mocked Prisma client, and `prisma validate` passes with a local Postgres URL. | Partially complete |
-| Remove in-memory app state from runtime | `getStore()` is still used by script analysis graph data, asset bible, storyboard, video, collaboration, export/import, and graph-heavy repository functions. The foundational repository entry points and job/event records are Prisma-aware, but generated project graph data is not fully persisted through Prisma yet. | Not complete |
+| Prisma-backed repository layer | Auth sessions, workspace/project ownership, project CRUD/dashboard reads, provider-key storage, script upload/version metadata, generation job creation/completion, and job-event writes now use Prisma when `REPOSITORY_MODE=prisma` or `NODE_ENV=production`. `repository.prisma.test.ts` forces Prisma mode with a mocked Prisma client, and `prisma validate` passes with a local Postgres URL. | Partially complete |
+| Remove in-memory app state from runtime | `getStore()` is still used by generated script analysis graph data, asset bible, storyboard, video, collaboration, export/import, and graph-heavy repository functions. Foundational repository entry points, script upload/version metadata, and job/event records are Prisma-aware, but generated scene/shot/asset graph data is not fully persisted through Prisma yet. | Not complete |
 | BullMQ + Redis queues | `submitGenerationJob` submits to BullMQ when Redis mode is enabled; script upload/re-analysis now returns pending state in Redis mode and `npm run worker` starts an analysis worker that processes `script_analysis` jobs. Health checks report Redis-backed queue counts; tests avoid Redis sockets in test mode. | Partially complete |
 | Redis-backed SSE | `emitProjectEvent` publishes to Redis and the SSE subscription listens on a Redis project channel when Redis mode is enabled. Local runtime verification is blocked until Redis is available. | Partially complete |
 | Real OpenAI calls | OpenAI adapter no longer throws for live keys. It calls `/v1/responses` for text/structured output and `/v1/images/generations` for images. Mocked HTTP tests cover payload and error-class mapping. | Partially complete |
@@ -25,7 +25,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
-- `npm test`: passing, 14 files and 36 tests.
+- `npm test`: passing, 14 files and 37 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
