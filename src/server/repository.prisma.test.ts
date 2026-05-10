@@ -779,4 +779,40 @@ describe("Prisma repository mode", () => {
       }),
     });
   });
+
+  it("replays project events from Prisma after the last event id", async () => {
+    const repository = await import("@/server/repository");
+    const firstEvent = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      jobId: "99999999-9999-4999-8999-999999999999",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      eventType: "status_change",
+      message: "Job queued.",
+      progressPct: 0,
+      createdAt: timestamp,
+    };
+    const secondEvent = {
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      jobId: firstEvent.jobId,
+      projectId: firstEvent.projectId,
+      eventType: "progress",
+      message: "Analysis running.",
+      progressPct: 50,
+      createdAt: new Date(timestamp.getTime() + 1000),
+    };
+
+    prismaMock.jobEvent.findMany.mockResolvedValue([firstEvent, secondEvent]);
+
+    await expect(repository.listProjectEvents(firstEvent.projectId, firstEvent.id)).resolves.toEqual([
+      expect.objectContaining({
+        id: secondEvent.id,
+        message: "Analysis running.",
+        progressPct: 50,
+      }),
+    ]);
+    expect(prismaMock.jobEvent.findMany).toHaveBeenCalledWith({
+      where: { projectId: firstEvent.projectId },
+      orderBy: { createdAt: "asc" },
+    });
+  });
 });

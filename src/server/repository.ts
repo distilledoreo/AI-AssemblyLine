@@ -1919,7 +1919,17 @@ export function addJobEvent(input: Omit<JobEvent, "id" | "createdAt">) {
   return event;
 }
 
-export function listProjectEvents(projectId: string, afterEventId?: string) {
+export async function listProjectEvents(projectId: string, afterEventId?: string) {
+  if (isPrismaRepositoryEnabled()) {
+    const events = (await prisma.jobEvent.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } })).map(
+      mapJobEvent,
+    );
+    if (!afterEventId) {
+      return events;
+    }
+    const index = events.findIndex((event) => event.id === afterEventId);
+    return index === -1 ? events : events.slice(index + 1);
+  }
   const events = getStore().jobEvents.filter((event) => event.projectId === projectId);
   if (!afterEventId) {
     return events;

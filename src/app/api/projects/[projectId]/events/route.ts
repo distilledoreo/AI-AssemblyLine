@@ -18,9 +18,9 @@ export async function GET(request: Request, context: { params: Promise<{ project
     const lastEventId = request.headers.get("last-event-id") ?? undefined;
 
     const stream = new ReadableStream({
-      start(controller) {
+      async start(controller) {
         const send = (payload: string) => controller.enqueue(encoder.encode(payload));
-        listProjectEvents(projectId, lastEventId).forEach((event) => send(formatSseEvent(event)));
+        (await listProjectEvents(projectId, lastEventId)).forEach((event) => send(formatSseEvent(event)));
         send(`event: connected\ndata: ${JSON.stringify({ projectId })}\n\n`);
 
         const unsubscribe = subscribeToProjectEvents(projectId, (event) => send(formatSseEvent(event)));
