@@ -39,6 +39,7 @@ const prismaMock = vi.hoisted(() => ({
   },
   generationJob: {
     create: vi.fn(),
+    findUnique: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
   },
@@ -364,6 +365,54 @@ describe("Prisma repository mode", () => {
       data: expect.objectContaining({
         status: "complete",
         outputPayload: { scenes: 1, shots: 1, assets: 2 },
+      }),
+    });
+  });
+
+  it("updates worker job lifecycle from Prisma when the local store is empty", async () => {
+    const job = {
+      id: "99999999-9999-4999-8999-999999999999",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      type: "export",
+      providerSlug: null,
+      modelId: null,
+      status: "running",
+      inputPayload: { projectId: "33333333-3333-4333-8333-333333333333" },
+      outputPayload: null,
+      errorMessage: null,
+      errorClass: null,
+      retryCount: 0,
+      providerJobId: null,
+      createdAt: timestamp,
+      startedAt: timestamp,
+      completedAt: null,
+    };
+    prismaMock.generationJob.findUnique.mockResolvedValue(job);
+    prismaMock.generationJob.update.mockResolvedValue(job);
+
+    const repository = await import("@/server/repository");
+    repository.resetStoreForTests();
+
+    await expect(repository.markGenerationJobRunning(job.id)).resolves.toMatchObject({
+      id: job.id,
+      status: "running",
+    });
+    expect(repository.completeGenerationJob(job.id, {
+      status: "complete",
+      outputPayload: { manifestPath: "storage/projects/project/export.json" },
+    })).toBeUndefined();
+
+    await vi.waitFor(() => expect(prismaMock.generationJob.update).toHaveBeenCalledTimes(2));
+    expect(prismaMock.generationJob.update).toHaveBeenNthCalledWith(1, {
+      where: { id: job.id },
+      data: expect.objectContaining({ status: "running", startedAt: expect.any(Date) }),
+    });
+    expect(prismaMock.generationJob.update).toHaveBeenNthCalledWith(2, {
+      where: { id: job.id },
+      data: expect.objectContaining({
+        status: "complete",
+        outputPayload: { manifestPath: "storage/projects/project/export.json" },
+        completedAt: expect.any(Date),
       }),
     });
   });

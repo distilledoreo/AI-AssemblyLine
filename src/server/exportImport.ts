@@ -14,6 +14,7 @@ import {
   getScriptAnalysisGraph,
   getScriptAnalysisGraphForProject,
   getStore,
+  markGenerationJobRunning,
   persistImportedProjectGraph,
 } from "@/server/repository";
 import { isRedisQueueEnabled } from "@/server/queue";
@@ -94,14 +95,13 @@ export async function processExportProjectBundleJob(input: { projectId: string; 
   if (!project) {
     throw new AppError("Project not found.", 404, "not_found");
   }
-  const job = getStore().generationJobs.find((candidate) => candidate.id === input.jobId);
+  const job = await markGenerationJobRunning(input.jobId);
   if (!job) {
     throw new AppError("Export job not found.", 404, "not_found");
   }
   await ensureProjectStorage(input.projectId);
   const dashboard = await getProjectDashboard(input.projectId);
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
-  Object.assign(job, { status: "running", startedAt: nowIso() });
   addJobEvent({ jobId: job.id, projectId: input.projectId, eventType: "status_change", message: "Export started.", progressPct: 10 });
 
   const media = await copyMediaFiles(input.projectId, graph);
@@ -183,7 +183,7 @@ export async function processImportProjectBundleJob(input: { userId: string; man
   });
   const store = getStore();
   const job = input.jobId
-    ? store.generationJobs.find((candidate) => candidate.id === input.jobId)
+    ? await markGenerationJobRunning(input.jobId)
     : createGenerationJob({
         projectId: project.id,
         type: "import",
@@ -192,7 +192,9 @@ export async function processImportProjectBundleJob(input: { userId: string; man
   if (!job) {
     throw new AppError("Import job not found.", 404, "not_found");
   }
-  Object.assign(job, { status: "running", startedAt: nowIso() });
+  if (!input.jobId) {
+    Object.assign(job, { status: "running", startedAt: nowIso() });
+  }
   addJobEvent({ jobId: job.id, projectId: job.projectId, eventType: "status_change", message: "Import started.", progressPct: 10 });
 
   const scriptMap = createMap(manifest.graph.scripts);

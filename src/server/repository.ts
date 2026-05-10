@@ -2571,7 +2571,19 @@ export function completeGenerationJob(
 ) {
   const job = getStore().generationJobs.find((candidate) => candidate.id === jobId);
   if (!job) {
-    throw new NotFoundError("Generation job not found.");
+    if (!isPrismaRepositoryEnabled()) {
+      throw new NotFoundError("Generation job not found.");
+    }
+    void prisma.generationJob.update({
+      where: { id: jobId },
+      data: {
+        status: input.status,
+        outputPayload: toPrismaJson(input.outputPayload),
+        errorMessage: input.errorMessage,
+        completedAt: new Date(),
+      },
+    }).catch(() => undefined);
+    return undefined;
   }
   Object.assign(job, {
     status: input.status,
@@ -2591,6 +2603,36 @@ export function completeGenerationJob(
     }).catch(() => undefined);
   }
   return job;
+}
+
+export async function getGenerationJob(jobId: string) {
+  const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
+  if (local) {
+    return local;
+  }
+  if (!isPrismaRepositoryEnabled()) {
+    return undefined;
+  }
+  const job = await prisma.generationJob.findUnique({ where: { id: jobId } }).catch(() => undefined);
+  return job ? mapJob(job) : undefined;
+}
+
+export async function markGenerationJobRunning(jobId: string) {
+  const startedAt = nowIso();
+  const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
+  if (local) {
+    Object.assign(local, { status: "running" as const, startedAt });
+  }
+  if (isPrismaRepositoryEnabled()) {
+    await prisma.generationJob.update({
+      where: { id: jobId },
+      data: { status: "running", startedAt: new Date(startedAt) },
+    }).catch(() => undefined);
+  }
+  if (!local && !isPrismaRepositoryEnabled()) {
+    throw new NotFoundError("Generation job not found.");
+  }
+  return local ?? getGenerationJob(jobId);
 }
 
 export async function saveProviderKey(
