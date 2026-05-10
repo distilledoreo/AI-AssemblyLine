@@ -4,7 +4,10 @@ import { OpenAIAdapter } from "@/providers/openai";
 import { StabilityAdapter } from "@/providers/stability";
 import { AppError, NotFoundError } from "@/server/errors";
 import {
+  addJobEvent,
+  completeGenerationJob,
   createGenerationJob,
+  getScriptAnalysisGraph,
   getStore,
   persistAssetMergeState,
   persistCreatedAssetState,
@@ -14,6 +17,7 @@ import {
   persistProjectStyleState,
   refreshPrismaReadiness,
 } from "@/server/repository";
+import { isRedisQueueEnabled } from "@/server/queue";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
 import { markFramesStaleForAsset } from "@/server/storyboard";
@@ -130,7 +134,43 @@ export async function generateAssetReference(input: {
     type: "asset_reference",
     providerSlug: adapter.slug,
     modelId: input.providerSlug === "stability" ? "stable-image-core" : "gpt-image-1",
-    inputPayload: { assetId: asset.id, assetName: asset.canonicalName, assetType: asset.type },
+    inputPayload: { projectId: input.projectId, assetId: asset.id, providerSlug: input.providerSlug },
+  });
+  if (isRedisQueueEnabled()) {
+    return { job, graph: getScriptAnalysisGraph(input.projectId) };
+  }
+  return processAssetReferenceJob({
+    projectId: input.projectId,
+    assetId: asset.id,
+    providerSlug: input.providerSlug,
+    jobId: job.id,
+  });
+}
+
+export async function processAssetReferenceJob(input: {
+  projectId: string;
+  assetId: string;
+  providerSlug: "openai" | "stability";
+  jobId: string;
+}) {
+  const store = getStore();
+  const asset = store.assets.find((candidate) => candidate.id === input.assetId && candidate.projectId === input.projectId);
+  if (!asset) {
+    throw new NotFoundError("Asset not found.");
+  }
+  const job = store.generationJobs.find((candidate) => candidate.id === input.jobId);
+  if (!job) {
+    throw new NotFoundError("Generation job not found.");
+  }
+  const adapter = input.providerSlug === "stability" ? new StabilityAdapter() : new OpenAIAdapter("mock");
+  job.status = "running";
+  job.startedAt = nowIso();
+  addJobEvent({
+    jobId: job.id,
+    projectId: input.projectId,
+    eventType: "status_change",
+    message: "Asset reference generation started.",
+    progressPct: 10,
   });
   const result = await adapter.generateImage(
     {
@@ -164,9 +204,14 @@ export async function generateAssetReference(input: {
   asset.updatedAt = nowIso();
   await persistAssetState(asset);
   await persistAssetVersionAndReference({ version, reference });
-  job.status = "complete";
-  job.outputPayload = { assetVersionId: version.id, referenceId: reference.id };
-  job.completedAt = nowIso();
+  completeGenerationJob(job.id, { status: "complete", outputPayload: { assetVersionId: version.id, referenceId: reference.id } });
+  addJobEvent({
+    jobId: job.id,
+    projectId: input.projectId,
+    eventType: "status_change",
+    message: "Asset reference generation complete.",
+    progressPct: 100,
+  });
   return { version, reference, job };
 }
 

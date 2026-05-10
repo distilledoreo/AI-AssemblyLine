@@ -145,7 +145,7 @@ Workers run as separate Node.js processes alongside the Next.js app. Start them 
 npm run worker
 ```
 
-With `QUEUE_MODE=inline`, script analysis runs synchronously and no Redis sockets are opened. With `QUEUE_MODE=redis` or production defaults, script upload and re-analysis create `script_analysis` jobs on the `assemblyline-analysis` BullMQ queue; the worker process consumes those jobs and writes progress events.
+With `QUEUE_MODE=inline`, script analysis and asset reference generation run synchronously and no Redis sockets are opened. With `QUEUE_MODE=redis` or production defaults, script upload and re-analysis create `script_analysis` jobs on the `assemblyline-analysis` BullMQ queue, while Asset Bible reference generation creates `asset_reference` jobs on the `assemblyline-image` queue. The worker process consumes those jobs and writes progress events.
 
 Current implementation status: `script_analysis` has an executable BullMQ worker. Image, video, media, project export/import, and provider polling jobs are still represented in the topology and retry policy, but their worker processors are not complete yet.
 
