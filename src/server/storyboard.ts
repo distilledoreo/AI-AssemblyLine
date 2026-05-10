@@ -95,6 +95,12 @@ export function updateFrameVersion(input: {
       .filter((candidate) => candidate.frameId === version.frameId && candidate.status === "approved")
       .forEach((candidate) => {
         candidate.status = "superseded";
+        store.clipVersions
+          .filter((clipVersion) => clipVersion.sourceFrameVersionIds.includes(candidate.id))
+          .forEach((clipVersion) => {
+            clipVersion.status = "stale";
+            clipVersion.isStale = true;
+          });
       });
   }
   Object.assign(version, { status: input.status ?? version.status, annotations: input.annotations ?? version.annotations });

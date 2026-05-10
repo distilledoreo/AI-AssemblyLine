@@ -31,6 +31,8 @@ import type {
   ScriptAnalysisGraph,
   ScriptVersion,
   StoryboardFrame,
+  VideoClip,
+  ClipVersion,
   User,
   Workspace,
   WorkspaceMember,
@@ -61,6 +63,8 @@ type StoreState = {
   storyboardFrames: StoryboardFrame[];
   frameVersions: FrameVersion[];
   reviewNotes: ReviewNote[];
+  videoClips: VideoClip[];
+  clipVersions: ClipVersion[];
   sceneAssetRequirements: SceneAssetRequirement[];
   shotAssetRequirements: ShotAssetRequirement[];
 };
@@ -92,6 +96,8 @@ function createInitialState(): StoreState {
     storyboardFrames: [],
     frameVersions: [],
     reviewNotes: [],
+    videoClips: [],
+    clipVersions: [],
     sceneAssetRequirements: [],
     shotAssetRequirements: [],
   };
@@ -358,6 +364,10 @@ export function getScriptAnalysisGraph(projectId: string): ScriptAnalysisGraph {
       store.storyboardFrames.some((frame) => shotIds.has(frame.shotId) && frame.id === version.frameId),
     ),
     reviewNotes: store.reviewNotes.filter((note) => note.projectId === projectId),
+    videoClips: store.videoClips.filter((clip) => clip.shotId ? shotIds.has(clip.shotId) : clip.sceneId ? sceneIds.has(clip.sceneId) : false),
+    clipVersions: store.clipVersions.filter((version) =>
+      store.videoClips.some((clip) => (clip.shotId ? shotIds.has(clip.shotId) : clip.sceneId ? sceneIds.has(clip.sceneId) : false) && clip.id === version.clipId),
+    ),
     sceneAssetRequirements: store.sceneAssetRequirements.filter((requirement) =>
       sceneIds.has(requirement.sceneId),
     ),
@@ -417,6 +427,13 @@ export function deleteProject(projectId: string) {
   store.frameVersions = store.frameVersions.filter((version) => !frameIds.has(version.frameId));
   store.storyboardFrames = store.storyboardFrames.filter((frame) => !shotIds.has(frame.shotId));
   store.reviewNotes = store.reviewNotes.filter((note) => note.projectId !== projectId);
+  const clipIds = new Set(
+    store.videoClips
+      .filter((clip) => (clip.shotId ? shotIds.has(clip.shotId) : clip.sceneId ? sceneIds.has(clip.sceneId) : false))
+      .map((clip) => clip.id),
+  );
+  store.clipVersions = store.clipVersions.filter((version) => !clipIds.has(version.clipId));
+  store.videoClips = store.videoClips.filter((clip) => !clipIds.has(clip.id));
   if (store.projects.length === before) {
     throw new NotFoundError("Project not found.");
   }

@@ -48,6 +48,7 @@ export type AssetReferenceType =
   | "detail"
   | "other";
 export type FrameVersionStatus = "draft" | "needs_review" | "approved" | "rejected" | "superseded" | "stale";
+export type ClipVersionStatus = "draft" | "needs_review" | "approved" | "rejected" | "superseded" | "stale";
 
 export type User = {
   id: string;
@@ -303,10 +304,35 @@ export type ScriptAnalysisGraph = {
   storyboardFrames: StoryboardFrame[];
   frameVersions: FrameVersion[];
   reviewNotes: ReviewNote[];
+  videoClips: VideoClip[];
+  clipVersions: ClipVersion[];
   sceneAssetRequirements: SceneAssetRequirement[];
   shotAssetRequirements: ShotAssetRequirement[];
   jobs: GenerationJob[];
   events: JobEvent[];
+};
+
+export type VideoClip = {
+  id: string;
+  shotId?: string;
+  sceneId?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ClipVersion = {
+  id: string;
+  clipId: string;
+  versionNumber: number;
+  prompt: string;
+  filePath: string;
+  thumbnailPath?: string;
+  durationMs: number;
+  status: ClipVersionStatus;
+  isStale: boolean;
+  sourceFrameVersionIds: string[];
+  generationJobId?: string;
+  createdAt: string;
 };
 
 export type StoryboardFrame = {

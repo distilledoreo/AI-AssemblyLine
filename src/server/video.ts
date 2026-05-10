@@ -1,0 +1,126 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { KlingAdapter, RunwayAdapter } from "@/providers/videoProviders";
+import { AppError, NotFoundError } from "@/server/errors";
+import { createGenerationJob, getScriptAnalysisGraph, getStore } from "@/server/repository";
+import { inspectClip } from "@/server/media";
+import { createId, nowIso } from "@/server/ids";
+import { projectFolderPath } from "@/server/storage";
+import type { ClipVersion, VideoClip } from "@/server/types";
+
+export async function generateVideoClip(input: {
+  projectId: string;
+  mode: "shot" | "scene";
+  shotId?: string;
+  sceneId?: string;
+  providerSlug?: "runway" | "kling";
+}) {
+  const graph = getScriptAnalysisGraph(input.projectId);
+  const store = getStore();
+  const frameVersions =
+    input.mode === "shot"
+      ? approvedFrameVersionsForShot(graph, input.shotId)
+      : approvedFrameVersionsForScene(graph, input.sceneId);
+  if (frameVersions.length === 0) {
+    throw new AppError("Video generation requires approved storyboard frames.", 409, "missing_approved_frames");
+  }
+  const adapter = input.providerSlug === "kling" ? new KlingAdapter() : new RunwayAdapter();
+  const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
+  const job = createGenerationJob({
+    projectId: input.projectId,
+    type: "video_clip",
+    providerSlug: adapter.slug,
+    modelId: adapter.getCapabilities().models[0],
+    inputPayload: {
+      prompt,
+      mode: input.mode,
+      sourceFrameVersionIds: frameVersions.map((version) => version.id),
+      polling: { intervalSeconds: 15, maxAttempts: 120 },
+    },
+  });
+  job.status = "polling";
+  const result = await adapter.generateVideo(
+    {
+      positivePrompt: prompt,
+      negativePrompt: "continuity breaks, off-model assets, flicker",
+      referenceImages: [],
+      generationSettings: { width: 1024, height: 576, duration: input.mode === "scene" ? frameVersions.length * 3 : 3 },
+      metadata: { sourceIds: frameVersions.map((version) => version.id), conflictWarnings: [], truncationWarnings: [] },
+    },
+    { modelId: job.modelId ?? "video-model", width: 1024, height: 576, durationSeconds: 3 },
+  );
+  let clip = store.videoClips.find((candidate) =>
+    input.mode === "shot" ? candidate.shotId === input.shotId : candidate.sceneId === input.sceneId,
+  );
+  const timestamp = nowIso();
+  if (!clip) {
+    clip = { id: createId(), shotId: input.shotId, sceneId: input.sceneId, createdAt: timestamp, updatedAt: timestamp };
+    store.videoClips.push(clip);
+  }
+  const dir = path.join(projectFolderPath(input.projectId, "videos"), clip.id);
+  await mkdir(dir, { recursive: true });
+  const versionNumber = store.clipVersions.filter((version) => version.clipId === clip.id).length + 1;
+  const filePath = path.join(dir, `clip-v${versionNumber}.mp4`);
+  await writeFile(filePath, result.video?.data ?? Buffer.from("mock-video"));
+  const info = await inspectClip(filePath);
+  const version: ClipVersion = {
+    id: createId(),
+    clipId: clip.id,
+    versionNumber,
+    prompt,
+    filePath,
+    thumbnailPath: filePath,
+    durationMs: info.durationMs,
+    status: "draft",
+    isStale: false,
+    sourceFrameVersionIds: frameVersions.map((frame) => frame.id),
+    generationJobId: job.id,
+    createdAt: timestamp,
+  };
+  store.clipVersions.push(version);
+  job.status = "complete";
+  job.outputPayload = { clipId: clip.id, clipVersionId: version.id, media: info };
+  job.completedAt = nowIso();
+  return getScriptAnalysisGraph(input.projectId);
+}
+
+export function updateClipVersion(input: { projectId: string; clipVersionId: string; status: ClipVersion["status"] }) {
+  const store = getStore();
+  const version = store.clipVersions.find((candidate) => candidate.id === input.clipVersionId);
+  if (!version) throw new NotFoundError("Clip version not found.");
+  if (input.status === "approved") {
+    store.clipVersions
+      .filter((candidate) => candidate.clipId === version.clipId && candidate.status === "approved")
+      .forEach((candidate) => {
+        candidate.status = "superseded";
+      });
+  }
+  version.status = input.status;
+  return getScriptAnalysisGraph(input.projectId);
+}
+
+function approvedFrameVersionsForShot(graph: ReturnType<typeof getScriptAnalysisGraph>, shotId?: string) {
+  const frameIds = new Set(graph.storyboardFrames.filter((frame) => frame.shotId === shotId).map((frame) => frame.id));
+  return graph.frameVersions.filter((version) => frameIds.has(version.frameId) && version.status === "approved");
+}
+
+function approvedFrameVersionsForScene(graph: ReturnType<typeof getScriptAnalysisGraph>, sceneId?: string) {
+  const shotIds = new Set(graph.shots.filter((shot) => shot.sceneId === sceneId).map((shot) => shot.id));
+  const frameIds = new Set(graph.storyboardFrames.filter((frame) => shotIds.has(frame.shotId)).map((frame) => frame.id));
+  return graph.frameVersions.filter((version) => frameIds.has(version.frameId) && version.status === "approved");
+}
+
+function composeVideoPrompt(
+  mode: "shot" | "scene",
+  graph: ReturnType<typeof getScriptAnalysisGraph>,
+  shotId?: string,
+  sceneId?: string,
+) {
+  if (mode === "shot") {
+    const shot = graph.shots.find((candidate) => candidate.id === shotId);
+    return `Shot-by-shot video clip. Action: ${shot?.action ?? ""}. Camera: ${shot?.cameraMovement ?? ""}.`;
+  }
+  const scene = graph.scenes.find((candidate) => candidate.id === sceneId);
+  const shots = graph.shots.filter((shot) => shot.sceneId === sceneId).map((shot) => shot.action).join(" ");
+  return `Scene-level video clip. Scene: ${scene?.summary ?? ""}. Shots in order: ${shots}`;
+}

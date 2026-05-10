@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, Brush, FileUp, GitBranch, Images, Lock, Radio, RefreshCw, Save, Sparkles } from "lucide-react";
+import { Activity, Brush, FileUp, Film, GitBranch, Images, Lock, Radio, RefreshCw, Save, Sparkles } from "lucide-react";
 import type {
   Asset,
   GenerationJob,
@@ -160,6 +160,21 @@ export function ProjectDashboardClient({
       setNotice("Storyboard updated.");
     } else {
       setError(body.error?.message ?? "Storyboard action failed.");
+    }
+  }
+
+  async function videoAction(payload: unknown) {
+    const response = await fetch(`/api/projects/${project.id}/videos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await response.json();
+    if (response.ok) {
+      setAnalysisGraph(body);
+      setNotice("Video workflow updated.");
+    } else {
+      setError(body.error?.message ?? "Video action failed.");
     }
   }
 
@@ -501,6 +516,71 @@ export function ProjectDashboardClient({
           <div className="dependency-summary">
             Approved frames: {analysisGraph.frameVersions.filter((version) => version.status === "approved").length} ·
             Comments: {analysisGraph.reviewNotes.length}
+          </div>
+        </section>
+
+        <section className="panel span-12" aria-labelledby="video-heading">
+          <div className="button-row" style={{ justifyContent: "space-between" }}>
+            <h2 id="video-heading">Video clips</h2>
+            <span className="status-pill">
+              <Film size={14} aria-hidden="true" /> {analysisGraph.clipVersions.length} versions
+            </span>
+          </div>
+          <ul className="list">
+            {analysisGraph.shots.map((shot) => {
+              const clip = analysisGraph.videoClips.find((candidate) => candidate.shotId === shot.id);
+              const versions = clip ? analysisGraph.clipVersions.filter((version) => version.clipId === clip.id) : [];
+              const latest = versions.at(-1);
+              return (
+                <li className="list-item column" key={shot.id}>
+                  <div className="button-row" style={{ justifyContent: "space-between" }}>
+                    <span>Shot {shot.shotNumber} clip</span>
+                    <div className="button-row">
+                      <button
+                        className="button secondary"
+                        type="button"
+                        onClick={() =>
+                          videoAction({ action: "generate", mode: "shot", shotId: shot.id, providerSlug: "runway" })
+                        }
+                      >
+                        <Film size={15} aria-hidden="true" />
+                        Generate clip
+                      </button>
+                      {latest ? (
+                        <button
+                          className="button secondary"
+                          type="button"
+                          onClick={() => videoAction({ action: "clip", clipVersionId: latest.id, status: "approved" })}
+                        >
+                          <Save size={15} aria-hidden="true" />
+                          Approve clip
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <p className="meta">
+                    {versions.length} versions · latest {latest?.status ?? "not generated"}
+                    {latest?.isStale ? " · stale" : ""}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="button-row" style={{ marginTop: 12 }}>
+            {analysisGraph.scenes.map((scene) => (
+              <button
+                className="button secondary"
+                key={scene.id}
+                type="button"
+                onClick={() => videoAction({ action: "generate", mode: "scene", sceneId: scene.id, providerSlug: "kling" })}
+              >
+                <Film size={15} aria-hidden="true" />
+                Generate scene {scene.sceneNumber}
+              </button>
+            ))}
+          </div>
+          <div className="dependency-summary">
+            Approved clips: {analysisGraph.clipVersions.filter((version) => version.status === "approved").length}
           </div>
         </section>
       </div>
