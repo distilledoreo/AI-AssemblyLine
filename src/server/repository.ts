@@ -2804,6 +2804,14 @@ export async function decryptWorkspaceProviderKey(workspaceId: string, providerS
   return decryptProviderKey(key);
 }
 
+export async function decryptProjectProviderKey(projectId: string, providerSlug: string) {
+  const project = await getProject(projectId);
+  if (!project) {
+    throw new NotFoundError("Project not found.");
+  }
+  return decryptWorkspaceProviderKey(project.workspaceId, providerSlug);
+}
+
 export function createGenerationJob(input: {
   projectId: string;
   type: GenerationJob["type"];

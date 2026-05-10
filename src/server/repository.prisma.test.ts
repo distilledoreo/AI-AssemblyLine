@@ -319,6 +319,7 @@ describe("Prisma repository mode", () => {
     expect((await repository.getProjectDashboard(createdProject.id)).jobs[0].id).toBe(job.id);
     expect(providerKey.maskedKey).toBe("sk-l...test");
     expect(await repository.decryptWorkspaceProviderKey(createdWorkspace.id, "openai")).toBe("sk-live-repository-test");
+    expect(await repository.decryptProjectProviderKey(createdProject.id, "openai")).toBe("sk-live-repository-test");
     expect(await repository.listProviderKeys(createdWorkspace.id)).toHaveLength(1);
   });
 

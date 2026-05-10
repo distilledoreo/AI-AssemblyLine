@@ -7,6 +7,7 @@ import {
   addJobEvent,
   completeGenerationJob,
   createGenerationJob,
+  decryptProjectProviderKey,
   getScriptAnalysisGraph,
   getStore,
   persistAssetMergeState,
@@ -31,6 +32,10 @@ import type {
   AssetVersion,
   ProjectStyle,
 } from "@/server/types";
+
+async function openAiApiKeyForProject(projectId: string) {
+  return decryptProjectProviderKey(projectId, "openai").catch(() => process.env.OPENAI_API_KEY || "mock");
+}
 
 export async function upsertAssetDetail(assetId: string, input: Partial<AssetDetail>) {
   const store = getStore();
@@ -128,7 +133,7 @@ export async function generateAssetReference(input: {
   if (!asset) {
     throw new NotFoundError("Asset not found.");
   }
-  const adapter = input.providerSlug === "stability" ? new StabilityAdapter() : new OpenAIAdapter("mock");
+  const adapter = input.providerSlug === "stability" ? new StabilityAdapter() : new OpenAIAdapter(await openAiApiKeyForProject(input.projectId));
   const job = createGenerationJob({
     projectId: input.projectId,
     type: "asset_reference",
@@ -162,7 +167,7 @@ export async function processAssetReferenceJob(input: {
   if (!job) {
     throw new NotFoundError("Generation job not found.");
   }
-  const adapter = input.providerSlug === "stability" ? new StabilityAdapter() : new OpenAIAdapter("mock");
+  const adapter = input.providerSlug === "stability" ? new StabilityAdapter() : new OpenAIAdapter(await openAiApiKeyForProject(input.projectId));
   job.status = "running";
   job.startedAt = nowIso();
   addJobEvent({

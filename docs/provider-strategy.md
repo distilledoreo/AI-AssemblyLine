@@ -189,6 +189,8 @@ Live structured text output is sent to `POST /v1/responses` with `text.format` w
 
 Run `npm run smoke:openai` with `OPENAI_API_KEY` set to verify live OpenAI connectivity before a production release. The smoke command uses a small structured-output Responses API request with `gpt-4.1-mini` by default; set `OPENAI_SMOKE_MODEL` to test a different approved model.
 
+Runtime generation paths resolve OpenAI credentials from the project workspace's encrypted provider key first. If no workspace key is configured, they fall back to `OPENAI_API_KEY`; if neither is present, local development and tests use the mock OpenAI adapter response.
+
 ## Model selector behavior
 
 For every generation job, users should be able to see and choose:
