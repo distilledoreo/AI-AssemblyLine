@@ -15,6 +15,7 @@
     "services:up": "docker compose up -d postgres redis",
     "services:down": "docker compose down",
     "services:logs": "docker compose logs -f postgres redis",
+    "smoke:openai": "tsx scripts/smoke-openai.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "verify:phase1": "vitest run && next build"

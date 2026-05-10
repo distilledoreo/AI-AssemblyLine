@@ -40,6 +40,15 @@ Recommended defaults:
 
 Do not run live-provider tests in CI unless a dedicated test key and spend limit are configured.
 
+To run the live OpenAI smoke test manually:
+
+```bash
+set OPENAI_API_KEY=sk-...
+npm run smoke:openai
+```
+
+Optionally set `OPENAI_SMOKE_MODEL` to override the default `gpt-4.1-mini`. The smoke command performs a small Responses API structured-output request and prints the provider response id, model, short content preview, and token usage.
+
 ## Verification commands
 
 Run these before committing substantive changes:

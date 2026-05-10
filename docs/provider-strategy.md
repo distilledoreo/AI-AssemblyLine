@@ -187,6 +187,8 @@ The OpenAI adapter has two modes:
 
 Live structured text output is sent to `POST /v1/responses` with `text.format` when JSON output is requested. Live image output is sent to `POST /v1/images/generations` and expects base64 image data for GPT Image models. Provider HTTP failures are mapped into the common retry classes: `rate_limit`, `timeout`, `retriable`, and `fatal`.
 
+Run `npm run smoke:openai` with `OPENAI_API_KEY` set to verify live OpenAI connectivity before a production release. The smoke command uses a small structured-output Responses API request with `gpt-4.1-mini` by default; set `OPENAI_SMOKE_MODEL` to test a different approved model.
+
 ## Model selector behavior
 
 For every generation job, users should be able to see and choose:

@@ -15,7 +15,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 | BullMQ + Redis queues | `submitGenerationJob` submits to BullMQ when Redis mode is enabled; script upload/re-analysis now returns pending state in Redis mode and `npm run worker` starts an analysis worker that processes `script_analysis` jobs. Health checks report Redis-backed queue counts; tests avoid Redis sockets in test mode. | Partially complete |
 | Redis-backed SSE | `emitProjectEvent` publishes to Redis and the SSE subscription listens on a Redis project channel when Redis mode is enabled. SSE catch-up replay reads persisted Prisma events in Prisma mode. Local runtime verification is blocked until Redis is available. | Partially complete |
 | Real OpenAI calls | OpenAI adapter no longer throws for live keys. It calls `/v1/responses` for text/structured output and `/v1/images/generations` for images. Mocked HTTP tests cover payload and error-class mapping. | Partially complete |
-| Real OpenAI key smoke test | No real API key has been verified in this environment yet. | Blocked |
+| Real OpenAI key smoke test | `npm run smoke:openai` performs a low-token live Responses API structured-output call when `OPENAI_API_KEY` is set. `openaiSmoke.test.ts` covers missing-key failure and the live-call payload shape with a mocked fetch. No real API key has been verified in this environment yet. | Blocked |
 | Health checks | `GET /api/health` now actively checks Postgres with `SELECT 1` and Redis with `PING`, returning `503` and dependency error details when either dependency is unreachable. `health.test.ts` covers healthy and degraded dependency states. | Passing for mocked dependencies; blocked for local real services |
 | Local dependency bring-up | `compose.yaml` defines PostgreSQL 16 and Redis 7 with health checks and persistent volumes. `npm run services:up`, `services:down`, and `services:logs` wrap Docker Compose for local production-like dependencies. Runtime verification is blocked because Docker is not installed in this environment. | Partially complete |
 | Dependency security audit | `package.json` uses an npm override to pin `postcss` to `8.5.14`, replacing the vulnerable `8.4.31` nested under Next.js. `npm audit --audit-level=moderate` now reports zero vulnerabilities and `npm ls postcss` shows Next and Vite both using `8.5.14`. | Passing |
@@ -27,7 +27,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
-- `npm test`: passing, 15 files and 53 tests.
+- `npm test`: passing, 16 files and 55 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
