@@ -24,6 +24,9 @@ export function upsertAssetDetail(assetId: string, input: Partial<AssetDetail>) 
   if (!asset) {
     throw new NotFoundError("Asset not found.");
   }
+  if (asset.status === "locked") {
+    throw new AppError("This asset is locked. Unlock it before editing continuity details.", 409, "asset_locked");
+  }
   const timestamp = nowIso();
   const existing = store.assetDetails.find((detail) => detail.assetId === assetId);
   if (existing) {

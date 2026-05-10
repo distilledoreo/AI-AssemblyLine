@@ -33,6 +33,9 @@ import type {
   StoryboardFrame,
   VideoClip,
   ClipVersion,
+  Invitation,
+  Assignment,
+  ActivityEvent,
   User,
   Workspace,
   WorkspaceMember,
@@ -65,6 +68,9 @@ type StoreState = {
   reviewNotes: ReviewNote[];
   videoClips: VideoClip[];
   clipVersions: ClipVersion[];
+  invitations: Invitation[];
+  assignments: Assignment[];
+  activityEvents: ActivityEvent[];
   sceneAssetRequirements: SceneAssetRequirement[];
   shotAssetRequirements: ShotAssetRequirement[];
 };
@@ -98,6 +104,9 @@ function createInitialState(): StoreState {
     reviewNotes: [],
     videoClips: [],
     clipVersions: [],
+    invitations: [],
+    assignments: [],
+    activityEvents: [],
     sceneAssetRequirements: [],
     shotAssetRequirements: [],
   };
@@ -368,6 +377,9 @@ export function getScriptAnalysisGraph(projectId: string): ScriptAnalysisGraph {
     clipVersions: store.clipVersions.filter((version) =>
       store.videoClips.some((clip) => (clip.shotId ? shotIds.has(clip.shotId) : clip.sceneId ? sceneIds.has(clip.sceneId) : false) && clip.id === version.clipId),
     ),
+    invitations: store.invitations.filter((invitation) => invitation.projectId === projectId),
+    assignments: store.assignments.filter((assignment) => assignment.projectId === projectId),
+    activityEvents: store.activityEvents.filter((activity) => activity.projectId === projectId),
     sceneAssetRequirements: store.sceneAssetRequirements.filter((requirement) =>
       sceneIds.has(requirement.sceneId),
     ),
@@ -434,6 +446,9 @@ export function deleteProject(projectId: string) {
   );
   store.clipVersions = store.clipVersions.filter((version) => !clipIds.has(version.clipId));
   store.videoClips = store.videoClips.filter((clip) => !clipIds.has(clip.id));
+  store.invitations = store.invitations.filter((invitation) => invitation.projectId !== projectId);
+  store.assignments = store.assignments.filter((assignment) => assignment.projectId !== projectId);
+  store.activityEvents = store.activityEvents.filter((activity) => activity.projectId !== projectId);
   if (store.projects.length === before) {
     throw new NotFoundError("Project not found.");
   }

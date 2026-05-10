@@ -28,12 +28,14 @@ export function ProjectDashboardClient({
   initialJobs,
   initialEvents,
   initialAnalysisGraph,
+  currentUserId,
 }: Readonly<{
   project: Project;
   style?: ProjectStyle;
   initialJobs: GenerationJob[];
   initialEvents: JobEvent[];
   initialAnalysisGraph: ScriptAnalysisGraph;
+  currentUserId: string;
 }>) {
   const [connectionState, setConnectionState] = useState("connecting");
   const [events, setEvents] = useState(initialEvents);
@@ -175,6 +177,21 @@ export function ProjectDashboardClient({
       setNotice("Video workflow updated.");
     } else {
       setError(body.error?.message ?? "Video action failed.");
+    }
+  }
+
+  async function collaborationAction(payload: unknown) {
+    const response = await fetch(`/api/projects/${project.id}/collaboration`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await response.json();
+    if (response.ok) {
+      setAnalysisGraph(body);
+      setNotice(body.inviteToken ? `Invitation created. Token: ${body.inviteToken}` : "Collaboration updated.");
+    } else {
+      setError(body.error?.message ?? "Collaboration action failed.");
     }
   }
 
@@ -582,6 +599,46 @@ export function ProjectDashboardClient({
           <div className="dependency-summary">
             Approved clips: {analysisGraph.clipVersions.filter((version) => version.status === "approved").length}
           </div>
+        </section>
+
+        <section className="panel span-12" aria-labelledby="collaboration-heading">
+          <div className="button-row" style={{ justifyContent: "space-between" }}>
+            <h2 id="collaboration-heading">Collaboration</h2>
+            <span className="status-pill">{analysisGraph.assignments.length} assignments</span>
+          </div>
+          <div className="button-row">
+            <button
+              className="button secondary"
+              type="button"
+              onClick={() => collaborationAction({ action: "invite", email: "artist@example.com", role: "artist" })}
+            >
+              Invite artist
+            </button>
+            {analysisGraph.scenes[0] ? (
+              <button
+                className="button secondary"
+                type="button"
+                onClick={() =>
+                  collaborationAction({
+                    action: "assign",
+                    userId: currentUserId,
+                    targetType: "scene",
+                    sceneId: analysisGraph.scenes[0].id,
+                  })
+                }
+              >
+                Assign scene 1
+              </button>
+            ) : null}
+          </div>
+          <ul className="list" style={{ marginTop: 12 }}>
+            {analysisGraph.activityEvents.slice(-5).map((activity) => (
+              <li className="list-item" key={activity.id}>
+                <span>{activity.message}</span>
+                <span className="meta">{activity.eventType}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       </div>
     </>

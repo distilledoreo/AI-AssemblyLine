@@ -49,6 +49,7 @@ export type AssetReferenceType =
   | "other";
 export type FrameVersionStatus = "draft" | "needs_review" | "approved" | "rejected" | "superseded" | "stale";
 export type ClipVersionStatus = "draft" | "needs_review" | "approved" | "rejected" | "superseded" | "stale";
+export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked";
 
 export type User = {
   id: string;
@@ -306,10 +307,51 @@ export type ScriptAnalysisGraph = {
   reviewNotes: ReviewNote[];
   videoClips: VideoClip[];
   clipVersions: ClipVersion[];
+  invitations: Invitation[];
+  assignments: Assignment[];
+  activityEvents: ActivityEvent[];
   sceneAssetRequirements: SceneAssetRequirement[];
   shotAssetRequirements: ShotAssetRequirement[];
   jobs: GenerationJob[];
   events: JobEvent[];
+};
+
+export type Invitation = {
+  id: string;
+  workspaceId: string;
+  projectId?: string;
+  email: string;
+  tokenHash: string;
+  scope: "workspace" | "project";
+  role: string;
+  status: InvitationStatus;
+  expiresAt: string;
+  invitedById: string;
+  acceptedAt?: string;
+  createdAt: string;
+};
+
+export type Assignment = {
+  id: string;
+  projectId: string;
+  userId: string;
+  targetType: "scene" | "shot" | "asset";
+  sceneId?: string;
+  shotId?: string;
+  assetId?: string;
+  status: "open" | "complete";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ActivityEvent = {
+  id: string;
+  projectId: string;
+  actorId?: string;
+  eventType: string;
+  message: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
 };
 
 export type VideoClip = {

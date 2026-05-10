@@ -30,6 +30,7 @@ export default async function ProjectDashboardPage({
         initialJobs={dashboard.jobs}
         initialEvents={dashboard.events}
         initialAnalysisGraph={analysisGraph}
+        currentUserId={user.id}
       />
     </AppShell>
   );
