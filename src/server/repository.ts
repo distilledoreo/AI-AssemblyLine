@@ -5,6 +5,7 @@ import {
 } from "@/server/crypto";
 import { AppError, AuthRequiredError, NotFoundError } from "@/server/errors";
 import { createId, nowIso, slugify } from "@/server/ids";
+import type { Prisma } from "@prisma/client";
 import { emitProjectEvent } from "@/server/queue";
 import { submitGenerationJob } from "@/server/queue";
 import { prisma } from "@/server/prisma";
@@ -309,6 +310,10 @@ function mapProviderKey(key: {
     createdAt: iso(key.createdAt),
     updatedAt: iso(key.updatedAt),
   };
+}
+
+function toPrismaJson(value: unknown) {
+  return value === undefined ? undefined : (value as Prisma.InputJsonValue);
 }
 
 export async function signInWithCredentials(input: { email: string; password: string; name?: string }) {
@@ -821,6 +826,17 @@ export function completeGenerationJob(
     errorMessage: input.errorMessage,
     completedAt: nowIso(),
   });
+  if (isPrismaRepositoryEnabled()) {
+    void prisma.generationJob.update({
+      where: { id: jobId },
+      data: {
+        status: input.status,
+        outputPayload: toPrismaJson(input.outputPayload),
+        errorMessage: input.errorMessage,
+        completedAt: new Date(job.completedAt!),
+      },
+    }).catch(() => undefined);
+  }
   return job;
 }
 
@@ -925,6 +941,20 @@ export function createGenerationJob(input: {
     createdAt: timestamp,
   };
   getStore().generationJobs.push(job);
+  if (isPrismaRepositoryEnabled()) {
+    void prisma.generationJob.create({
+      data: {
+        id: job.id,
+        projectId: job.projectId,
+        type: job.type,
+        providerSlug: job.providerSlug,
+        modelId: job.modelId,
+        status: job.status,
+        inputPayload: toPrismaJson(job.inputPayload) ?? {},
+        retryCount: job.retryCount,
+      },
+    }).catch(() => undefined);
+  }
   void submitGenerationJob(job);
   addJobEvent({
     jobId: job.id,
@@ -939,6 +969,18 @@ export function createGenerationJob(input: {
 export function addJobEvent(input: Omit<JobEvent, "id" | "createdAt">) {
   const event = emitProjectEvent(input);
   getStore().jobEvents.push(event);
+  if (isPrismaRepositoryEnabled()) {
+    void prisma.jobEvent.create({
+      data: {
+        id: event.id,
+        jobId: event.jobId,
+        projectId: event.projectId,
+        eventType: event.eventType,
+        message: event.message,
+        progressPct: event.progressPct,
+      },
+    }).catch(() => undefined);
+  }
   return event;
 }
 

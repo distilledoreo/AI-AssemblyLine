@@ -33,6 +33,13 @@ const prismaMock = vi.hoisted(() => ({
     findFirst: vi.fn(),
     findMany: vi.fn(),
   },
+  generationJob: {
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  jobEvent: {
+    create: vi.fn(),
+  },
 }));
 
 vi.mock("@/server/prisma", () => ({ prisma: prismaMock }));
@@ -180,5 +187,56 @@ describe("Prisma repository mode", () => {
     expect(providerKey.maskedKey).toBe("sk-l...test");
     expect(await repository.decryptWorkspaceProviderKey(createdWorkspace.id, "openai")).toBe("sk-live-repository-test");
     expect(await repository.listProviderKeys(createdWorkspace.id)).toHaveLength(1);
+  });
+
+  it("mirrors generation jobs and job events into Prisma in production repository mode", async () => {
+    prismaMock.generationJob.create.mockResolvedValue({});
+    prismaMock.generationJob.update.mockResolvedValue({});
+    prismaMock.jobEvent.create.mockResolvedValue({});
+
+    const repository = await import("@/server/repository");
+    const job = repository.createGenerationJob({
+      projectId: "33333333-3333-4333-8333-333333333333",
+      type: "script_analysis",
+      providerSlug: "local-mock",
+      modelId: "deterministic-script-pass-v1",
+      inputPayload: {
+        projectId: "33333333-3333-4333-8333-333333333333",
+        scriptVersionId: "88888888-8888-4888-8888-888888888888",
+      },
+    });
+    repository.completeGenerationJob(job.id, {
+      status: "complete",
+      outputPayload: { scenes: 1, shots: 1, assets: 2 },
+    });
+
+    await vi.waitFor(() => expect(prismaMock.generationJob.create).toHaveBeenCalled());
+    await vi.waitFor(() => expect(prismaMock.jobEvent.create).toHaveBeenCalled());
+    await vi.waitFor(() => expect(prismaMock.generationJob.update).toHaveBeenCalled());
+
+    expect(prismaMock.generationJob.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: job.id,
+        projectId: job.projectId,
+        type: "script_analysis",
+        status: "queued",
+        inputPayload: expect.objectContaining({ scriptVersionId: "88888888-8888-4888-8888-888888888888" }),
+      }),
+    });
+    expect(prismaMock.jobEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        jobId: job.id,
+        projectId: job.projectId,
+        eventType: "status_change",
+        message: "Job queued.",
+      }),
+    });
+    expect(prismaMock.generationJob.update).toHaveBeenCalledWith({
+      where: { id: job.id },
+      data: expect.objectContaining({
+        status: "complete",
+        outputPayload: { scenes: 1, shots: 1, assets: 2 },
+      }),
+    });
   });
 });
