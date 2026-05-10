@@ -16,7 +16,15 @@ import type {
   ProjectStyle,
   ProviderKey,
   RightsPolicy,
+  Asset,
+  Scene,
+  SceneAssetRequirement,
   Session,
+  Shot,
+  ShotAssetRequirement,
+  Script,
+  ScriptAnalysisGraph,
+  ScriptVersion,
   User,
   Workspace,
   WorkspaceMember,
@@ -36,6 +44,13 @@ type StoreState = {
   providerKeys: ProviderKey[];
   generationJobs: GenerationJob[];
   jobEvents: JobEvent[];
+  scripts: Script[];
+  scriptVersions: ScriptVersion[];
+  scenes: Scene[];
+  shots: Shot[];
+  assets: Asset[];
+  sceneAssetRequirements: SceneAssetRequirement[];
+  shotAssetRequirements: ShotAssetRequirement[];
 };
 
 declare global {
@@ -54,11 +69,22 @@ function createInitialState(): StoreState {
     providerKeys: [],
     generationJobs: [],
     jobEvents: [],
+    scripts: [],
+    scriptVersions: [],
+    scenes: [],
+    shots: [],
+    assets: [],
+    sceneAssetRequirements: [],
+    shotAssetRequirements: [],
   };
 }
 
 export function getStore() {
   globalThis.__assemblyLineStore ??= createInitialState();
+  const initial = createInitialState();
+  for (const key of Object.keys(initial) as Array<keyof StoreState>) {
+    globalThis.__assemblyLineStore[key] ??= initial[key] as never;
+  }
   return globalThis.__assemblyLineStore;
 }
 
@@ -282,6 +308,35 @@ export function getProjectDashboard(projectId: string) {
   return { project, style, jobs, events };
 }
 
+export function getScriptAnalysisGraph(projectId: string): ScriptAnalysisGraph {
+  const store = getStore();
+  const scripts = store.scripts.filter((script) => script.projectId === projectId);
+  const scriptIds = new Set(scripts.map((script) => script.id));
+  const versions = store.scriptVersions.filter((version) => scriptIds.has(version.scriptId));
+  const activeVersion = versions.find((version) => version.isActive);
+  const versionIds = new Set(versions.map((version) => version.id));
+  const scenes = store.scenes.filter((scene) => versionIds.has(scene.scriptVersionId));
+  const sceneIds = new Set(scenes.map((scene) => scene.id));
+  const shots = store.shots.filter((shot) => sceneIds.has(shot.sceneId));
+  const shotIds = new Set(shots.map((shot) => shot.id));
+
+  return {
+    scripts,
+    activeVersion,
+    scenes,
+    shots,
+    assets: store.assets.filter((asset) => asset.projectId === projectId),
+    sceneAssetRequirements: store.sceneAssetRequirements.filter((requirement) =>
+      sceneIds.has(requirement.sceneId),
+    ),
+    shotAssetRequirements: store.shotAssetRequirements.filter((requirement) =>
+      shotIds.has(requirement.shotId),
+    ),
+    jobs: store.generationJobs.filter((job) => job.projectId === projectId),
+    events: store.jobEvents.filter((event) => event.projectId === projectId),
+  };
+}
+
 export function updateProject(
   projectId: string,
   input: Partial<Pick<Project, "title" | "targetFormat" | "aspectRatio" | "estimatedRuntime" | "rightsPolicy">>,
@@ -302,6 +357,24 @@ export function deleteProject(projectId: string) {
   store.projectStyles = store.projectStyles.filter((style) => style.projectId !== projectId);
   store.generationJobs = store.generationJobs.filter((job) => job.projectId !== projectId);
   store.jobEvents = store.jobEvents.filter((event) => event.projectId !== projectId);
+  const scriptIds = new Set(store.scripts.filter((script) => script.projectId === projectId).map((script) => script.id));
+  const versionIds = new Set(
+    store.scriptVersions.filter((version) => scriptIds.has(version.scriptId)).map((version) => version.id),
+  );
+  const sceneIds = new Set(store.scenes.filter((scene) => versionIds.has(scene.scriptVersionId)).map((scene) => scene.id));
+  const shotIds = new Set(store.shots.filter((shot) => sceneIds.has(shot.sceneId)).map((shot) => shot.id));
+  const assetIds = new Set(store.assets.filter((asset) => asset.projectId === projectId).map((asset) => asset.id));
+  store.shotAssetRequirements = store.shotAssetRequirements.filter(
+    (requirement) => !shotIds.has(requirement.shotId) && !assetIds.has(requirement.assetId),
+  );
+  store.sceneAssetRequirements = store.sceneAssetRequirements.filter(
+    (requirement) => !sceneIds.has(requirement.sceneId) && !assetIds.has(requirement.assetId),
+  );
+  store.shots = store.shots.filter((shot) => !shotIds.has(shot.id));
+  store.scenes = store.scenes.filter((scene) => !sceneIds.has(scene.id));
+  store.scriptVersions = store.scriptVersions.filter((version) => !versionIds.has(version.id));
+  store.scripts = store.scripts.filter((script) => script.projectId !== projectId);
+  store.assets = store.assets.filter((asset) => asset.projectId !== projectId);
   if (store.projects.length === before) {
     throw new NotFoundError("Project not found.");
   }

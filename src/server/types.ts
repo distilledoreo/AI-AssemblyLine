@@ -32,6 +32,10 @@ export type GenerationJobStatus =
   | "canceled";
 
 export type ErrorClass = "retriable" | "fatal" | "content_policy" | "rate_limit" | "timeout";
+export type ScriptAnalysisStatus = "pending" | "running" | "complete" | "failed";
+export type SceneStatus = "blocked" | "ready" | "in_progress" | "complete" | "superseded";
+export type ShotStatus = "blocked" | "ready" | "storyboarded" | "video_ready" | "complete" | "superseded";
+export type RequirementDetector = "ai" | "user";
 
 export type User = {
   id: string;
@@ -138,4 +142,100 @@ export type JobEvent = {
   message?: string;
   progressPct?: number;
   createdAt: string;
+};
+
+export type Script = {
+  id: string;
+  projectId: string;
+  filename: string;
+  createdAt: string;
+};
+
+export type ScriptVersion = {
+  id: string;
+  scriptId: string;
+  versionNumber: number;
+  filePath: string;
+  rawText: string;
+  analysisStatus: ScriptAnalysisStatus;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type Scene = {
+  id: string;
+  scriptVersionId: string;
+  sceneNumber: number;
+  heading: string;
+  summary: string;
+  scriptStartLine: number;
+  scriptEndLine: number;
+  locationHint?: string;
+  status: SceneStatus;
+  isUserEdited?: boolean;
+  warnings?: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Shot = {
+  id: string;
+  sceneId: string;
+  shotNumber: number;
+  action: string;
+  cameraAngle?: string;
+  cameraMovement?: string;
+  lensNotes?: string;
+  lightingNotes?: string;
+  userDirection?: string;
+  status: ShotStatus;
+  isUserEdited?: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Asset = {
+  id: string;
+  projectId: string;
+  type: AssetType;
+  canonicalName: string;
+  aliases: string[];
+  status: AssetStatus;
+  continuityNotes?: string;
+  negativePrompts?: string;
+  description?: string;
+  firstAppearance?: { sceneNumber: number; shotNumber?: number };
+  isUserEdited?: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SceneAssetRequirement = {
+  id: string;
+  sceneId: string;
+  assetId: string;
+  isOptional: boolean;
+  detectedBy: RequirementDetector;
+  createdAt: string;
+};
+
+export type ShotAssetRequirement = {
+  id: string;
+  shotId: string;
+  assetId: string;
+  isOptional: boolean;
+  detectedBy: RequirementDetector;
+  createdAt: string;
+};
+
+export type ScriptAnalysisGraph = {
+  scripts: Script[];
+  activeVersion?: ScriptVersion;
+  scenes: Scene[];
+  shots: Shot[];
+  assets: Asset[];
+  sceneAssetRequirements: SceneAssetRequirement[];
+  shotAssetRequirements: ShotAssetRequirement[];
+  jobs: GenerationJob[];
+  events: JobEvent[];
 };

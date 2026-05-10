@@ -7,6 +7,7 @@ import {
   getProjectDashboard,
   getProjectRole,
   getOptionalSessionUser,
+  getStore,
   listProjectsForUser,
   listProviderKeys,
   listWorkspacesForUser,
@@ -75,5 +76,11 @@ describe("foundation repository flows", () => {
     expect(JSON.stringify(clientKey)).not.toContain("phase1-secret");
     expect(decryptWorkspaceProviderKey(workspace.id, "openai")).toBe("sk-openai-phase1-secret");
     expect(listProviderKeys(workspace.id)).toHaveLength(1);
+  });
+
+  it("normalizes a hot-reloaded store created before later phase fields existed", () => {
+    globalThis.__assemblyLineStore = { ...getStore(), scripts: undefined } as unknown as ReturnType<typeof getStore>;
+
+    expect(getStore().scripts).toEqual([]);
   });
 });
