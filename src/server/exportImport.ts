@@ -14,6 +14,7 @@ import {
   getScriptAnalysisGraph,
   getScriptAnalysisGraphForProject,
   getStore,
+  persistImportedProjectGraph,
 } from "@/server/repository";
 import { ensureProjectStorage, projectFolderPath } from "@/server/storage";
 import type {
@@ -183,21 +184,55 @@ export async function importProjectBundle(input: { userId: string; manifestPath:
   }));
   const shots: Shot[] = manifest.graph.shots.map((shot) => ({ ...shot, id: mapId(shotMap, shot.id)!, sceneId: mapId(sceneMap, shot.sceneId)! }));
   const assets: Asset[] = manifest.graph.assets.map((asset) => ({ ...asset, id: mapId(assetMap, asset.id)!, projectId: project.id }));
+  const assetDetails = manifest.graph.assetDetails.map((detail) => ({ ...detail, assetId: mapId(assetMap, detail.assetId)! }));
+  const assetVersions = manifest.graph.assetVersions.map((version): AssetVersion => ({ ...version, id: mapId(assetVersionMap, version.id)!, assetId: mapId(assetMap, version.assetId)! }));
+  const assetReferences = manifest.graph.assetReferences.map((reference): AssetReference => ({ ...reference, id: mapId(assetReferenceMap, reference.id)!, assetVersionId: mapId(assetVersionMap, reference.assetVersionId)! }));
+  const sceneAssetRequirements = manifest.graph.sceneAssetRequirements.map((requirement) => ({ ...requirement, id: createId(), sceneId: mapId(sceneMap, requirement.sceneId)!, assetId: mapId(assetMap, requirement.assetId)! }));
+  const shotAssetRequirements = manifest.graph.shotAssetRequirements.map((requirement) => ({ ...requirement, id: createId(), shotId: mapId(shotMap, requirement.shotId)!, assetId: mapId(assetMap, requirement.assetId)! }));
+  const storyboardFrames = manifest.graph.storyboardFrames.map((frame): StoryboardFrame => ({ ...frame, id: mapId(frameMap, frame.id)!, shotId: mapId(shotMap, frame.shotId)! }));
+  const frameVersions = manifest.graph.frameVersions.map((version): FrameVersion => ({ ...version, id: mapId(frameVersionMap, version.id)!, frameId: mapId(frameMap, version.frameId)! }));
+  const videoClips = manifest.graph.videoClips.map((clip): VideoClip => ({ ...clip, id: mapId(clipMap, clip.id)!, shotId: mapId(shotMap, clip.shotId), sceneId: mapId(sceneMap, clip.sceneId) }));
+  const clipVersions = manifest.graph.clipVersions.map((version): ClipVersion => ({ ...version, id: mapId(clipVersionMap, version.id)!, clipId: mapId(clipMap, version.clipId)! }));
+  const reviewNotes = manifest.graph.reviewNotes.map((note): ReviewNote => ({
+    ...note,
+    id: createId(),
+    projectId: project.id,
+    authorId: input.userId,
+    targetId: mapId(frameVersionMap, note.targetId) ?? mapId(clipVersionMap, note.targetId) ?? mapId(assetVersionMap, note.targetId) ?? note.targetId,
+  }));
   store.scripts.push(...scripts);
   store.scriptVersions.push(...versions);
   store.scenes.push(...scenes);
   store.shots.push(...shots);
   store.assets.push(...assets);
-  store.assetDetails.push(...manifest.graph.assetDetails.map((detail) => ({ ...detail, assetId: mapId(assetMap, detail.assetId)! })));
-  store.assetVersions.push(...manifest.graph.assetVersions.map((version): AssetVersion => ({ ...version, id: mapId(assetVersionMap, version.id)!, assetId: mapId(assetMap, version.assetId)! })));
-  store.assetReferences.push(...manifest.graph.assetReferences.map((reference): AssetReference => ({ ...reference, id: mapId(assetReferenceMap, reference.id)!, assetVersionId: mapId(assetVersionMap, reference.assetVersionId)! })));
-  store.sceneAssetRequirements.push(...manifest.graph.sceneAssetRequirements.map((requirement) => ({ ...requirement, id: createId(), sceneId: mapId(sceneMap, requirement.sceneId)!, assetId: mapId(assetMap, requirement.assetId)! })));
-  store.shotAssetRequirements.push(...manifest.graph.shotAssetRequirements.map((requirement) => ({ ...requirement, id: createId(), shotId: mapId(shotMap, requirement.shotId)!, assetId: mapId(assetMap, requirement.assetId)! })));
-  store.storyboardFrames.push(...manifest.graph.storyboardFrames.map((frame): StoryboardFrame => ({ ...frame, id: mapId(frameMap, frame.id)!, shotId: mapId(shotMap, frame.shotId)! })));
-  store.frameVersions.push(...manifest.graph.frameVersions.map((version): FrameVersion => ({ ...version, id: mapId(frameVersionMap, version.id)!, frameId: mapId(frameMap, version.frameId)! })));
-  store.videoClips.push(...manifest.graph.videoClips.map((clip): VideoClip => ({ ...clip, id: mapId(clipMap, clip.id)!, shotId: mapId(shotMap, clip.shotId), sceneId: mapId(sceneMap, clip.sceneId) })));
-  store.clipVersions.push(...manifest.graph.clipVersions.map((version): ClipVersion => ({ ...version, id: mapId(clipVersionMap, version.id)!, clipId: mapId(clipMap, version.clipId)! })));
-  store.reviewNotes.push(...manifest.graph.reviewNotes.map((note): ReviewNote => ({ ...note, id: createId(), projectId: project.id, targetId: mapId(frameVersionMap, note.targetId) ?? mapId(clipVersionMap, note.targetId) ?? mapId(assetVersionMap, note.targetId) ?? note.targetId })));
+  store.assetDetails.push(...assetDetails);
+  store.assetVersions.push(...assetVersions);
+  store.assetReferences.push(...assetReferences);
+  store.sceneAssetRequirements.push(...sceneAssetRequirements);
+  store.shotAssetRequirements.push(...shotAssetRequirements);
+  store.storyboardFrames.push(...storyboardFrames);
+  store.frameVersions.push(...frameVersions);
+  store.videoClips.push(...videoClips);
+  store.clipVersions.push(...clipVersions);
+  store.reviewNotes.push(...reviewNotes);
+  await persistImportedProjectGraph({
+    ...manifest.graph,
+    scripts,
+    activeVersion: versions[0],
+    scenes,
+    shots,
+    assets,
+    assetDetails,
+    assetVersions,
+    assetReferences,
+    sceneAssetRequirements,
+    shotAssetRequirements,
+    storyboardFrames,
+    frameVersions,
+    videoClips,
+    clipVersions,
+    reviewNotes,
+  });
 
   completeGenerationJob(job.id, { status: "complete", outputPayload: { importedProjectId: project.id } });
   addJobEvent({ jobId: job.id, projectId: project.id, eventType: "status_change", message: "Import complete.", progressPct: 100 });

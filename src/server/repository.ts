@@ -1765,6 +1765,204 @@ export async function persistAssetMergeState(input: { source: Asset; target: Ass
   ]);
 }
 
+export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.script.createMany({
+    data: graph.scripts.map((script) => ({
+      id: script.id,
+      projectId: script.projectId,
+      filename: script.filename,
+      createdAt: new Date(script.createdAt),
+    })),
+    skipDuplicates: true,
+  }).catch(() => undefined);
+  if (graph.activeVersion) {
+    await prisma.scriptVersion.createMany({
+      data: [
+        {
+          id: graph.activeVersion.id,
+          scriptId: graph.activeVersion.scriptId,
+          versionNumber: graph.activeVersion.versionNumber,
+          filePath: graph.activeVersion.filePath,
+          rawText: graph.activeVersion.rawText,
+          analysisStatus: graph.activeVersion.analysisStatus,
+          isActive: graph.activeVersion.isActive,
+          createdAt: new Date(graph.activeVersion.createdAt),
+        },
+      ],
+      skipDuplicates: true,
+    }).catch(() => undefined);
+  }
+  await prisma.scene.createMany({
+    data: graph.scenes.map((scene) => ({
+      id: scene.id,
+      scriptVersionId: scene.scriptVersionId,
+      sceneNumber: scene.sceneNumber,
+      heading: scene.heading,
+      summary: scene.summary,
+      scriptStartLine: scene.scriptStartLine,
+      scriptEndLine: scene.scriptEndLine,
+      locationHint: scene.locationHint,
+      status: scene.status,
+      isUserEdited: scene.isUserEdited ?? false,
+      warnings: toPrismaJson(scene.warnings ?? []) ?? [],
+      createdAt: new Date(scene.createdAt),
+      updatedAt: new Date(scene.updatedAt),
+    })),
+    skipDuplicates: true,
+  }).catch(() => undefined);
+  await prisma.shot.createMany({
+    data: graph.shots.map((shot) => ({
+      id: shot.id,
+      sceneId: shot.sceneId,
+      shotNumber: shot.shotNumber,
+      action: shot.action,
+      cameraAngle: shot.cameraAngle,
+      cameraMovement: shot.cameraMovement,
+      lensNotes: shot.lensNotes,
+      lightingNotes: shot.lightingNotes,
+      userDirection: shot.userDirection,
+      status: shot.status,
+      isUserEdited: shot.isUserEdited ?? false,
+      createdAt: new Date(shot.createdAt),
+      updatedAt: new Date(shot.updatedAt),
+    })),
+    skipDuplicates: true,
+  }).catch(() => undefined);
+  await prisma.asset.createMany({
+    data: graph.assets.map((asset) => ({
+      id: asset.id,
+      projectId: asset.projectId,
+      type: asset.type,
+      canonicalName: asset.canonicalName,
+      aliases: asset.aliases,
+      status: asset.status,
+      continuityNotes: asset.continuityNotes,
+      negativePrompts: asset.negativePrompts,
+      description: asset.description,
+      firstAppearance: toPrismaJson(asset.firstAppearance),
+      isUserEdited: asset.isUserEdited ?? false,
+      createdAt: new Date(asset.createdAt),
+      updatedAt: new Date(asset.updatedAt),
+    })),
+    skipDuplicates: true,
+  }).catch(() => undefined);
+  await Promise.all(
+    graph.assetDetails.map((detail) => {
+      const asset = graph.assets.find((candidate) => candidate.id === detail.assetId);
+      return asset ? persistAssetDetailState(asset, detail) : undefined;
+    }),
+  );
+  await prisma.assetVersion.createMany({
+    data: graph.assetVersions.map((version) => ({
+      id: version.id,
+      assetId: version.assetId,
+      versionNumber: version.versionNumber,
+      description: version.description,
+      promptFragments: toPrismaJson(version.promptFragments),
+      status: version.status,
+      createdAt: new Date(version.createdAt),
+    })),
+    skipDuplicates: true,
+  }).catch(() => undefined);
+  await prisma.assetReference.createMany({
+    data: graph.assetReferences.map((reference) => ({
+      id: reference.id,
+      assetVersionId: reference.assetVersionId,
+      referenceType: reference.referenceType,
+      filePath: reference.filePath,
+      mimeType: reference.mimeType,
+      width: reference.width,
+      height: reference.height,
+      thumbnailPath: reference.thumbnailPath,
+      generationJobId: reference.generationJobId,
+      createdAt: new Date(reference.createdAt),
+    })),
+    skipDuplicates: true,
+  }).catch(() => undefined);
+  await prisma.sceneAssetReq.createMany({
+    data: graph.sceneAssetRequirements,
+    skipDuplicates: true,
+  }).catch(() => undefined);
+  await prisma.shotAssetReq.createMany({
+    data: graph.shotAssetRequirements,
+    skipDuplicates: true,
+  }).catch(() => undefined);
+  await prisma.storyboardFrame.createMany({
+    data: graph.storyboardFrames.map((frame) => ({
+      id: frame.id,
+      shotId: frame.shotId,
+      keyframeIndex: frame.keyframeIndex,
+      sketchFilePath: frame.sketchFilePath,
+      sketchWarning: frame.sketchWarning,
+      createdAt: new Date(frame.createdAt),
+      updatedAt: new Date(frame.updatedAt),
+    })),
+    skipDuplicates: true,
+  }).catch(() => undefined);
+  await prisma.frameVersion.createMany({
+    data: graph.frameVersions.map((version) => ({
+      id: version.id,
+      frameId: version.frameId,
+      versionNumber: version.versionNumber,
+      prompt: version.prompt,
+      filePath: version.filePath,
+      thumbnailPath: version.thumbnailPath,
+      status: version.status,
+      isStale: version.isStale,
+      generationJobId: version.generationJobId,
+      annotations: toPrismaJson(version.annotations),
+      createdAt: new Date(version.createdAt),
+    })),
+    skipDuplicates: true,
+  }).catch(() => undefined);
+  await prisma.videoClip.createMany({
+    data: graph.videoClips.map((clip) => ({
+      id: clip.id,
+      shotId: clip.shotId,
+      sceneId: clip.sceneId,
+      createdAt: new Date(clip.createdAt),
+      updatedAt: new Date(clip.updatedAt),
+    })),
+    skipDuplicates: true,
+  }).catch(() => undefined);
+  await prisma.clipVersion.createMany({
+    data: graph.clipVersions.map((version) => ({
+      id: version.id,
+      clipId: version.clipId,
+      versionNumber: version.versionNumber,
+      prompt: version.prompt,
+      filePath: version.filePath,
+      thumbnailPath: version.thumbnailPath,
+      durationMs: version.durationMs,
+      status: version.status,
+      isStale: version.isStale,
+      sourceFrameVersionIds: toPrismaJson(version.sourceFrameVersionIds) ?? [],
+      generationJobId: version.generationJobId,
+      createdAt: new Date(version.createdAt),
+    })),
+    skipDuplicates: true,
+  }).catch(() => undefined);
+  await prisma.reviewNote.createMany({
+    data: graph.reviewNotes.map((note) => ({
+      id: note.id,
+      projectId: note.projectId,
+      authorId: note.authorId,
+      targetType: note.targetType,
+      targetId: note.targetId,
+      parentNoteId: note.parentNoteId,
+      body: note.body,
+      markupFilePath: note.markupFilePath,
+      status: note.status,
+      createdAt: new Date(note.createdAt),
+      updatedAt: new Date(note.updatedAt),
+    })),
+    skipDuplicates: true,
+  }).catch(() => undefined);
+}
+
 export async function persistAssetDetailState(asset: Asset, detail: AssetDetail) {
   if (!isPrismaRepositoryEnabled()) {
     return;

@@ -48,29 +48,34 @@ const prismaMock = vi.hoisted(() => ({
   },
   script: {
     create: vi.fn(),
+    createMany: vi.fn(),
     findFirst: vi.fn(),
     findMany: vi.fn(),
   },
   scriptVersion: {
     create: vi.fn(),
+    createMany: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
   },
   scene: {
     create: vi.fn(),
+    createMany: vi.fn(),
     deleteMany: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
   },
   shot: {
     create: vi.fn(),
+    createMany: vi.fn(),
     deleteMany: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
   },
   asset: {
     create: vi.fn(),
+    createMany: vi.fn(),
     findFirst: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
@@ -97,32 +102,39 @@ const prismaMock = vi.hoisted(() => ({
   },
   assetVersion: {
     create: vi.fn(),
+    createMany: vi.fn(),
     findMany: vi.fn(),
   },
   assetReference: {
     create: vi.fn(),
+    createMany: vi.fn(),
     findMany: vi.fn(),
   },
   storyboardFrame: {
+    createMany: vi.fn(),
     upsert: vi.fn(),
     findMany: vi.fn(),
   },
   frameVersion: {
     create: vi.fn(),
+    createMany: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
   },
   reviewNote: {
     create: vi.fn(),
+    createMany: vi.fn(),
     findMany: vi.fn(),
   },
   videoClip: {
+    createMany: vi.fn(),
     upsert: vi.fn(),
     findMany: vi.fn(),
   },
   clipVersion: {
     create: vi.fn(),
+    createMany: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
@@ -1264,6 +1276,172 @@ describe("Prisma repository mode", () => {
       where: { projectId: bundle.projectId },
       orderBy: { createdAt: "desc" },
     });
+  });
+
+  it("persists imported project graph records through Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const projectId = "33333333-3333-4333-8333-333333333333";
+    const script = {
+      id: "99999999-9999-4999-8999-999999999999",
+      projectId,
+      filename: "imported.txt",
+      createdAt: timestamp.toISOString(),
+    };
+    const activeVersion = {
+      id: "88888888-8888-4888-8888-888888888888",
+      scriptId: script.id,
+      versionNumber: 1,
+      filePath: "storage/projects/import/uploads/imported.txt",
+      rawText: "INT. ROOM - DAY",
+      analysisStatus: "complete" as const,
+      isActive: true,
+      createdAt: timestamp.toISOString(),
+    };
+    const scene = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      scriptVersionId: activeVersion.id,
+      sceneNumber: 1,
+      heading: "INT. ROOM - DAY",
+      summary: "Imported room.",
+      scriptStartLine: 1,
+      scriptEndLine: 1,
+      status: "ready" as const,
+      isUserEdited: false,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const shot = {
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      sceneId: scene.id,
+      shotNumber: 1,
+      action: "Imported action.",
+      status: "storyboarded" as const,
+      isUserEdited: false,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const asset = {
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      projectId,
+      type: "location" as const,
+      canonicalName: "Room",
+      aliases: [],
+      status: "approved" as const,
+      isUserEdited: false,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const assetVersion = {
+      id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      assetId: asset.id,
+      versionNumber: 1,
+      status: "draft" as const,
+      createdAt: timestamp.toISOString(),
+    };
+    const assetReference = {
+      id: "abababab-abab-4aba-8aba-abababababab",
+      assetVersionId: assetVersion.id,
+      referenceType: "front" as const,
+      filePath: "storage/projects/import/assets/reference.png",
+      mimeType: "image/png",
+      thumbnailPath: "storage/projects/import/assets/reference.png",
+      createdAt: timestamp.toISOString(),
+    };
+    const frame = {
+      id: "13131313-1313-4131-8131-131313131313",
+      shotId: shot.id,
+      keyframeIndex: 0,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const frameVersion = {
+      id: "14141414-1414-4141-8141-141414141414",
+      frameId: frame.id,
+      versionNumber: 1,
+      prompt: "Imported frame.",
+      filePath: "storage/projects/import/storyboards/frame.png",
+      status: "approved" as const,
+      isStale: false,
+      createdAt: timestamp.toISOString(),
+    };
+    const clip = {
+      id: "16161616-1616-4161-8161-161616161616",
+      shotId: shot.id,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const clipVersion = {
+      id: "17171717-1717-4171-8171-171717171717",
+      clipId: clip.id,
+      versionNumber: 1,
+      prompt: "Imported clip.",
+      filePath: "storage/projects/import/videos/clip.mp4",
+      durationMs: 3000,
+      status: "draft" as const,
+      isStale: false,
+      sourceFrameVersionIds: [frameVersion.id],
+      createdAt: timestamp.toISOString(),
+    };
+    const note = {
+      id: "15151515-1515-4151-8151-151515151515",
+      projectId,
+      authorId: "11111111-1111-4111-8111-111111111111",
+      targetType: "frame_version" as const,
+      targetId: frameVersion.id,
+      body: "Imported note.",
+      status: "open" as const,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    [
+      prismaMock.script.createMany,
+      prismaMock.scriptVersion.createMany,
+      prismaMock.scene.createMany,
+      prismaMock.shot.createMany,
+      prismaMock.asset.createMany,
+      prismaMock.assetVersion.createMany,
+      prismaMock.assetReference.createMany,
+      prismaMock.sceneAssetReq.createMany,
+      prismaMock.shotAssetReq.createMany,
+      prismaMock.storyboardFrame.createMany,
+      prismaMock.frameVersion.createMany,
+      prismaMock.videoClip.createMany,
+      prismaMock.clipVersion.createMany,
+      prismaMock.reviewNote.createMany,
+    ].forEach((mock) => mock.mockResolvedValue({ count: 1 }));
+
+    await repository.persistImportedProjectGraph({
+      scripts: [script],
+      activeVersion,
+      scenes: [scene],
+      shots: [shot],
+      assets: [asset],
+      assetDetails: [],
+      assetVersions: [assetVersion],
+      assetReferences: [assetReference],
+      storyboardFrames: [frame],
+      frameVersions: [frameVersion],
+      reviewNotes: [note],
+      videoClips: [clip],
+      clipVersions: [clipVersion],
+      invitations: [],
+      assignments: [],
+      activityEvents: [],
+      sceneAssetRequirements: [{ id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", sceneId: scene.id, assetId: asset.id, isOptional: false, detectedBy: "user", createdAt: timestamp.toISOString() }],
+      shotAssetRequirements: [{ id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", shotId: shot.id, assetId: asset.id, isOptional: false, detectedBy: "user", createdAt: timestamp.toISOString() }],
+      jobs: [],
+      events: [],
+    });
+
+    expect(prismaMock.script.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ id: script.id, projectId })],
+      skipDuplicates: true,
+    });
+    expect(prismaMock.scene.createMany).toHaveBeenCalledWith(expect.objectContaining({ data: [expect.objectContaining({ id: scene.id })] }));
+    expect(prismaMock.asset.createMany).toHaveBeenCalledWith(expect.objectContaining({ data: [expect.objectContaining({ id: asset.id })] }));
+    expect(prismaMock.frameVersion.createMany).toHaveBeenCalledWith(expect.objectContaining({ data: [expect.objectContaining({ id: frameVersion.id })] }));
+    expect(prismaMock.clipVersion.createMany).toHaveBeenCalledWith(expect.objectContaining({ data: [expect.objectContaining({ sourceFrameVersionIds: [frameVersion.id] })] }));
+    expect(prismaMock.reviewNote.createMany).toHaveBeenCalledWith(expect.objectContaining({ data: [expect.objectContaining({ authorId: note.authorId })] }));
   });
 
   it("replays project events from Prisma after the last event id", async () => {
