@@ -135,7 +135,7 @@ The app uses a structured logger (e.g. pino) with JSON output. Every log entry i
 
 ### Error tracking
 
-When `SENTRY_DSN` is set, unhandled errors and failed generation jobs are reported to Sentry with context (job type, provider, model, error class).
+Unexpected API errors are passed through the structured `captureError` path before the route returns a `500` response. When `SENTRY_DSN` is configured, the captured log records include `sentryEnabled: true` so deployment monitoring can verify the error-tracking path is active. Expected application errors such as validation, authorization, and not-found responses are returned without error capture.
 
 - `GET /api/health` actively probes Postgres with `SELECT 1` and Redis with `PING`. It returns `200` with `status: "ok"` only when both dependencies are reachable, and `503` with `status: "degraded"` plus dependency error details when either check fails.
 - `GET /api/health/workers` returns queue status (active, waiting, failed counts per queue).

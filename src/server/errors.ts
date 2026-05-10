@@ -1,3 +1,5 @@
+import { captureError } from "@/server/observability";
+
 export class AppError extends Error {
   constructor(
     message: string,
@@ -26,7 +28,7 @@ export class NotFoundError extends AppError {
   }
 }
 
-export function toErrorResponse(error: unknown) {
+export function toErrorResponse(error: unknown, context: Record<string, unknown> = {}) {
   if (error instanceof AppError) {
     return Response.json(
       {
@@ -39,6 +41,7 @@ export function toErrorResponse(error: unknown) {
     );
   }
 
+  captureError(error, { ...context, source: "toErrorResponse" });
   return Response.json(
     {
       error: {

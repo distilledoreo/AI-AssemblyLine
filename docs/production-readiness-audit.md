@@ -17,6 +17,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 | Real OpenAI calls | OpenAI adapter no longer throws for live keys. It calls `/v1/responses` for text/structured output and `/v1/images/generations` for images. Mocked HTTP tests cover payload and error-class mapping. | Partially complete |
 | Real OpenAI key smoke test | `npm run smoke:openai` performs a low-token live Responses API structured-output call when `OPENAI_API_KEY` is set. `openaiSmoke.test.ts` covers missing-key failure and the live-call payload shape with a mocked fetch. No real API key has been verified in this environment yet. | Blocked |
 | Health checks | `GET /api/health` now actively checks Postgres with `SELECT 1` and Redis with `PING`, returning `503` and dependency error details when either dependency is unreachable. `health.test.ts` covers healthy and degraded dependency states. | Passing for mocked dependencies; blocked for local real services |
+| API error capture | Unexpected route errors are captured through `captureError` before returning `500`; expected `AppError` responses are not reported. `errors.test.ts` covers both paths. | Passing |
 | Local dependency bring-up | `compose.yaml` defines PostgreSQL 16 and Redis 7 with health checks and persistent volumes. `npm run services:up`, `services:down`, and `services:logs` wrap Docker Compose for local production-like dependencies. Runtime verification is blocked because Docker is not installed in this environment. | Partially complete |
 | Next.js production build conventions | The request guard uses `src/proxy.ts` with `export function proxy`, replacing the deprecated `src/middleware.ts` convention. `proxy.test.ts` covers protected-route redirects and authenticated pass-through. | Passing |
 | Dependency security audit | `package.json` uses an npm override to pin `postcss` to `8.5.14`, replacing the vulnerable `8.4.31` nested under Next.js. `npm audit --audit-level=moderate` now reports zero vulnerabilities and `npm ls postcss` shows Next and Vite both using `8.5.14`. | Passing |
@@ -28,7 +29,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
-- `npm test`: passing, 21 files and 61 tests.
+- `npm test`: passing, 22 files and 63 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
