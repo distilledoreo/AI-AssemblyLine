@@ -46,7 +46,7 @@ describe("asset bible lifecycle", () => {
       assetId: asset.id,
       providerSlug: "stability",
     });
-    transitionAssetStatus(asset.id, "approved");
+    await transitionAssetStatus(asset.id, "approved");
 
     const updated = getScriptAnalysisGraph(asset.projectId);
     expect(generated.reference.mimeType).toBe("image/png");

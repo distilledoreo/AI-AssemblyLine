@@ -28,7 +28,7 @@ async function readyProject() {
   const workspace = await createWorkspaceForUser(user.id, { name: "Board Lab" });
   const project = await createProjectForWorkspace(user.id, { workspaceId: workspace.id, title: "Boards" });
   const graph = await uploadScriptForProject({ projectId: project.id, filename: "boards.txt", text: scriptText });
-  graph.assets.forEach((asset) => transitionAssetStatus(asset.id, "approved"));
+  await Promise.all(graph.assets.map((asset) => transitionAssetStatus(asset.id, "approved")));
   return { user, project, graph: getScriptAnalysisGraph(project.id) };
 }
 

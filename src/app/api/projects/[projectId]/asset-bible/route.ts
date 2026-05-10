@@ -72,7 +72,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     const body = jsonActionSchema.parse(await request.json());
     if (body.action === "detail") upsertAssetDetail(body.assetId, body.detail);
     if (body.action === "generate") await generateAssetReference({ projectId, assetId: body.assetId, providerSlug: body.providerSlug });
-    if (body.action === "status") transitionAssetStatus(body.assetId, body.status);
+    if (body.action === "status") await transitionAssetStatus(body.assetId, body.status);
     if (body.action === "merge") mergeAssets(body.sourceAssetId, body.targetAssetId);
     if (body.action === "split") splitAsset(body.assetId, body);
     if (body.action === "style") updateProjectStyle(projectId, body.style);

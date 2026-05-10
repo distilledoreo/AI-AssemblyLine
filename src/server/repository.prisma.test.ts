@@ -524,4 +524,60 @@ describe("Prisma repository mode", () => {
     expect(graph.sceneAssetRequirements[0]).toMatchObject({ sceneId: scene.id, assetId: asset.id });
     expect(graph.shotAssetRequirements[0]).toMatchObject({ shotId: shot.id, assetId: asset.id });
   });
+
+  it("persists Asset Bible status and manual requirements through Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const asset = {
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      type: "location" as const,
+      canonicalName: "Room",
+      aliases: ["INT. ROOM - DAY"],
+      status: "approved" as const,
+      continuityNotes: "Locked visual reference.",
+      negativePrompts: undefined,
+      description: "Location inferred from heading.",
+      firstAppearance: { sceneNumber: 1 },
+      isUserEdited: true,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const requirement = {
+      id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      sceneId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      assetId: asset.id,
+      isOptional: false,
+      detectedBy: "user" as const,
+      createdAt: timestamp.toISOString(),
+    };
+
+    prismaMock.asset.update.mockResolvedValue(asset);
+    prismaMock.sceneAssetReq.createMany.mockResolvedValue({ count: 1 });
+    prismaMock.sceneAssetReq.deleteMany.mockResolvedValue({ count: 1 });
+
+    await repository.persistAssetState(asset);
+    await repository.persistSceneAssetRequirement(requirement);
+    await repository.deleteSceneAssetRequirement(requirement.id);
+
+    expect(prismaMock.asset.update).toHaveBeenCalledWith({
+      where: { id: asset.id },
+      data: expect.objectContaining({
+        status: "approved",
+        continuityNotes: "Locked visual reference.",
+        isUserEdited: true,
+      }),
+    });
+    expect(prismaMock.sceneAssetReq.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          id: requirement.id,
+          sceneId: requirement.sceneId,
+          assetId: requirement.assetId,
+          detectedBy: "user",
+        }),
+      ],
+      skipDuplicates: true,
+    });
+    expect(prismaMock.sceneAssetReq.deleteMany).toHaveBeenCalledWith({ where: { id: requirement.id } });
+  });
 });

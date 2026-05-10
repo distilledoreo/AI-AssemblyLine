@@ -66,7 +66,7 @@ describe("collaboration workflow", () => {
     });
 
     addProjectMember({ projectId: project.id, userId: reviewer.id, role: "reviewer", actorId: owner.id });
-    transitionAssetStatus(graph.assets[0].id, "locked");
+    await transitionAssetStatus(graph.assets[0].id, "locked");
 
     expect(() => upsertAssetDetail(graph.assets[0].id, { narrativeDescription: "Change" })).toThrow(/locked/);
     expect(getScriptAnalysisGraph(project.id).activityEvents.at(-1)?.eventType).toBe("member_updated");

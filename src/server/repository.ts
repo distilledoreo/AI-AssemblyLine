@@ -1242,6 +1242,75 @@ export async function persistGeneratedScriptAnalysis(input: {
   }
 }
 
+export async function persistAssetState(asset: Asset) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.asset.update({
+    where: { id: asset.id },
+    data: {
+      canonicalName: asset.canonicalName,
+      type: asset.type,
+      aliases: asset.aliases,
+      status: asset.status,
+      continuityNotes: asset.continuityNotes,
+      negativePrompts: asset.negativePrompts,
+      description: asset.description,
+      firstAppearance: toPrismaJson(asset.firstAppearance),
+      isUserEdited: asset.isUserEdited ?? false,
+    },
+  }).catch(() => undefined);
+}
+
+export async function persistSceneAssetRequirement(input: SceneAssetRequirement) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.sceneAssetReq.createMany({
+    data: [
+      {
+        id: input.id,
+        sceneId: input.sceneId,
+        assetId: input.assetId,
+        isOptional: input.isOptional,
+        detectedBy: input.detectedBy,
+      },
+    ],
+    skipDuplicates: true,
+  });
+}
+
+export async function deleteSceneAssetRequirement(requirementId: string) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.sceneAssetReq.deleteMany({ where: { id: requirementId } });
+}
+
+export async function refreshPrismaReadiness(projectId: string) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  const graph = await getScriptAnalysisGraphForProject(projectId);
+  const approvedAssetIds = new Set(
+    graph.assets.filter((asset) => ["approved", "locked"].includes(asset.status)).map((asset) => asset.id),
+  );
+  await Promise.all(
+    graph.scenes.map((scene) => {
+      const reqs = graph.sceneAssetRequirements.filter((req) => req.sceneId === scene.id && !req.isOptional);
+      const status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
+      return prisma.scene.update({ where: { id: scene.id }, data: { status } }).catch(() => undefined);
+    }),
+  );
+  await Promise.all(
+    graph.shots.map((shot) => {
+      const reqs = graph.shotAssetRequirements.filter((req) => req.shotId === shot.id && !req.isOptional);
+      const status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
+      return prisma.shot.update({ where: { id: shot.id }, data: { status } }).catch(() => undefined);
+    }),
+  );
+}
+
 export async function updateProject(
   projectId: string,
   input: Partial<Pick<Project, "title" | "targetFormat" | "aspectRatio" | "estimatedRuntime" | "rightsPolicy">>,

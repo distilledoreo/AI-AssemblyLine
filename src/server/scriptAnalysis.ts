@@ -10,7 +10,10 @@ import {
   getProject,
   getScriptAnalysisGraph,
   getStore,
+  deleteSceneAssetRequirement,
   persistGeneratedScriptAnalysis,
+  persistSceneAssetRequirement,
+  refreshPrismaReadiness,
   updateScriptVersionAnalysisStatus,
 } from "@/server/repository";
 import { isRedisQueueEnabled } from "@/server/queue";
@@ -512,7 +515,7 @@ export function updateAsset(assetId: string, input: Partial<Pick<Asset, "canonic
   return asset;
 }
 
-export function addSceneAssetRequirement(sceneId: string, assetId: string) {
+export async function addSceneAssetRequirement(sceneId: string, assetId: string) {
   const store = getStore();
   const scene = store.scenes.find((candidate) => candidate.id === sceneId);
   const asset = store.assets.find((candidate) => candidate.id === assetId);
@@ -520,21 +523,31 @@ export function addSceneAssetRequirement(sceneId: string, assetId: string) {
     throw new NotFoundError("Scene or asset not found.");
   }
   if (!store.sceneAssetRequirements.some((req) => req.sceneId === sceneId && req.assetId === assetId)) {
-    store.sceneAssetRequirements.push({
+    const requirement = {
       id: createId(),
       sceneId,
       assetId,
       isOptional: false,
       detectedBy: "user",
       createdAt: nowIso(),
-    });
+    } as const;
+    store.sceneAssetRequirements.push(requirement);
+    await persistSceneAssetRequirement(requirement);
   }
   refreshReadiness(asset.projectId);
+  await refreshPrismaReadiness(asset.projectId);
 }
 
-export function removeSceneAssetRequirement(requirementId: string) {
+export async function removeSceneAssetRequirement(requirementId: string) {
   const store = getStore();
+  const requirement = store.sceneAssetRequirements.find((req) => req.id === requirementId);
+  const asset = requirement ? store.assets.find((candidate) => candidate.id === requirement.assetId) : undefined;
   store.sceneAssetRequirements = store.sceneAssetRequirements.filter((req) => req.id !== requirementId);
+  await deleteSceneAssetRequirement(requirementId);
+  if (asset) {
+    refreshReadiness(asset.projectId);
+    await refreshPrismaReadiness(asset.projectId);
+  }
 }
 
 function refreshReadiness(projectId: string) {

@@ -3,7 +3,7 @@ import path from "node:path";
 import { OpenAIAdapter } from "@/providers/openai";
 import { StabilityAdapter } from "@/providers/stability";
 import { AppError, NotFoundError } from "@/server/errors";
-import { createGenerationJob, getStore } from "@/server/repository";
+import { createGenerationJob, getStore, persistAssetState, refreshPrismaReadiness } from "@/server/repository";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
 import { markFramesStaleForAsset } from "@/server/storyboard";
@@ -153,7 +153,7 @@ export async function generateAssetReference(input: {
   return { version, reference, job };
 }
 
-export function transitionAssetStatus(assetId: string, status: AssetStatus) {
+export async function transitionAssetStatus(assetId: string, status: AssetStatus) {
   const store = getStore();
   const asset = store.assets.find((candidate) => candidate.id === assetId);
   if (!asset) {
@@ -169,6 +169,8 @@ export function transitionAssetStatus(assetId: string, status: AssetStatus) {
     markFramesStaleForAsset(asset.projectId, asset.id);
   }
   refreshReadiness(asset.projectId);
+  await persistAssetState(asset);
+  await refreshPrismaReadiness(asset.projectId);
   return asset;
 }
 
