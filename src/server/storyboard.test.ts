@@ -41,13 +41,13 @@ describe("storyboard workflow", () => {
 
     const generated = await generateStoryboardFrame({ projectId: project.id, shotId: shot.id, keyframeIndex: 0 });
     const frameVersion = generated.frameVersions[0];
-    updateFrameVersion({
+    await updateFrameVersion({
       projectId: project.id,
       frameVersionId: frameVersion.id,
       annotations: { library: "fabric-compatible-json", objects: [{ type: "arrow" }] },
       status: "approved",
     });
-    addFrameComment({ projectId: project.id, authorId: user.id, frameVersionId: frameVersion.id, body: "Approved." });
+    await addFrameComment({ projectId: project.id, authorId: user.id, frameVersionId: frameVersion.id, body: "Approved." });
 
     const updated = getScriptAnalysisGraph(project.id);
     expect(updated.storyboardFrames[0].keyframeIndex).toBe(0);

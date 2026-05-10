@@ -103,13 +103,21 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
   },
   storyboardFrame: {
+    upsert: vi.fn(),
     findMany: vi.fn(),
   },
   frameVersion: {
+    create: vi.fn(),
     findMany: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
   },
   reviewNote: {
+    create: vi.fn(),
     findMany: vi.fn(),
+  },
+  clipVersion: {
+    updateMany: vi.fn(),
   },
   sceneAssetReq: {
     createMany: vi.fn(),
@@ -840,6 +848,84 @@ describe("Prisma repository mode", () => {
         modelPromptFragments: { openai: "cinematic noir" },
         approvalStatus: "approved",
       }),
+    });
+  });
+
+  it("persists storyboard frame writes through Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const frame = {
+      id: "13131313-1313-4131-8131-131313131313",
+      shotId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      keyframeIndex: 0,
+      sketchFilePath: "storage/projects/project/storyboards/sketch.png",
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const version = {
+      id: "14141414-1414-4141-8141-141414141414",
+      frameId: frame.id,
+      versionNumber: 1,
+      prompt: "Wide frame of Anna in the room.",
+      filePath: "storage/projects/project/storyboards/frame.png",
+      thumbnailPath: "storage/projects/project/storyboards/frame-thumb.png",
+      status: "approved" as const,
+      isStale: false,
+      generationJobId: "99999999-9999-4999-8999-999999999999",
+      annotations: { library: "fabric-compatible-json" },
+      createdAt: timestamp.toISOString(),
+    };
+    const shot = {
+      id: frame.shotId,
+      sceneId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      shotNumber: 1,
+      action: "Anna waits.",
+      status: "storyboarded" as const,
+      isUserEdited: false,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const note = {
+      id: "15151515-1515-4151-8151-151515151515",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      authorId: "11111111-1111-4111-8111-111111111111",
+      targetType: "frame_version" as const,
+      targetId: version.id,
+      body: "Composition approved.",
+      status: "open" as const,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+
+    prismaMock.storyboardFrame.upsert.mockResolvedValue(frame);
+    prismaMock.frameVersion.create.mockResolvedValue(version);
+    prismaMock.frameVersion.update.mockResolvedValue(version);
+    prismaMock.frameVersion.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.shot.update.mockResolvedValue(shot);
+    prismaMock.generationJob.update.mockResolvedValue({ id: version.generationJobId });
+    prismaMock.reviewNote.create.mockResolvedValue(note);
+
+    await repository.persistGeneratedFrameVersion({ frame, version, shot });
+    await repository.persistFrameVersionState(version);
+    await repository.persistReviewNoteState(note);
+
+    expect(prismaMock.storyboardFrame.upsert).toHaveBeenCalledWith({
+      where: { id: frame.id },
+      update: expect.objectContaining({ sketchFilePath: frame.sketchFilePath }),
+      create: expect.objectContaining({ id: frame.id, shotId: frame.shotId }),
+    });
+    expect(prismaMock.frameVersion.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: version.id,
+        frameId: frame.id,
+        annotations: { library: "fabric-compatible-json" },
+      }),
+    });
+    expect(prismaMock.frameVersion.updateMany).toHaveBeenCalledWith({
+      where: { frameId: frame.id, status: "approved", id: { not: version.id } },
+      data: { status: "superseded" },
+    });
+    expect(prismaMock.reviewNote.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ id: note.id, targetId: version.id, body: "Composition approved." }),
     });
   });
 

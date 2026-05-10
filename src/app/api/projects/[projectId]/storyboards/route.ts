@@ -56,9 +56,9 @@ export async function POST(request: Request, context: { params: Promise<{ projec
 
     const body = storyboardActionSchema.parse(await request.json());
     if (body.action === "generate") return Response.json(await generateStoryboardFrame({ projectId, ...body }));
-    if (body.action === "frame") return Response.json(updateFrameVersion({ projectId, ...body }));
+    if (body.action === "frame") return Response.json(await updateFrameVersion({ projectId, ...body }));
     if (body.action === "comment") {
-      addFrameComment({ projectId, authorId: user.id, frameVersionId: body.frameVersionId, body: body.body });
+      await addFrameComment({ projectId, authorId: user.id, frameVersionId: body.frameVersionId, body: body.body });
       return Response.json(await getScriptAnalysisGraphForProject(projectId), { status: 201 });
     }
   } catch (error) {

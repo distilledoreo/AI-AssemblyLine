@@ -2,7 +2,15 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { OpenAIAdapter } from "@/providers/openai";
 import { AppError, NotFoundError } from "@/server/errors";
-import { createGenerationJob, getScriptAnalysisGraph, getStore } from "@/server/repository";
+import {
+  createGenerationJob,
+  getScriptAnalysisGraph,
+  getStore,
+  persistFrameVersionState,
+  persistGeneratedFrameVersion,
+  persistReviewNoteState,
+  persistStoryboardFrameState,
+} from "@/server/repository";
 import { composeStoryboardPrompt } from "@/server/promptEngine";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
@@ -78,10 +86,11 @@ export async function generateStoryboardFrame(input: {
   job.status = "complete";
   job.outputPayload = { frameId: frame.id, frameVersionId: version.id };
   job.completedAt = nowIso();
+  await persistGeneratedFrameVersion({ frame, version, shot });
   return getScriptAnalysisGraph(input.projectId);
 }
 
-export function updateFrameVersion(input: {
+export async function updateFrameVersion(input: {
   projectId: string;
   frameVersionId: string;
   status?: FrameVersion["status"];
@@ -104,6 +113,7 @@ export function updateFrameVersion(input: {
       });
   }
   Object.assign(version, { status: input.status ?? version.status, annotations: input.annotations ?? version.annotations });
+  await persistFrameVersionState(version);
   return getScriptAnalysisGraph(input.projectId);
 }
 
@@ -132,10 +142,11 @@ export async function attachSketch(input: {
   await writeFile(filePath, input.data);
   frame.sketchFilePath = filePath;
   frame.updatedAt = timestamp;
+  await persistStoryboardFrameState(frame);
   return getScriptAnalysisGraph(input.projectId);
 }
 
-export function addFrameComment(input: {
+export async function addFrameComment(input: {
   projectId: string;
   authorId: string;
   frameVersionId: string;
@@ -155,6 +166,7 @@ export function addFrameComment(input: {
     updatedAt: nowIso(),
   };
   getStore().reviewNotes.push(note);
+  await persistReviewNoteState(note);
   return note;
 }
 

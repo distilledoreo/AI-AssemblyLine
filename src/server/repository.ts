@@ -1675,6 +1675,109 @@ export async function persistProjectStyleState(style: ProjectStyle) {
   }).catch(() => undefined);
 }
 
+export async function persistStoryboardFrameState(frame: StoryboardFrame) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.storyboardFrame.upsert({
+    where: { id: frame.id },
+    update: {
+      shotId: frame.shotId,
+      keyframeIndex: frame.keyframeIndex,
+      sketchFilePath: frame.sketchFilePath,
+      sketchWarning: frame.sketchWarning,
+      updatedAt: new Date(frame.updatedAt),
+    },
+    create: {
+      id: frame.id,
+      shotId: frame.shotId,
+      keyframeIndex: frame.keyframeIndex,
+      sketchFilePath: frame.sketchFilePath,
+      sketchWarning: frame.sketchWarning,
+      createdAt: new Date(frame.createdAt),
+      updatedAt: new Date(frame.updatedAt),
+    },
+  }).catch(() => undefined);
+}
+
+export async function persistGeneratedFrameVersion(input: {
+  frame: StoryboardFrame;
+  version: FrameVersion;
+  shot: Shot;
+}) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await persistStoryboardFrameState(input.frame);
+  await prisma.frameVersion.create({
+    data: {
+      id: input.version.id,
+      frameId: input.version.frameId,
+      versionNumber: input.version.versionNumber,
+      prompt: input.version.prompt,
+      filePath: input.version.filePath,
+      thumbnailPath: input.version.thumbnailPath,
+      status: input.version.status,
+      isStale: input.version.isStale,
+      generationJobId: input.version.generationJobId,
+      annotations: toPrismaJson(input.version.annotations),
+      createdAt: new Date(input.version.createdAt),
+    },
+  }).catch(() => undefined);
+  await prisma.shot.update({ where: { id: input.shot.id }, data: { status: input.shot.status } }).catch(() => undefined);
+  if (input.version.generationJobId) {
+    await prisma.generationJob.update({
+      where: { id: input.version.generationJobId },
+      data: {
+        status: "complete",
+        outputPayload: toPrismaJson({ frameId: input.frame.id, frameVersionId: input.version.id }),
+        completedAt: new Date(),
+      },
+    }).catch(() => undefined);
+  }
+}
+
+export async function persistFrameVersionState(version: FrameVersion) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  if (version.status === "approved") {
+    await prisma.frameVersion.updateMany({
+      where: { frameId: version.frameId, status: "approved", id: { not: version.id } },
+      data: { status: "superseded" },
+    }).catch(() => undefined);
+  }
+  await prisma.frameVersion.update({
+    where: { id: version.id },
+    data: {
+      status: version.status,
+      annotations: toPrismaJson(version.annotations),
+      isStale: version.isStale,
+    },
+  }).catch(() => undefined);
+}
+
+export async function persistReviewNoteState(note: ReviewNote) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.reviewNote.create({
+    data: {
+      id: note.id,
+      projectId: note.projectId,
+      authorId: note.authorId,
+      targetType: note.targetType,
+      targetId: note.targetId,
+      parentNoteId: note.parentNoteId,
+      body: note.body,
+      markupFilePath: note.markupFilePath,
+      status: note.status,
+      createdAt: new Date(note.createdAt),
+      updatedAt: new Date(note.updatedAt),
+    },
+  }).catch(() => undefined);
+}
+
 export async function persistAssetVersionAndReference(input: {
   version: AssetVersion;
   reference: AssetReference;
