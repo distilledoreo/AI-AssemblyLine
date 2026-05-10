@@ -71,3 +71,5 @@ npm run dev
 
 Open `http://localhost:3000/signin`, sign in with any valid email and a password of at least four characters, create a workspace and project, save an OpenAI key, then open the project dashboard to verify the live SSE connection. Use the Script analysis panel to upload sample script text, review the generated breakdown, generate and approve Asset Bible references, approve storyboard frames and video clips, invite or assign collaborators, then export and import a project bundle from the operations panel.
 
+For Redis-backed script analysis in a production-like setup, set `QUEUE_MODE=redis`, start the web app with `npm run dev` or `npm run build && npm start`, and run `npm run worker` in a separate process. In the default local `.env.example`, `QUEUE_MODE=inline` keeps jobs synchronous so the app can be exercised without a Redis worker.
+

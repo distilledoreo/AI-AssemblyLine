@@ -5,11 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "start": "next start",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
+    "worker": "tsx src/server/worker.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "verify:phase1": "vitest run && next build"
@@ -26,6 +28,7 @@
     "pino": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "tsx": "^4.21.0",
     "zod": "latest"
   },
   "devDependencies": {

@@ -39,8 +39,8 @@ Deletes cached thumbnail files. Thumbnails may be regenerated later.
 ## Core workflow endpoints
 
 - `GET /api/projects/:projectId/events` opens the project SSE stream.
-- `POST /api/projects/:projectId/scripts` uploads and analyzes script text.
-- `PATCH /api/projects/:projectId/scripts` re-runs analysis while preserving user edits.
+- `POST /api/projects/:projectId/scripts` uploads script text. In inline mode, the response includes the completed deterministic analysis. In Redis queue mode, the response includes the uploaded active script version with `analysisStatus: "pending"` and a queued `script_analysis` job; clients should follow the project SSE stream for progress and refresh the graph after completion.
+- `PATCH /api/projects/:projectId/scripts` re-runs analysis while preserving user edits. It follows the same inline versus Redis queue behavior as upload.
 - `POST /api/projects/:projectId/asset-bible` manages asset details, references, generation, lifecycle, merge, split, and style actions.
 - `POST /api/projects/:projectId/storyboards` generates frames, ingests sketches, saves markup, comments, and frame approvals.
 - `POST /api/projects/:projectId/videos` generates shot or scene clips and updates clip review status.

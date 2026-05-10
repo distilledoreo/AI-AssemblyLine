@@ -5,10 +5,12 @@ import { createId, nowIso } from "@/server/ids";
 import {
   addJobEvent,
   createGenerationJob,
+  completeGenerationJob,
   getProject,
   getScriptAnalysisGraph,
   getStore,
 } from "@/server/repository";
+import { isRedisQueueEnabled } from "@/server/queue";
 import { projectFolderPath } from "@/server/storage";
 import type { Asset, AssetType, Scene, Shot } from "@/server/types";
 
@@ -116,7 +118,11 @@ export async function uploadScriptForProject(input: {
     createdAt: timestamp,
   };
   store.scriptVersions.push(version);
-  await runScriptAnalysis(input.projectId, version.id);
+  const job = createScriptAnalysisJob(input.projectId, version.id);
+  if (isRedisQueueEnabled()) {
+    return getScriptAnalysisGraph(input.projectId);
+  }
+  await processScriptAnalysisJob({ projectId: input.projectId, scriptVersionId: version.id, jobId: job.id });
   return getScriptAnalysisGraph(input.projectId);
 }
 
@@ -129,18 +135,37 @@ export async function runScriptAnalysis(projectId: string, scriptVersionId?: str
     throw new NotFoundError("Script version not found.");
   }
 
-  const job = createGenerationJob({
-    projectId,
-    type: "script_analysis",
-    providerSlug: "local-mock",
-    modelId: "deterministic-script-pass-v1",
-    inputPayload: { scriptVersionId: version.id, preserveUserEdits: true },
-  });
+  const job = createScriptAnalysisJob(projectId, version.id);
+  if (isRedisQueueEnabled()) {
+    return getScriptAnalysisGraph(projectId);
+  }
+  return processScriptAnalysisJob({ projectId, scriptVersionId: version.id, jobId: job.id });
+}
+
+export async function processScriptAnalysisJob(input: { projectId: string; scriptVersionId: string; jobId: string }) {
+  const store = getStore();
+  const version = store.scriptVersions.find((candidate) => candidate.id === input.scriptVersionId);
+  if (!version) {
+    throw new NotFoundError("Script version not found.");
+  }
+  const job = store.generationJobs.find((candidate) => candidate.id === input.jobId);
+  if (!job) {
+    throw new NotFoundError("Generation job not found.");
+  }
 
   version.analysisStatus = "running";
+  job.status = "running";
+  job.startedAt = nowIso();
   addJobEvent({
     jobId: job.id,
-    projectId,
+    projectId: input.projectId,
+    eventType: "status_change",
+    message: "Script analysis started.",
+    progressPct: 5,
+  });
+  addJobEvent({
+    jobId: job.id,
+    projectId: input.projectId,
     eventType: "progress",
     message: "Pass 1: extracting scenes.",
     progressPct: 15,
@@ -149,7 +174,7 @@ export async function runScriptAnalysis(projectId: string, scriptVersionId?: str
 
   addJobEvent({
     jobId: job.id,
-    projectId,
+    projectId: input.projectId,
     eventType: "progress",
     message: "Pass 2: breaking scenes into shots.",
     progressPct: 45,
@@ -158,31 +183,42 @@ export async function runScriptAnalysis(projectId: string, scriptVersionId?: str
 
   addJobEvent({
     jobId: job.id,
-    projectId,
+    projectId: input.projectId,
     eventType: "progress",
     message: "Pass 3: detecting and deduplicating assets.",
     progressPct: 75,
   });
   const assetOutput = detectAssets(sceneOutputs, shotOutputs, version.rawText);
 
-  persistAnalysis(projectId, version.id, sceneOutputs, shotOutputs, assetOutput);
+  persistAnalysis(input.projectId, version.id, sceneOutputs, shotOutputs, assetOutput);
   version.analysisStatus = "complete";
-  job.status = "complete";
-  job.outputPayload = {
-    scenes: sceneOutputs.length,
-    shots: shotOutputs.reduce((total, scene) => total + scene.shots.length, 0),
-    assets: assetOutput.assets.length,
-    warnings: assetOutput.warnings,
-  };
-  job.completedAt = nowIso();
+  completeGenerationJob(job.id, {
+    status: "complete",
+    outputPayload: {
+      scenes: sceneOutputs.length,
+      shots: shotOutputs.reduce((total, scene) => total + scene.shots.length, 0),
+      assets: assetOutput.assets.length,
+      warnings: assetOutput.warnings,
+    },
+  });
   addJobEvent({
     jobId: job.id,
-    projectId,
+    projectId: input.projectId,
     eventType: "status_change",
     message: "Script analysis complete.",
     progressPct: 100,
   });
-  return getScriptAnalysisGraph(projectId);
+  return getScriptAnalysisGraph(input.projectId);
+}
+
+function createScriptAnalysisJob(projectId: string, scriptVersionId: string) {
+  return createGenerationJob({
+    projectId,
+    type: "script_analysis",
+    providerSlug: "local-mock",
+    modelId: "deterministic-script-pass-v1",
+    inputPayload: { projectId, scriptVersionId, preserveUserEdits: true },
+  });
 }
 
 export function extractScenes(scriptText: string): ScriptSceneOutput[] {

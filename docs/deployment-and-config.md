@@ -12,6 +12,7 @@ All configuration is driven by environment variables loaded from `.env` files (v
 |----------|-------------|---------|
 | `DATABASE_URL` | Postgres connection string | `postgresql://user:pass@localhost:5432/assemblyline` |
 | `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
+| `QUEUE_MODE` | Queue execution mode. Use `inline` for no-worker local development or `redis` for BullMQ-backed async jobs. Production defaults to Redis mode when unset. | `redis` |
 | `NEXTAUTH_URL` | Canonical app URL | `http://localhost:3000` |
 | `NEXTAUTH_SECRET` | NextAuth session signing secret (32+ chars) | Generated via `openssl rand -base64 32` |
 | `ENCRYPTION_KEY` | AES-256 key for provider API key encryption (32 bytes, base64) | Generated via `openssl rand -base64 32` |
@@ -96,12 +97,19 @@ npm run prisma:generate
 npm run dev
 ```
 
+To exercise BullMQ locally, set `QUEUE_MODE=redis`, make sure Redis is reachable at `REDIS_URL`, and run the worker in a second terminal:
+
+```bash
+npm run worker
+```
+
 ### Development mode
 
 In development:
 
 - Next.js runs with hot reload.
-- BullMQ workers run in the same process (single-process mode).
+- `QUEUE_MODE=inline` runs script analysis synchronously without Redis so the local workflow remains usable on a bare machine.
+- `QUEUE_MODE=redis` submits script analysis jobs to BullMQ. Run `npm run worker` as a separate process to consume queued jobs.
 - Redis can be a local instance or Docker container.
 - Provider adapters default to mock mode if no API keys are configured, returning placeholder outputs so the full workflow can be tested without spend.
 - File storage uses `./storage` relative to the project root.

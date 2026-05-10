@@ -1,4 +1,4 @@
-import { Queue } from "bullmq";
+import { Queue, Worker, type Processor } from "bullmq";
 import IORedis from "ioredis";
 import { getConfig } from "@/lib/config";
 import type { ErrorClass, GenerationJob, GenerationJobType, JobEvent } from "@/server/types";
@@ -30,7 +30,7 @@ const queues = new Map<string, Queue>();
 let redisConnection: IORedis | undefined;
 let redisPublisher: IORedis | undefined;
 
-function redisEnabled() {
+export function isRedisQueueEnabled() {
   if (process.env.NODE_ENV === "test" || process.env.QUEUE_MODE === "inline") {
     return false;
   }
@@ -41,7 +41,7 @@ function redisEnabled() {
 }
 
 function getRedisConnection() {
-  if (!redisEnabled()) {
+  if (!isRedisQueueEnabled()) {
     return undefined;
   }
   redisConnection ??= new IORedis(getConfig().REDIS_URL, {
@@ -52,7 +52,7 @@ function getRedisConnection() {
 }
 
 function getRedisPublisher() {
-  if (!redisEnabled()) {
+  if (!isRedisQueueEnabled()) {
     return undefined;
   }
   redisPublisher ??= new IORedis(getConfig().REDIS_URL, {
@@ -86,7 +86,7 @@ export function subscribeToProjectEvents(projectId: string, listener: Listener) 
   projectListeners.add(listener);
   listeners.set(projectId, projectListeners);
 
-  const subscriber = redisEnabled() ? new IORedis(getConfig().REDIS_URL, { maxRetriesPerRequest: null }) : undefined;
+  const subscriber = isRedisQueueEnabled() ? new IORedis(getConfig().REDIS_URL, { maxRetriesPerRequest: null }) : undefined;
   if (subscriber) {
     const channel = projectEventChannel(projectId);
     subscriber.subscribe(channel).catch(() => undefined);
@@ -133,6 +133,17 @@ export async function submitGenerationJob(job: GenerationJob) {
     removeOnFail: { count: 1000 },
   });
   return { submitted: true, queueName: queue.name, bullJobId: String(bullJob.id) };
+}
+
+export function createGenerationWorker(queueName: keyof typeof queueTopology, processor: Processor) {
+  const connection = getRedisConnection();
+  if (!connection) {
+    return undefined;
+  }
+  return new Worker(`assemblyline-${queueName}`, processor, {
+    connection,
+    concurrency: Number(process.env[`${queueName.toUpperCase()}_QUEUE_CONCURRENCY`]) || queueTopology[queueName].defaultConcurrency,
+  });
 }
 
 export function formatSseEvent(event: JobEvent) {
