@@ -38,6 +38,7 @@ The app is designed for both single creators and production teams. It will analy
 - [Deployment and configuration](docs/deployment-and-config.md) — environment variables, API key encryption, local dev setup, observability.
 - [Testing strategy](docs/testing-strategy.md) — test categories, provider mock factory, CI expectations.
 - [Implementation roadmap](docs/implementation-roadmap.md) — phased build order with deliverables and exit criteria.
+- [Phase 1 foundation](docs/phase-1-foundation.md) — runnable app shell, setup flow, auth/RBAC, provider keys, storage, queues, and SSE verification.
 
 ## MVP scope
 
@@ -45,7 +46,18 @@ See the [product plan](docs/product-plan.md#mvp-scope) for the full MVP feature 
 
 ## Development status
 
-This repository contains the product and architecture documentation. Implementation should proceed documentation-first: user-facing behavior, API settings, configuration options, and workflow changes must be documented as part of the same change that implements them.
+Phase 1 foundation implementation is underway. The repository now includes a Next.js App Router scaffold, TypeScript service layer, Prisma/Postgres schema, Auth.js/NextAuth configuration, RBAC checks, encrypted provider key storage, BullMQ queue metadata, local filesystem storage helpers, API routes, an SSE project event endpoint, and Vitest coverage for the foundation behavior.
 
-The [implementation roadmap](docs/implementation-roadmap.md) defines the build order across seven phases, starting with the foundation (auth, data layer, provider framework, job queue) and progressing through script analysis, Asset Bible, storyboard, video, collaboration, and export.
+The [implementation roadmap](docs/implementation-roadmap.md) remains the build order across seven phases. Each phase must be implemented, documented, tested, run, verified, committed, and pushed before the next phase begins.
+
+## Local development
+
+```bash
+npm install
+npm run prisma:generate
+npm test
+npm run dev
+```
+
+Open `http://localhost:3000/signin`, sign in with any valid email and a password of at least four characters, create a workspace and project, save an OpenAI key, then open the project dashboard to verify the live SSE connection.
 

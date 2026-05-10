@@ -88,6 +88,14 @@ pnpm prisma db seed    # optional: seed with sample project
 pnpm dev               # starts Next.js + workers in watch mode
 ```
 
+If `pnpm` is not installed, use the equivalent npm commands:
+
+```bash
+npm install
+npm run prisma:generate
+npm run dev
+```
+
 ### Development mode
 
 In development:
@@ -97,6 +105,7 @@ In development:
 - Redis can be a local instance or Docker container.
 - Provider adapters default to mock mode if no API keys are configured, returning placeholder outputs so the full workflow can be tested without spend.
 - File storage uses `./storage` relative to the project root.
+- Phase 1 exposes a local credentials session path so the foundation UI can be exercised before a Postgres instance is available; production deployments should use the configured database-backed Auth.js sessions.
 
 ## Observability
 

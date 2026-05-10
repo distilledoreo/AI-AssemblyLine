@@ -1,0 +1,724 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkspaceRole {
+  owner
+  admin
+  member
+}
+
+enum ProjectRole {
+  owner
+  producer
+  artist
+  reviewer
+  viewer
+}
+
+enum RightsPolicy {
+  unrestricted
+  no_real_people
+  client_owned
+  custom
+}
+
+enum StyleApprovalStatus {
+  draft
+  approved
+  locked
+}
+
+enum ScriptAnalysisStatus {
+  pending
+  running
+  complete
+  failed
+}
+
+enum SceneStatus {
+  blocked
+  ready
+  in_progress
+  complete
+  superseded
+}
+
+enum ShotStatus {
+  blocked
+  ready
+  storyboarded
+  video_ready
+  complete
+  superseded
+}
+
+enum AssetType {
+  character
+  wardrobe
+  location
+  creature
+  prop
+}
+
+enum AssetStatus {
+  missing
+  draft
+  needs_review
+  approved
+  locked
+  superseded
+  rejected
+}
+
+enum AssetVersionStatus {
+  draft
+  needs_review
+  approved
+  rejected
+  superseded
+}
+
+enum AssetReferenceType {
+  front
+  side
+  back
+  expression_sheet
+  pose_sheet
+  scale
+  turnaround
+  detail
+  other
+}
+
+enum RequirementDetector {
+  ai
+  user
+}
+
+enum FrameVersionStatus {
+  draft
+  needs_review
+  approved
+  rejected
+  superseded
+  stale
+}
+
+enum ClipVersionStatus {
+  draft
+  needs_review
+  approved
+  rejected
+  superseded
+  stale
+}
+
+enum GenerationJobType {
+  script_analysis
+  asset_reference
+  storyboard_frame
+  video_clip
+  export
+  import
+  thumbnail
+  media_convert
+}
+
+enum GenerationJobStatus {
+  queued
+  running
+  provider_submitted
+  polling
+  processing_output
+  complete
+  failed
+  canceled
+}
+
+enum ErrorClass {
+  retriable
+  fatal
+  content_policy
+  rate_limit
+  timeout
+}
+
+enum ReviewTargetType {
+  asset_version
+  frame_version
+  clip_version
+}
+
+enum ReviewNoteStatus {
+  open
+  resolved
+  dismissed
+}
+
+enum InvitationScope {
+  workspace
+  project
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  expired
+  revoked
+}
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique
+  name          String
+  avatarUrl     String?
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  workspaceMembers WorkspaceMember[]
+  projectMembers   ProjectMember[]
+  reviewNotes      ReviewNote[]
+  invitationsSent  Invitation[]      @relation("InvitationInviter")
+  assignments      Assignment[]
+  activities       ActivityEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Workspace {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String            @unique
+  members     WorkspaceMember[]
+  projects    Project[]
+  providerKeys ProviderKey[]
+  invitations Invitation[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model WorkspaceMember {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String       @db.Uuid
+  userId      String       @db.Uuid
+  role        WorkspaceRole
+  joinedAt    DateTime     @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+}
+
+model Project {
+  id               String       @id @default(uuid()) @db.Uuid
+  workspaceId      String       @db.Uuid
+  title            String
+  targetFormat     String
+  aspectRatio      String
+  estimatedRuntime Int?
+  storagePath      String
+  rightsPolicy     RightsPolicy @default(unrestricted)
+  style            ProjectStyle?
+  scripts          Script[]
+  assets           Asset[]
+  members          ProjectMember[]
+  generationJobs   GenerationJob[]
+  reviewNotes      ReviewNote[]
+  exportBundles    ExportBundle[]
+  invitations      Invitation[]
+  assignments      Assignment[]
+  activities       ActivityEvent[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model ProjectMember {
+  id        String      @id @default(uuid()) @db.Uuid
+  projectId String     @db.Uuid
+  userId    String     @db.Uuid
+  role      ProjectRole
+  joinedAt  DateTime   @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+model ProjectStyle {
+  id                   String              @id @default(uuid()) @db.Uuid
+  projectId            String              @unique @db.Uuid
+  styleName            String
+  description          String              @db.Text
+  colorPalette         Json
+  lightingRules        String              @db.Text
+  renderingMedium      String
+  lensLanguage         String              @db.Text
+  negativeConstraints  String              @db.Text
+  modelPromptFragments Json
+  approvalStatus       StyleApprovalStatus @default(draft)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ProviderKey {
+  id           String   @id @default(uuid()) @db.Uuid
+  workspaceId  String   @db.Uuid
+  providerSlug String
+  encryptedKey Bytes
+  keyNonce     Bytes
+  label        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model Script {
+  id          String          @id @default(uuid()) @db.Uuid
+  projectId   String          @db.Uuid
+  filename    String
+  versions    ScriptVersion[]
+  createdAt   DateTime        @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ScriptVersion {
+  id             String               @id @default(uuid()) @db.Uuid
+  scriptId       String               @db.Uuid
+  versionNumber  Int
+  filePath       String
+  analysisStatus ScriptAnalysisStatus @default(pending)
+  isActive       Boolean              @default(true)
+  scenes         Scene[]
+  createdAt      DateTime             @default(now())
+
+  script Script @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+}
+
+model Scene {
+  id              String          @id @default(uuid()) @db.Uuid
+  scriptVersionId String          @db.Uuid
+  sceneNumber     Int
+  heading         String
+  summary         String          @db.Text
+  scriptStartLine Int
+  scriptEndLine   Int
+  locationHint    String?
+  status          SceneStatus     @default(blocked)
+  shots           Shot[]
+  assetReqs       SceneAssetReq[]
+  videoClips      VideoClip[]
+  assignments     Assignment[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  scriptVersion ScriptVersion @relation(fields: [scriptVersionId], references: [id], onDelete: Cascade)
+}
+
+model Shot {
+  id             String          @id @default(uuid()) @db.Uuid
+  sceneId        String          @db.Uuid
+  shotNumber     Int
+  action         String          @db.Text
+  cameraAngle    String?
+  cameraMovement String?
+  lensNotes      String?         @db.Text
+  lightingNotes  String?         @db.Text
+  userDirection  String?         @db.Text
+  status         ShotStatus      @default(blocked)
+  assetReqs      ShotAssetReq[]
+  frames         StoryboardFrame[]
+  videoClips     VideoClip[]
+  assignments    Assignment[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  scene Scene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+}
+
+model Asset {
+  id               String          @id @default(uuid()) @db.Uuid
+  projectId        String          @db.Uuid
+  type             AssetType
+  canonicalName    String
+  aliases          Json
+  status           AssetStatus     @default(missing)
+  continuityNotes  String?         @db.Text
+  negativePrompts  String?         @db.Text
+  characterDetail  CharacterDetail?
+  wardrobeDetail   WardrobeDetail?
+  locationDetail   LocationDetail?
+  creatureDetail   CreatureDetail?
+  propDetail       PropDetail?
+  versions         AssetVersion[]
+  sceneReqs        SceneAssetReq[]
+  shotReqs         ShotAssetReq[]
+  assignments      Assignment[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model CharacterDetail {
+  id                   String              @id @default(uuid()) @db.Uuid
+  assetId              String              @unique @db.Uuid
+  role                 String
+  narrativeDescription String              @db.Text
+  physicalDescription  String              @db.Text
+  personalityNotes     String?             @db.Text
+  performanceNotes     String?             @db.Text
+  scaleReference       String?             @db.Text
+  wardrobeLinks        CharacterWardrobe[]
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model WardrobeDetail {
+  id             String              @id @default(uuid()) @db.Uuid
+  assetId        String              @unique @db.Uuid
+  outfitName     String
+  storyContext   String              @db.Text
+  materialNotes  String?             @db.Text
+  accessories    Json
+  colorPalette   Json
+  characterLinks CharacterWardrobe[]
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model CharacterWardrobe {
+  characterDetailId String @db.Uuid
+  wardrobeDetailId  String @db.Uuid
+
+  characterDetail CharacterDetail @relation(fields: [characterDetailId], references: [id], onDelete: Cascade)
+  wardrobeDetail  WardrobeDetail  @relation(fields: [wardrobeDetailId], references: [id], onDelete: Cascade)
+
+  @@id([characterDetailId, wardrobeDetailId])
+}
+
+model LocationDetail {
+  id                String  @id @default(uuid()) @db.Uuid
+  assetId           String  @unique @db.Uuid
+  floorPlanNotes    String? @db.Text
+  entranceExitNotes String? @db.Text
+  setDressing       String? @db.Text
+  lightingStates    Json?
+  cameraSafeZones   String? @db.Text
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model CreatureDetail {
+  id             String  @id @default(uuid()) @db.Uuid
+  assetId        String  @unique @db.Uuid
+  speciesType    String
+  anatomyNotes   String? @db.Text
+  scaleReference String? @db.Text
+  movementNotes  String? @db.Text
+  textureDetails String? @db.Text
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model PropDetail {
+  id               String  @id @default(uuid()) @db.Uuid
+  assetId          String  @unique @db.Uuid
+  ownerOrScene     String?
+  materialAndWear  String? @db.Text
+  scaleReference   String? @db.Text
+  interactionNotes String? @db.Text
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model AssetVersion {
+  id              String             @id @default(uuid()) @db.Uuid
+  assetId         String             @db.Uuid
+  versionNumber   Int
+  description     String?            @db.Text
+  promptFragments Json?
+  status          AssetVersionStatus @default(draft)
+  references      AssetReference[]
+  createdAt       DateTime           @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model AssetReference {
+  id              String             @id @default(uuid()) @db.Uuid
+  assetVersionId  String             @db.Uuid
+  referenceType   AssetReferenceType
+  filePath        String
+  mimeType        String
+  width           Int?
+  height          Int?
+  thumbnailPath   String?
+  generationJobId String?            @db.Uuid
+  createdAt       DateTime           @default(now())
+
+  assetVersion  AssetVersion  @relation(fields: [assetVersionId], references: [id], onDelete: Cascade)
+  generationJob GenerationJob? @relation(fields: [generationJobId], references: [id], onDelete: SetNull)
+}
+
+model SceneAssetReq {
+  id         String              @id @default(uuid()) @db.Uuid
+  sceneId    String              @db.Uuid
+  assetId    String              @db.Uuid
+  isOptional Boolean             @default(false)
+  detectedBy RequirementDetector @default(ai)
+  createdAt  DateTime            @default(now())
+
+  scene Scene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([sceneId, assetId])
+}
+
+model ShotAssetReq {
+  id         String              @id @default(uuid()) @db.Uuid
+  shotId     String              @db.Uuid
+  assetId    String              @db.Uuid
+  isOptional Boolean             @default(false)
+  detectedBy RequirementDetector @default(ai)
+  createdAt  DateTime            @default(now())
+
+  shot  Shot  @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([shotId, assetId])
+}
+
+model StoryboardFrame {
+  id             String         @id @default(uuid()) @db.Uuid
+  shotId         String         @db.Uuid
+  keyframeIndex  Int
+  sketchFilePath String?
+  versions       FrameVersion[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  shot Shot @relation(fields: [shotId], references: [id], onDelete: Cascade)
+
+  @@unique([shotId, keyframeIndex])
+}
+
+model FrameVersion {
+  id              String             @id @default(uuid()) @db.Uuid
+  frameId         String             @db.Uuid
+  versionNumber   Int
+  prompt          String             @db.Text
+  filePath        String
+  thumbnailPath   String?
+  status          FrameVersionStatus @default(draft)
+  isStale         Boolean            @default(false)
+  generationJobId String?            @db.Uuid
+  annotations     Json?
+  createdAt       DateTime           @default(now())
+
+  frame         StoryboardFrame @relation(fields: [frameId], references: [id], onDelete: Cascade)
+  generationJob GenerationJob?   @relation(fields: [generationJobId], references: [id], onDelete: SetNull)
+}
+
+model VideoClip {
+  id        String        @id @default(uuid()) @db.Uuid
+  shotId    String?       @db.Uuid
+  sceneId   String?       @db.Uuid
+  versions  ClipVersion[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  shot  Shot?  @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  scene Scene? @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+}
+
+model ClipVersion {
+  id                    String            @id @default(uuid()) @db.Uuid
+  clipId                String            @db.Uuid
+  versionNumber         Int
+  prompt                String            @db.Text
+  filePath              String
+  thumbnailPath         String?
+  durationMs            Int
+  status                ClipVersionStatus @default(draft)
+  isStale               Boolean           @default(false)
+  sourceFrameVersionIds Json
+  generationJobId       String?           @db.Uuid
+  createdAt             DateTime          @default(now())
+
+  clip          VideoClip      @relation(fields: [clipId], references: [id], onDelete: Cascade)
+  generationJob GenerationJob? @relation(fields: [generationJobId], references: [id], onDelete: SetNull)
+}
+
+model GenerationJob {
+  id                 String              @id @default(uuid()) @db.Uuid
+  projectId          String              @db.Uuid
+  type               GenerationJobType
+  providerSlug       String?
+  modelId            String?
+  status             GenerationJobStatus @default(queued)
+  inputPayload       Json
+  outputPayload      Json?
+  errorMessage       String?             @db.Text
+  errorClass         ErrorClass?
+  retryCount         Int                 @default(0)
+  estimatedCostUnits Float?
+  actualCostUnits    Float?
+  costCurrency       String?
+  providerJobId      String?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  jobEvents          JobEvent[]
+  assetReferences    AssetReference[]
+  frameVersions      FrameVersion[]
+  clipVersions       ClipVersion[]
+  exportBundles      ExportBundle[]
+  createdAt          DateTime            @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model JobEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  jobId       String    @db.Uuid
+  eventType   String
+  message     String?
+  progressPct Int?
+  createdAt   DateTime  @default(now())
+
+  job GenerationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model ReviewNote {
+  id             String           @id @default(uuid()) @db.Uuid
+  projectId      String           @db.Uuid
+  authorId       String           @db.Uuid
+  targetType     ReviewTargetType
+  targetId       String           @db.Uuid
+  parentNoteId   String?          @db.Uuid
+  body           String           @db.Text
+  markupFilePath String?
+  status         ReviewNoteStatus @default(open)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author        User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentNote    ReviewNote?   @relation("ReviewThread", fields: [parentNoteId], references: [id], onDelete: Cascade)
+  childNotes    ReviewNote[]  @relation("ReviewThread")
+}
+
+model ExportBundle {
+  id              String   @id @default(uuid()) @db.Uuid
+  projectId       String   @db.Uuid
+  bundleVersion   Int
+  manifestPath    String
+  archivePath     String
+  generationJobId String?  @db.Uuid
+  createdAt       DateTime @default(now())
+
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  generationJob GenerationJob? @relation(fields: [generationJobId], references: [id], onDelete: SetNull)
+}
+
+model Invitation {
+  id          String           @id @default(uuid()) @db.Uuid
+  workspaceId String           @db.Uuid
+  projectId   String?          @db.Uuid
+  email       String
+  tokenHash   String           @unique
+  scope       InvitationScope
+  role        String
+  status      InvitationStatus @default(pending)
+  expiresAt   DateTime
+  invitedById String           @db.Uuid
+  acceptedAt  DateTime?
+  createdAt   DateTime         @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  invitedBy User      @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+}
+
+model Assignment {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @db.Uuid
+  userId     String   @db.Uuid
+  targetType String
+  sceneId    String?  @db.Uuid
+  shotId     String?  @db.Uuid
+  assetId    String?  @db.Uuid
+  status     String   @default("open")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scene   Scene?  @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  shot    Shot?   @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  asset   Asset?  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model ActivityEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @db.Uuid
+  actorId    String?  @db.Uuid
+  eventType  String
+  message    String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor   User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+}
