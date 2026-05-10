@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { OpenAIAdapter } from "@/providers/openai";
 import { createMockAdapter } from "@/providers/mockFactory";
 import { StabilityAdapter } from "@/providers/stability";
@@ -33,6 +33,68 @@ describe("provider adapters", () => {
       errorClass: "rate_limit",
     });
     expect(adapter.calls.map((call) => call.method)).toEqual(["analyzeScript", "generateStructuredOutput"]);
+  });
+
+  it("calls the OpenAI Responses API for live structured output", async () => {
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      expect(body).toMatchObject({
+        model: "gpt-4.1-mini",
+        input: "Return JSON",
+        text: {
+          format: {
+            type: "json_schema",
+            name: "assemblyline_structured_output",
+          },
+        },
+      });
+      expect(init.headers).toMatchObject({ Authorization: "Bearer sk-live" });
+      return Response.json({
+        id: "resp_123",
+        model: "gpt-4.1-mini",
+        output_text: "{\"ok\":true}",
+        usage: { input_tokens: 3, output_tokens: 5 },
+      });
+    }) as unknown as typeof fetch;
+    const adapter = new OpenAIAdapter("sk-live", fetchMock);
+
+    const result = await adapter.generateStructuredOutput(
+      "Return JSON",
+      { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"], additionalProperties: false },
+      { modelId: "gpt-4.1-mini", responseFormat: "json" },
+    );
+
+    expect(result.content).toBe("{\"ok\":true}");
+    expect(result.usage).toEqual({ inputTokens: 3, outputTokens: 5 });
+    expect(result.providerJobId).toBe("resp_123");
+  });
+
+  it("calls the OpenAI image generation API and maps provider failures", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          model: "gpt-image-1",
+          data: [{ b64_json: Buffer.from("image-bytes").toString("base64") }],
+        }),
+      )
+      .mockResolvedValueOnce(Response.json({ error: { message: "rate limited" } }, { status: 429 })) as unknown as typeof fetch;
+    const adapter = new OpenAIAdapter("sk-live", fetchMock);
+    const prompt = {
+      positivePrompt: "Production storyboard frame",
+      negativePrompt: "blur",
+      referenceImages: [],
+      generationSettings: { width: 1536, height: 1024 },
+      metadata: { sourceIds: [], conflictWarnings: [], truncationWarnings: [] },
+    };
+
+    const image = await adapter.generateImage(prompt, { modelId: "gpt-image-1", width: 1536, height: 1024, qualityMode: "high" });
+
+    expect(image.images[0].data.toString()).toBe("image-bytes");
+    await expect(adapter.generateImage(prompt, { modelId: "gpt-image-1", width: 1536, height: 1024 })).rejects.toMatchObject({
+      errorClass: "rate_limit",
+      status: 429,
+    });
   });
 
   it("provides a second image adapter for Asset Bible generation variety", async () => {

@@ -230,23 +230,23 @@ model VerificationToken {
 }
 
 model Workspace {
-  id          String            @id @default(uuid()) @db.Uuid
-  name        String
-  slug        String            @unique
-  members     WorkspaceMember[]
-  projects    Project[]
+  id           String            @id @default(uuid()) @db.Uuid
+  name         String
+  slug         String            @unique
+  members      WorkspaceMember[]
+  projects     Project[]
   providerKeys ProviderKey[]
-  invitations Invitation[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  invitations  Invitation[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 }
 
 model WorkspaceMember {
   id          String        @id @default(uuid()) @db.Uuid
-  workspaceId String       @db.Uuid
-  userId      String       @db.Uuid
+  workspaceId String        @db.Uuid
+  userId      String        @db.Uuid
   role        WorkspaceRole
-  joinedAt    DateTime     @default(now())
+  joinedAt    DateTime      @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -255,36 +255,37 @@ model WorkspaceMember {
 }
 
 model Project {
-  id               String       @id @default(uuid()) @db.Uuid
-  workspaceId      String       @db.Uuid
+  id               String          @id @default(uuid()) @db.Uuid
+  workspaceId      String          @db.Uuid
   title            String
   targetFormat     String
   aspectRatio      String
   estimatedRuntime Int?
   storagePath      String
-  rightsPolicy     RightsPolicy @default(unrestricted)
+  rightsPolicy     RightsPolicy    @default(unrestricted)
   style            ProjectStyle?
   scripts          Script[]
   assets           Asset[]
   members          ProjectMember[]
   generationJobs   GenerationJob[]
+  jobEvents        JobEvent[]
   reviewNotes      ReviewNote[]
   exportBundles    ExportBundle[]
   invitations      Invitation[]
   assignments      Assignment[]
   activities       ActivityEvent[]
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 model ProjectMember {
   id        String      @id @default(uuid()) @db.Uuid
-  projectId String     @db.Uuid
-  userId    String     @db.Uuid
+  projectId String      @db.Uuid
+  userId    String      @db.Uuid
   role      ProjectRole
-  joinedAt  DateTime   @default(now())
+  joinedAt  DateTime    @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -324,11 +325,11 @@ model ProviderKey {
 }
 
 model Script {
-  id          String          @id @default(uuid()) @db.Uuid
-  projectId   String          @db.Uuid
-  filename    String
-  versions    ScriptVersion[]
-  createdAt   DateTime        @default(now())
+  id        String          @id @default(uuid()) @db.Uuid
+  projectId String          @db.Uuid
+  filename  String
+  versions  ScriptVersion[]
+  createdAt DateTime        @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
@@ -338,6 +339,7 @@ model ScriptVersion {
   scriptId       String               @db.Uuid
   versionNumber  Int
   filePath       String
+  rawText        String               @db.Text
   analysisStatus ScriptAnalysisStatus @default(pending)
   isActive       Boolean              @default(true)
   scenes         Scene[]
@@ -356,6 +358,8 @@ model Scene {
   scriptEndLine   Int
   locationHint    String?
   status          SceneStatus     @default(blocked)
+  isUserEdited    Boolean         @default(false)
+  warnings        Json?
   shots           Shot[]
   assetReqs       SceneAssetReq[]
   videoClips      VideoClip[]
@@ -367,46 +371,50 @@ model Scene {
 }
 
 model Shot {
-  id             String          @id @default(uuid()) @db.Uuid
-  sceneId        String          @db.Uuid
+  id             String            @id @default(uuid()) @db.Uuid
+  sceneId        String            @db.Uuid
   shotNumber     Int
-  action         String          @db.Text
+  action         String            @db.Text
   cameraAngle    String?
   cameraMovement String?
-  lensNotes      String?         @db.Text
-  lightingNotes  String?         @db.Text
-  userDirection  String?         @db.Text
-  status         ShotStatus      @default(blocked)
+  lensNotes      String?           @db.Text
+  lightingNotes  String?           @db.Text
+  userDirection  String?           @db.Text
+  status         ShotStatus        @default(blocked)
+  isUserEdited   Boolean           @default(false)
   assetReqs      ShotAssetReq[]
   frames         StoryboardFrame[]
   videoClips     VideoClip[]
   assignments    Assignment[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   scene Scene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
 }
 
 model Asset {
-  id               String          @id @default(uuid()) @db.Uuid
-  projectId        String          @db.Uuid
-  type             AssetType
-  canonicalName    String
-  aliases          Json
-  status           AssetStatus     @default(missing)
-  continuityNotes  String?         @db.Text
-  negativePrompts  String?         @db.Text
-  characterDetail  CharacterDetail?
-  wardrobeDetail   WardrobeDetail?
-  locationDetail   LocationDetail?
-  creatureDetail   CreatureDetail?
-  propDetail       PropDetail?
-  versions         AssetVersion[]
-  sceneReqs        SceneAssetReq[]
-  shotReqs         ShotAssetReq[]
-  assignments      Assignment[]
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id              String           @id @default(uuid()) @db.Uuid
+  projectId       String           @db.Uuid
+  type            AssetType
+  canonicalName   String
+  aliases         Json
+  status          AssetStatus      @default(missing)
+  continuityNotes String?          @db.Text
+  negativePrompts String?          @db.Text
+  description     String?          @db.Text
+  firstAppearance Json?
+  isUserEdited    Boolean          @default(false)
+  characterDetail CharacterDetail?
+  wardrobeDetail  WardrobeDetail?
+  locationDetail  LocationDetail?
+  creatureDetail  CreatureDetail?
+  propDetail      PropDetail?
+  versions        AssetVersion[]
+  sceneReqs       SceneAssetReq[]
+  shotReqs        ShotAssetReq[]
+  assignments     Assignment[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
@@ -508,7 +516,7 @@ model AssetReference {
   generationJobId String?            @db.Uuid
   createdAt       DateTime           @default(now())
 
-  assetVersion  AssetVersion  @relation(fields: [assetVersionId], references: [id], onDelete: Cascade)
+  assetVersion  AssetVersion   @relation(fields: [assetVersionId], references: [id], onDelete: Cascade)
   generationJob GenerationJob? @relation(fields: [generationJobId], references: [id], onDelete: SetNull)
 }
 
@@ -545,6 +553,7 @@ model StoryboardFrame {
   shotId         String         @db.Uuid
   keyframeIndex  Int
   sketchFilePath String?
+  sketchWarning  String?
   versions       FrameVersion[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -568,7 +577,7 @@ model FrameVersion {
   createdAt       DateTime           @default(now())
 
   frame         StoryboardFrame @relation(fields: [frameId], references: [id], onDelete: Cascade)
-  generationJob GenerationJob?   @relation(fields: [generationJobId], references: [id], onDelete: SetNull)
+  generationJob GenerationJob?  @relation(fields: [generationJobId], references: [id], onDelete: SetNull)
 }
 
 model VideoClip {
@@ -630,14 +639,16 @@ model GenerationJob {
 }
 
 model JobEvent {
-  id          String    @id @default(uuid()) @db.Uuid
-  jobId       String    @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
+  jobId       String   @db.Uuid
+  projectId   String   @db.Uuid
   eventType   String
   message     String?
   progressPct Int?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime @default(now())
 
-  job GenerationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job     GenerationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model ReviewNote {
@@ -653,20 +664,23 @@ model ReviewNote {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  author        User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  parentNote    ReviewNote?   @relation("ReviewThread", fields: [parentNoteId], references: [id], onDelete: Cascade)
-  childNotes    ReviewNote[]  @relation("ReviewThread")
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author     User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentNote ReviewNote?  @relation("ReviewThread", fields: [parentNoteId], references: [id], onDelete: Cascade)
+  childNotes ReviewNote[] @relation("ReviewThread")
 }
 
 model ExportBundle {
-  id              String   @id @default(uuid()) @db.Uuid
-  projectId       String   @db.Uuid
-  bundleVersion   Int
-  manifestPath    String
-  archivePath     String
-  generationJobId String?  @db.Uuid
-  createdAt       DateTime @default(now())
+  id                  String   @id @default(uuid()) @db.Uuid
+  projectId           String   @db.Uuid
+  bundleVersion       Int
+  manifestPath        String
+  archivePath         String?
+  mediaFileCount      Int      @default(0)
+  metadataRecordCount Int      @default(0)
+  createdById         String?  @db.Uuid
+  generationJobId     String?  @db.Uuid
+  createdAt           DateTime @default(now())
 
   project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   generationJob GenerationJob? @relation(fields: [generationJobId], references: [id], onDelete: SetNull)
@@ -711,13 +725,13 @@ model Assignment {
 }
 
 model ActivityEvent {
-  id         String   @id @default(uuid()) @db.Uuid
-  projectId  String   @db.Uuid
-  actorId    String?  @db.Uuid
-  eventType  String
-  message    String
-  metadata   Json?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @db.Uuid
+  actorId   String?  @db.Uuid
+  eventType String
+  message   String
+  metadata  Json?
+  createdAt DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   actor   User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)

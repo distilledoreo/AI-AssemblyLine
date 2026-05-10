@@ -178,6 +178,15 @@ Users should add provider API keys through workspace settings. Keys are encrypte
 
 Keys are never exposed in generation logs, prompts, exports, or client-side code.
 
+## OpenAI live mode
+
+The OpenAI adapter has two modes:
+
+- `mock` key: deterministic local responses for development and automated tests.
+- real API key: live calls to OpenAI.
+
+Live structured text output is sent to `POST /v1/responses` with `text.format` when JSON output is requested. Live image output is sent to `POST /v1/images/generations` and expects base64 image data for GPT Image models. Provider HTTP failures are mapped into the common retry classes: `rate_limit`, `timeout`, `retriable`, and `fatal`.
+
 ## Model selector behavior
 
 For every generation job, users should be able to see and choose:

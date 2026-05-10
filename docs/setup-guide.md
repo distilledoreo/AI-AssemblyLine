@@ -26,6 +26,17 @@ The local MVP can run with default development values. Production-style deployme
 
 Provider keys are entered in the app settings and encrypted server-side. They are never written to exports.
 
+## OpenAI provider
+
+The OpenAI adapter supports deterministic mock mode when the stored key is `mock`, and live API mode when a real OpenAI API key is configured for the workspace. Live text and structured output calls use the Responses API. Live image calls use the Image generation API with GPT Image-compatible sizes.
+
+Recommended defaults:
+
+- Text and structured output: `gpt-4.1-mini` for lower-cost production smoke tests, or a stronger approved model for final script analysis.
+- Images: `gpt-image-1`.
+
+Do not run live-provider tests in CI unless a dedicated test key and spend limit are configured.
+
 ## Verification commands
 
 Run these before committing substantive changes:
