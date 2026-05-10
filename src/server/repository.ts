@@ -6,6 +6,7 @@ import {
 import { AppError, AuthRequiredError, NotFoundError } from "@/server/errors";
 import { createId, nowIso, slugify } from "@/server/ids";
 import { emitProjectEvent } from "@/server/queue";
+import { submitGenerationJob } from "@/server/queue";
 import { ensureProjectStorage, projectStoragePath } from "@/server/storage";
 import type {
   GenerationJob,
@@ -555,6 +556,7 @@ export function createGenerationJob(input: {
     createdAt: timestamp,
   };
   getStore().generationJobs.push(job);
+  void submitGenerationJob(job);
   addJobEvent({
     jobId: job.id,
     projectId: job.projectId,

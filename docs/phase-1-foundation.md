@@ -17,8 +17,8 @@ The Phase 1 dashboard intentionally starts with no scripts, assets, storyboard f
 ## Runtime services
 
 - `GET /api/health` reports environment configuration for Postgres, Redis, and local storage.
-- `GET /api/health/workers` reports the BullMQ queue topology from `job-queue-design.md`.
-- `GET /api/projects/{projectId}/events` streams project job events as Server-Sent Events and sends a heartbeat every 30 seconds.
+- `GET /api/health/workers` reports the BullMQ queue topology from `job-queue-design.md`, including Redis-backed queue counts when Redis is enabled.
+- `GET /api/projects/{projectId}/events` streams project job events as Server-Sent Events and sends a heartbeat every 30 seconds. Production-like runtime publishes events through Redis pub/sub; tests and explicit inline mode avoid external Redis sockets.
 
 ## Auth and access
 

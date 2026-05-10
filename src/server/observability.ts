@@ -15,7 +15,7 @@ export function captureError(error: unknown, context: Record<string, unknown> = 
   return { sentryEnabled: Boolean(process.env.SENTRY_DSN), message };
 }
 
-export function getProjectJobMetrics(projectId: string) {
+export async function getProjectJobMetrics(projectId: string) {
   const graph = getScriptAnalysisGraph(projectId);
   const jobsByType = graph.jobs.reduce<Record<string, number>>((acc, job) => {
     acc[job.type] = (acc[job.type] ?? 0) + 1;
@@ -39,7 +39,7 @@ export function getProjectJobMetrics(projectId: string) {
     jobsByType,
     jobsByStatus,
     averageDurationMs,
-    queueHealth: getQueueHealthSnapshot(),
+    queueHealth: await getQueueHealthSnapshot(),
     sentryEnabled: Boolean(process.env.SENTRY_DSN),
   };
 }

@@ -123,6 +123,8 @@ Job events are broadcast to connected clients via **Server-Sent Events (SSE)**.
 3. The SSE endpoint subscribes to the Redis channel and forwards events to connected clients.
 4. Clients receive events and update job status in the UI in real time.
 
+In automated tests, set `NODE_ENV=test` or `QUEUE_MODE=inline` to avoid opening Redis sockets. Production and production-like staging should leave `QUEUE_MODE` unset so BullMQ submission and Redis pub/sub are active.
+
 ### Client reconnection
 
 If the SSE connection drops, the client reconnects with a `Last-Event-ID` header. The server replays missed events from the database since that event ID.

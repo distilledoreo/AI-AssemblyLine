@@ -1,4 +1,7 @@
-import type { ErrorClass, GenerationJobType, JobEvent } from "@/server/types";
+import { Queue } from "bullmq";
+import IORedis from "ioredis";
+import { getConfig } from "@/lib/config";
+import type { ErrorClass, GenerationJob, GenerationJobType, JobEvent } from "@/server/types";
 import { createId, nowIso } from "@/server/ids";
 
 export const queueTopology = {
@@ -23,17 +26,79 @@ export const retryPolicy: Record<ErrorClass, { maxRetries: number; backoff: stri
 type Listener = (event: JobEvent) => void;
 
 const listeners = new Map<string, Set<Listener>>();
+const queues = new Map<string, Queue>();
+let redisConnection: IORedis | undefined;
+let redisPublisher: IORedis | undefined;
+
+function redisEnabled() {
+  return process.env.NODE_ENV !== "test" && process.env.QUEUE_MODE !== "inline";
+}
+
+function getRedisConnection() {
+  if (!redisEnabled()) {
+    return undefined;
+  }
+  redisConnection ??= new IORedis(getConfig().REDIS_URL, {
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+  });
+  return redisConnection;
+}
+
+function getRedisPublisher() {
+  if (!redisEnabled()) {
+    return undefined;
+  }
+  redisPublisher ??= new IORedis(getConfig().REDIS_URL, {
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+  });
+  return redisPublisher;
+}
+
+function queueNameForJobType(type: GenerationJobType) {
+  const match = Object.entries(queueTopology).find(([, config]) => (config.jobTypes as readonly GenerationJobType[]).includes(type));
+  return match?.[0] ?? "project";
+}
+
+function getBullQueue(name: string) {
+  const connection = getRedisConnection();
+  if (!connection) {
+    return undefined;
+  }
+  const existing = queues.get(name);
+  if (existing) {
+    return existing;
+  }
+  const queue = new Queue(`assemblyline:${name}`, { connection });
+  queues.set(name, queue);
+  return queue;
+}
 
 export function subscribeToProjectEvents(projectId: string, listener: Listener) {
   const projectListeners = listeners.get(projectId) ?? new Set<Listener>();
   projectListeners.add(listener);
   listeners.set(projectId, projectListeners);
 
+  const subscriber = redisEnabled() ? new IORedis(getConfig().REDIS_URL, { maxRetriesPerRequest: null }) : undefined;
+  if (subscriber) {
+    const channel = projectEventChannel(projectId);
+    subscriber.subscribe(channel).catch(() => undefined);
+    subscriber.on("message", (_channel, payload) => {
+      try {
+        listener(JSON.parse(payload) as JobEvent);
+      } catch {
+        // Ignore malformed events from outside this app.
+      }
+    });
+  }
+
   return () => {
     projectListeners.delete(listener);
     if (projectListeners.size === 0) {
       listeners.delete(projectId);
     }
+    subscriber?.disconnect();
   };
 }
 
@@ -44,7 +109,24 @@ export function emitProjectEvent(event: Omit<JobEvent, "id" | "createdAt"> & { c
     createdAt: event.createdAt ?? nowIso(),
   };
   listeners.get(fullEvent.projectId)?.forEach((listener) => listener(fullEvent));
+  getRedisPublisher()?.publish(projectEventChannel(fullEvent.projectId), JSON.stringify(fullEvent)).catch(() => undefined);
   return fullEvent;
+}
+
+export async function submitGenerationJob(job: GenerationJob) {
+  const queue = getBullQueue(queueNameForJobType(job.type));
+  if (!queue) {
+    return { submitted: false, queueName: queueNameForJobType(job.type), bullJobId: undefined };
+  }
+  const policy = retryPolicy[job.errorClass ?? "retriable"];
+  const bullJob = await queue.add(job.type, job.inputPayload, {
+    jobId: job.id,
+    attempts: policy.maxRetries + 1,
+    backoff: toBullBackoff(policy.backoff),
+    removeOnComplete: { count: 1000 },
+    removeOnFail: { count: 1000 },
+  });
+  return { submitted: true, queueName: queue.name, bullJobId: String(bullJob.id) };
 }
 
 export function formatSseEvent(event: JobEvent) {
@@ -67,13 +149,36 @@ export function formatHeartbeat() {
   return `event: heartbeat\ndata: ${JSON.stringify({ timestamp: nowIso() })}\n\n`;
 }
 
-export function getQueueHealthSnapshot() {
-  return Object.entries(queueTopology).map(([name, config]) => ({
-    name,
-    jobTypes: config.jobTypes,
-    concurrency: Number(process.env[`${name.toUpperCase()}_QUEUE_CONCURRENCY`]) || config.defaultConcurrency,
-    active: 0,
-    waiting: 0,
-    failed: 0,
-  }));
+export async function getQueueHealthSnapshot() {
+  return Promise.all(
+    Object.entries(queueTopology).map(async ([name, config]) => {
+      const queue = getBullQueue(name);
+      const counts = queue
+        ? await queue.getJobCounts("active", "waiting", "failed").catch(() => ({ active: 0, waiting: 0, failed: 0 }))
+        : { active: 0, waiting: 0, failed: 0 };
+      return {
+        name,
+        jobTypes: config.jobTypes,
+        concurrency: Number(process.env[`${name.toUpperCase()}_QUEUE_CONCURRENCY`]) || config.defaultConcurrency,
+        active: counts.active,
+        waiting: counts.waiting,
+        failed: counts.failed,
+        redisBacked: Boolean(queue),
+      };
+    }),
+  );
+}
+
+function projectEventChannel(projectId: string) {
+  return `assemblyline:project:${projectId}:events`;
+}
+
+function toBullBackoff(backoff: string) {
+  if (backoff.startsWith("exponential")) {
+    return { type: "exponential", delay: 30000 };
+  }
+  if (backoff.startsWith("fixed")) {
+    return { type: "fixed", delay: 60000 };
+  }
+  return undefined;
 }

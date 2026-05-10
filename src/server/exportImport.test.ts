@@ -75,7 +75,7 @@ describe("phase 7 export, import, operations, and adapters", () => {
     expect(await cleanupOrphanFiles(project.id)).toMatchObject({ removedFiles: 1 });
     expect((await getProjectStorageUsage(project.id)).orphanFiles).not.toContain(orphanPath);
 
-    const metrics = getProjectJobMetrics(project.id);
+    const metrics = await getProjectJobMetrics(project.id);
     expect(metrics.totalJobs).toBeGreaterThan(0);
     expect(metrics.jobsByStatus.complete).toBeGreaterThan(0);
 
