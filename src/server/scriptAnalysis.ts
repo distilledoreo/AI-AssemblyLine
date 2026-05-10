@@ -10,6 +10,8 @@ import {
   getProject,
   getScriptAnalysisGraph,
   getStore,
+  persistGeneratedScriptAnalysis,
+  updateScriptVersionAnalysisStatus,
 } from "@/server/repository";
 import { isRedisQueueEnabled } from "@/server/queue";
 import { projectFolderPath } from "@/server/storage";
@@ -133,7 +135,7 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
     throw new NotFoundError("Generation job not found.");
   }
 
-  version.analysisStatus = "running";
+  await updateScriptVersionAnalysisStatus(version.id, "running");
   job.status = "running";
   job.startedAt = nowIso();
   addJobEvent({
@@ -170,8 +172,8 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
   });
   const assetOutput = detectAssets(sceneOutputs, shotOutputs, version.rawText);
 
-  persistAnalysis(input.projectId, version.id, sceneOutputs, shotOutputs, assetOutput);
-  version.analysisStatus = "complete";
+  await persistAnalysis(input.projectId, version.id, sceneOutputs, shotOutputs, assetOutput);
+  await updateScriptVersionAnalysisStatus(version.id, "complete");
   completeGenerationJob(job.id, {
     status: "complete",
     outputPayload: {
@@ -334,7 +336,7 @@ export function extractJsonFromModelOutput(output: string) {
   return JSON.parse(candidate);
 }
 
-function persistAnalysis(
+async function persistAnalysis(
   projectId: string,
   scriptVersionId: string,
   sceneOutputs: ScriptSceneOutput[],
@@ -469,6 +471,16 @@ function persistAnalysis(
       });
     }
   }
+  await persistGeneratedScriptAnalysis({
+    projectId,
+    scriptVersionId,
+    scenes: sceneOutputs,
+    shotBreakdowns: shotOutputs,
+    assets: assetOutput.assets,
+    sceneAssetLinks: assetOutput.sceneAssetLinks,
+    shotAssetLinks: assetOutput.shotAssetLinks,
+    warnings: assetOutput.warnings,
+  });
   refreshReadiness(projectId);
 }
 

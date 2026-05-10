@@ -352,6 +352,10 @@ function toPrismaJson(value: unknown) {
   return value === undefined ? undefined : (value as Prisma.InputJsonValue);
 }
 
+function isPresent<T>(value: T | undefined): value is T {
+  return value !== undefined;
+}
+
 export async function signInWithCredentials(input: { email: string; password: string; name?: string }) {
   const email = input.email.trim().toLowerCase();
   if (!email.includes("@") || input.password.length < 4) {
@@ -835,6 +839,203 @@ export async function createScriptVersionForProject(input: {
   store.scriptVersions.push(version);
 
   return { script, version, previousVersionIds: new Set(existingVersions.map((existing) => existing.id)) };
+}
+
+export async function updateScriptVersionAnalysisStatus(scriptVersionId: string, status: ScriptVersion["analysisStatus"]) {
+  const version = getStore().scriptVersions.find((candidate) => candidate.id === scriptVersionId);
+  if (version) {
+    version.analysisStatus = status;
+  }
+  if (isPrismaRepositoryEnabled()) {
+    await prisma.scriptVersion.update({ where: { id: scriptVersionId }, data: { analysisStatus: status } }).catch(() => undefined);
+  }
+  return version;
+}
+
+export async function persistGeneratedScriptAnalysis(input: {
+  projectId: string;
+  scriptVersionId: string;
+  scenes: Array<{
+    sceneNumber: number;
+    heading: string;
+    summary: string;
+    scriptStartLine: number;
+    scriptEndLine: number;
+    locationHint?: string;
+  }>;
+  shotBreakdowns: Array<{
+    sceneNumber: number;
+    shots: Array<{
+      shotNumber: number;
+      action: string;
+      cameraAngle?: string;
+      cameraMovement?: string;
+      lensNotes?: string;
+      lightingNotes?: string;
+    }>;
+  }>;
+  assets: Array<{
+    canonicalName: string;
+    type: Asset["type"];
+    aliases?: string[];
+    description?: string;
+    firstAppearance?: Asset["firstAppearance"];
+  }>;
+  sceneAssetLinks: Array<{ sceneNumber: number; assetName: string }>;
+  shotAssetLinks: Array<{ sceneNumber: number; shotNumber: number; assetName: string }>;
+  warnings: string[];
+}) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+
+  const previousScenes = await prisma.scene.findMany({
+    where: { scriptVersionId: input.scriptVersionId },
+    select: { id: true, sceneNumber: true, isUserEdited: true },
+  });
+  const previousSceneIds = previousScenes.map((scene) => scene.id);
+  const previousShots = previousSceneIds.length
+    ? await prisma.shot.findMany({
+        where: { sceneId: { in: previousSceneIds } },
+        select: { id: true, sceneId: true, shotNumber: true, isUserEdited: true },
+      })
+    : [];
+  const previousShotIds = previousShots.map((shot) => shot.id);
+
+  if (previousSceneIds.length) {
+    await prisma.sceneAssetReq.deleteMany({ where: { sceneId: { in: previousSceneIds } } });
+  }
+  if (previousShotIds.length) {
+    await prisma.shotAssetReq.deleteMany({ where: { shotId: { in: previousShotIds } } });
+  }
+  const generatedShotIds = previousShots.filter((shot) => !shot.isUserEdited).map((shot) => shot.id);
+  if (generatedShotIds.length) {
+    await prisma.shot.deleteMany({ where: { id: { in: generatedShotIds } } });
+  }
+  const generatedSceneIds = previousScenes.filter((scene) => !scene.isUserEdited).map((scene) => scene.id);
+  if (generatedSceneIds.length) {
+    await prisma.scene.deleteMany({ where: { id: { in: generatedSceneIds } } });
+  }
+
+  const sceneByNumber = new Map<number, { id: string; sceneNumber: number }>();
+  for (const scene of input.scenes) {
+    const existing = previousScenes.find((candidate) => candidate.sceneNumber === scene.sceneNumber && candidate.isUserEdited);
+    const persisted = existing
+      ? await prisma.scene.update({
+          where: { id: existing.id },
+          data: { updatedAt: new Date() },
+        })
+      : await prisma.scene.create({
+          data: {
+            id: createId(),
+            scriptVersionId: input.scriptVersionId,
+            sceneNumber: scene.sceneNumber,
+            heading: scene.heading,
+            summary: scene.summary,
+            scriptStartLine: scene.scriptStartLine,
+            scriptEndLine: scene.scriptEndLine,
+            locationHint: scene.locationHint,
+            status: "blocked",
+            warnings: toPrismaJson(input.warnings),
+          },
+        });
+    sceneByNumber.set(scene.sceneNumber, persisted);
+  }
+
+  const shotBySceneAndNumber = new Map<string, { id: string; sceneId: string; shotNumber: number }>();
+  const previousSceneNumberById = new Map(previousScenes.map((scene) => [scene.id, scene.sceneNumber]));
+  for (const breakdown of input.shotBreakdowns) {
+    const scene = sceneByNumber.get(breakdown.sceneNumber);
+    if (!scene) {
+      continue;
+    }
+    for (const shot of breakdown.shots) {
+      const existing = previousShots.find(
+        (candidate) =>
+          candidate.isUserEdited &&
+          previousSceneNumberById.get(candidate.sceneId) === breakdown.sceneNumber &&
+          candidate.shotNumber === shot.shotNumber,
+      );
+      const persisted = existing
+        ? await prisma.shot.update({
+            where: { id: existing.id },
+            data: { sceneId: scene.id, updatedAt: new Date() },
+          })
+        : await prisma.shot.create({
+            data: {
+              id: createId(),
+              sceneId: scene.id,
+              shotNumber: shot.shotNumber,
+              action: shot.action,
+              cameraAngle: shot.cameraAngle,
+              cameraMovement: shot.cameraMovement,
+              lensNotes: shot.lensNotes,
+              lightingNotes: shot.lightingNotes,
+              status: "blocked",
+            },
+          });
+      shotBySceneAndNumber.set(`${breakdown.sceneNumber}:${shot.shotNumber}`, persisted);
+    }
+  }
+
+  const assetByName = new Map<string, { id: string; canonicalName: string }>();
+  for (const asset of input.assets) {
+    const existing = await prisma.asset.findFirst({
+      where: {
+        projectId: input.projectId,
+        canonicalName: { equals: asset.canonicalName, mode: "insensitive" },
+      },
+    });
+    const aliases = Array.from(new Set([...(Array.isArray(existing?.aliases) ? existing.aliases.map(String) : []), ...(asset.aliases ?? [])]));
+    const persisted = existing
+      ? await prisma.asset.update({
+          where: { id: existing.id },
+          data: {
+            aliases,
+            description: existing.description ?? asset.description,
+            firstAppearance: existing.firstAppearance ?? toPrismaJson(asset.firstAppearance),
+          },
+        })
+      : await prisma.asset.create({
+          data: {
+            id: createId(),
+            projectId: input.projectId,
+            type: asset.type,
+            canonicalName: asset.canonicalName,
+            aliases,
+            status: "missing",
+            description: asset.description,
+            firstAppearance: toPrismaJson(asset.firstAppearance),
+          },
+        });
+    assetByName.set(asset.canonicalName.toLowerCase(), persisted);
+  }
+
+  const sceneReqs = input.sceneAssetLinks
+    .map((link) => {
+      const scene = sceneByNumber.get(link.sceneNumber);
+      const asset = assetByName.get(link.assetName.toLowerCase());
+      return scene && asset
+        ? { id: createId(), sceneId: scene.id, assetId: asset.id, isOptional: false, detectedBy: "ai" as const }
+        : undefined;
+    })
+    .filter(isPresent);
+  if (sceneReqs.length) {
+    await prisma.sceneAssetReq.createMany({ data: sceneReqs, skipDuplicates: true });
+  }
+
+  const shotReqs = input.shotAssetLinks
+    .map((link) => {
+      const shot = shotBySceneAndNumber.get(`${link.sceneNumber}:${link.shotNumber}`);
+      const asset = assetByName.get(link.assetName.toLowerCase());
+      return shot && asset
+        ? { id: createId(), shotId: shot.id, assetId: asset.id, isOptional: false, detectedBy: "ai" as const }
+        : undefined;
+    })
+    .filter(isPresent);
+  if (shotReqs.length) {
+    await prisma.shotAssetReq.createMany({ data: shotReqs, skipDuplicates: true });
+  }
 }
 
 export async function updateProject(

@@ -46,7 +46,33 @@ const prismaMock = vi.hoisted(() => ({
   },
   scriptVersion: {
     create: vi.fn(),
+    update: vi.fn(),
     updateMany: vi.fn(),
+  },
+  scene: {
+    create: vi.fn(),
+    deleteMany: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
+  },
+  shot: {
+    create: vi.fn(),
+    deleteMany: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
+  },
+  asset: {
+    create: vi.fn(),
+    findFirst: vi.fn(),
+    update: vi.fn(),
+  },
+  sceneAssetReq: {
+    createMany: vi.fn(),
+    deleteMany: vi.fn(),
+  },
+  shotAssetReq: {
+    createMany: vi.fn(),
+    deleteMany: vi.fn(),
   },
 }));
 
@@ -289,5 +315,107 @@ describe("Prisma repository mode", () => {
       }),
     });
     expect(repository.getScriptAnalysisGraph(created.script.projectId).activeVersion?.id).toBe(created.version.id);
+  });
+
+  it("persists generated script analysis graph records through Prisma", async () => {
+    prismaMock.scene.findMany.mockResolvedValue([]);
+    prismaMock.shot.findMany.mockResolvedValue([]);
+    prismaMock.scene.create.mockImplementation(async ({ data }) => ({
+      ...data,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      isUserEdited: false,
+    }));
+    prismaMock.shot.create.mockImplementation(async ({ data }) => ({
+      ...data,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      isUserEdited: false,
+    }));
+    prismaMock.asset.findFirst.mockResolvedValue(undefined);
+    prismaMock.asset.create.mockImplementation(async ({ data }) => ({
+      ...data,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      isUserEdited: false,
+    }));
+    prismaMock.sceneAssetReq.createMany.mockResolvedValue({ count: 1 });
+    prismaMock.shotAssetReq.createMany.mockResolvedValue({ count: 1 });
+    prismaMock.scriptVersion.update.mockResolvedValue({});
+
+    const repository = await import("@/server/repository");
+    await repository.persistGeneratedScriptAnalysis({
+      projectId: "33333333-3333-4333-8333-333333333333",
+      scriptVersionId: "88888888-8888-4888-8888-888888888888",
+      scenes: [
+        {
+          sceneNumber: 1,
+          heading: "INT. ROOM - DAY",
+          summary: "Anna waits.",
+          scriptStartLine: 1,
+          scriptEndLine: 3,
+          locationHint: "Room",
+        },
+      ],
+      shotBreakdowns: [
+        {
+          sceneNumber: 1,
+          shots: [
+            {
+              shotNumber: 1,
+              action: "Anna waits.",
+              cameraAngle: "establishing wide",
+              cameraMovement: "static",
+            },
+          ],
+        },
+      ],
+      assets: [
+        {
+          canonicalName: "Room",
+          type: "location",
+          aliases: ["INT. ROOM - DAY"],
+          description: "Location inferred from heading.",
+          firstAppearance: { sceneNumber: 1 },
+        },
+      ],
+      sceneAssetLinks: [{ sceneNumber: 1, assetName: "Room" }],
+      shotAssetLinks: [{ sceneNumber: 1, shotNumber: 1, assetName: "Room" }],
+      warnings: [],
+    });
+    await repository.updateScriptVersionAnalysisStatus("88888888-8888-4888-8888-888888888888", "complete");
+
+    expect(prismaMock.scene.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        scriptVersionId: "88888888-8888-4888-8888-888888888888",
+        sceneNumber: 1,
+        heading: "INT. ROOM - DAY",
+      }),
+    });
+    expect(prismaMock.shot.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        shotNumber: 1,
+        action: "Anna waits.",
+      }),
+    });
+    expect(prismaMock.asset.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        projectId: "33333333-3333-4333-8333-333333333333",
+        canonicalName: "Room",
+        type: "location",
+      }),
+    });
+    expect(prismaMock.sceneAssetReq.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ isOptional: false, detectedBy: "ai" })],
+      skipDuplicates: true,
+    });
+    expect(prismaMock.shotAssetReq.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ isOptional: false, detectedBy: "ai" })],
+      skipDuplicates: true,
+    });
+    expect(prismaMock.scriptVersion.update).toHaveBeenCalledWith({
+      where: { id: "88888888-8888-4888-8888-888888888888" },
+      data: { analysisStatus: "complete" },
+    });
   });
 });
