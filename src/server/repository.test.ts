@@ -25,19 +25,19 @@ describe("foundation repository flows", () => {
       email: "creator@example.com",
       password: "assemblyline",
     });
-    const workspace = createWorkspaceForUser(user.id, { name: "Studio Workspace" });
+    const workspace = await createWorkspaceForUser(user.id, { name: "Studio Workspace" });
     const project = await createProjectForWorkspace(user.id, {
       workspaceId: workspace.id,
       title: "Pilot Short",
     });
 
     expect(session.token).toBeTruthy();
-    expect(listWorkspacesForUser(user.id)).toHaveLength(1);
-    expect(listProjectsForUser(user.id)).toHaveLength(1);
-    expect(getProjectRole(user.id, project.id)).toBe("owner");
-    expect(getProjectDashboard(project.id).style?.approvalStatus).toBe("draft");
-    expect(getOptionalSessionUser(session.token)?.id).toBe(user.id);
-    expect(getOptionalSessionUser("stale-session-token")).toBeUndefined();
+    expect(await listWorkspacesForUser(user.id)).toHaveLength(1);
+    expect(await listProjectsForUser(user.id)).toHaveLength(1);
+    expect(await getProjectRole(user.id, project.id)).toBe("owner");
+    expect((await getProjectDashboard(project.id)).style?.approvalStatus).toBe("draft");
+    expect((await getOptionalSessionUser(session.token))?.id).toBe(user.id);
+    expect(await getOptionalSessionUser("stale-session-token")).toBeUndefined();
   });
 
   it("updates and deletes projects through the CRUD service", async () => {
@@ -45,18 +45,18 @@ describe("foundation repository flows", () => {
       email: "producer@example.com",
       password: "assemblyline",
     });
-    const workspace = createWorkspaceForUser(user.id, { name: "Production" });
+    const workspace = await createWorkspaceForUser(user.id, { name: "Production" });
     const project = await createProjectForWorkspace(user.id, {
       workspaceId: workspace.id,
       title: "Original Title",
     });
 
-    updateProject(project.id, { title: "Locked Cut", aspectRatio: "2.39:1" });
-    expect(getProjectDashboard(project.id).project.title).toBe("Locked Cut");
-    expect(getProjectDashboard(project.id).project.aspectRatio).toBe("2.39:1");
+    await updateProject(project.id, { title: "Locked Cut", aspectRatio: "2.39:1" });
+    expect((await getProjectDashboard(project.id)).project.title).toBe("Locked Cut");
+    expect((await getProjectDashboard(project.id)).project.aspectRatio).toBe("2.39:1");
 
-    deleteProject(project.id);
-    expect(listProjectsForUser(user.id)).toHaveLength(0);
+    await deleteProject(project.id);
+    expect(await listProjectsForUser(user.id)).toHaveLength(0);
   });
 
   it("stores provider keys encrypted and returns only masked client data", async () => {
@@ -64,9 +64,9 @@ describe("foundation repository flows", () => {
       email: "owner@example.com",
       password: "assemblyline",
     });
-    const workspace = createWorkspaceForUser(user.id, { name: "Keys Workspace" });
+    const workspace = await createWorkspaceForUser(user.id, { name: "Keys Workspace" });
 
-    const clientKey = saveProviderKey(workspace.id, {
+    const clientKey = await saveProviderKey(workspace.id, {
       providerSlug: "openai",
       apiKey: "sk-openai-phase1-secret",
       label: "OpenAI",
@@ -74,8 +74,8 @@ describe("foundation repository flows", () => {
 
     expect(clientKey.maskedKey).toBe("sk-o...cret");
     expect(JSON.stringify(clientKey)).not.toContain("phase1-secret");
-    expect(decryptWorkspaceProviderKey(workspace.id, "openai")).toBe("sk-openai-phase1-secret");
-    expect(listProviderKeys(workspace.id)).toHaveLength(1);
+    expect(await decryptWorkspaceProviderKey(workspace.id, "openai")).toBe("sk-openai-phase1-secret");
+    expect(await listProviderKeys(workspace.id)).toHaveLength(1);
   });
 
   it("normalizes a hot-reloaded store created before later phase fields existed", () => {

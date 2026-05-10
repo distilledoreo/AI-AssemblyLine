@@ -24,7 +24,7 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "view_project_dashboard");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "view_project_dashboard");
     return Response.json(getScriptAnalysisGraph(projectId));
   } catch (error) {
     return toErrorResponse(error);
@@ -37,10 +37,10 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     const { projectId } = await context.params;
     const body = videoActionSchema.parse(await request.json());
     if (body.action === "generate") {
-      assertProjectPermission(getProjectRole(user.id, projectId), "generate_video_clips");
+      assertProjectPermission(await getProjectRole(user.id, projectId), "generate_video_clips");
       return Response.json(await generateVideoClip({ projectId, ...body }));
     }
-    assertProjectPermission(getProjectRole(user.id, projectId), "approve_reject_clips");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "approve_reject_clips");
     return Response.json(updateClipVersion({ projectId, clipVersionId: body.clipVersionId, status: body.status }));
   } catch (error) {
     return toErrorResponse(error);

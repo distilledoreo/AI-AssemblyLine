@@ -15,8 +15,8 @@ export async function ProjectWorkflowPage({
   }
 
   const { projectId } = await params;
-  assertProjectPermission(getProjectRole(user.id, projectId), "view_project_dashboard");
-  const dashboard = getProjectDashboard(projectId);
+  assertProjectPermission(await getProjectRole(user.id, projectId), "view_project_dashboard");
+  const dashboard = await getProjectDashboard(projectId);
   const analysisGraph = getScriptAnalysisGraph(projectId);
 
   return (

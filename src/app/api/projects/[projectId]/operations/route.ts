@@ -30,7 +30,7 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "view_project_dashboard");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "view_project_dashboard");
     return Response.json(await operationsPayload(projectId));
   } catch (error) {
     return toErrorResponse(error);
@@ -43,16 +43,16 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     const { projectId } = await context.params;
     const body = operationSchema.parse(await request.json());
     if (body.action === "export") {
-      assertProjectPermission(getProjectRole(user.id, projectId), "export_project");
+      assertProjectPermission(await getProjectRole(user.id, projectId), "export_project");
       const exported = await exportProjectBundle({ projectId, userId: user.id });
       return Response.json({ ...(await operationsPayload(projectId)), export: exported }, { status: 201 });
     }
     if (body.action === "import") {
-      assertProjectPermission(getProjectRole(user.id, projectId), "export_project");
+      assertProjectPermission(await getProjectRole(user.id, projectId), "export_project");
       const imported = await importProjectBundle({ userId: user.id, manifestPath: body.manifestPath });
       return Response.json({ ...(await operationsPayload(projectId)), import: imported }, { status: 201 });
     }
-    assertProjectPermission(getProjectRole(user.id, projectId), "edit_project_settings");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "edit_project_settings");
     if (body.action === "cleanup_orphans") {
       return Response.json({ ...(await operationsPayload(projectId)), cleanup: await cleanupOrphanFiles(projectId) });
     }

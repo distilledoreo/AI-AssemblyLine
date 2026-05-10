@@ -7,7 +7,7 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "view_project_dashboard");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "view_project_dashboard");
     return Response.json(getScriptAnalysisGraph(projectId));
   } catch (error) {
     return toErrorResponse(error);

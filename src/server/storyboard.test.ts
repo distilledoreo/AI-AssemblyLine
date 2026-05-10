@@ -25,7 +25,7 @@ async function readyProject() {
     email: "boards@example.com",
     password: "assemblyline",
   });
-  const workspace = createWorkspaceForUser(user.id, { name: "Board Lab" });
+  const workspace = await createWorkspaceForUser(user.id, { name: "Board Lab" });
   const project = await createProjectForWorkspace(user.id, { workspaceId: workspace.id, title: "Boards" });
   const graph = await uploadScriptForProject({ projectId: project.id, filename: "boards.txt", text: scriptText });
   graph.assets.forEach((asset) => transitionAssetStatus(asset.id, "approved"));
@@ -58,7 +58,7 @@ describe("storyboard workflow", () => {
 
   it("blocks storyboard generation until assets are approved and validates sketch input", async () => {
     const { user } = await signInWithCredentials({ email: "blocked@example.com", password: "assemblyline" });
-    const workspace = createWorkspaceForUser(user.id, { name: "Blocked" });
+    const workspace = await createWorkspaceForUser(user.id, { name: "Blocked" });
     const project = await createProjectForWorkspace(user.id, { workspaceId: workspace.id, title: "Blocked" });
     const graph = await uploadScriptForProject({ projectId: project.id, filename: "blocked.txt", text: scriptText });
 

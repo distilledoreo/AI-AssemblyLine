@@ -23,7 +23,7 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "view_project_dashboard");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "view_project_dashboard");
     return Response.json(getScriptAnalysisGraph(projectId));
   } catch (error) {
     return toErrorResponse(error);
@@ -39,9 +39,9 @@ export async function POST(request: Request, context: { params: Promise<{ projec
       acceptInvitation(body.token, user.id);
       return Response.json(getScriptAnalysisGraph(projectId));
     }
-    assertProjectPermission(getProjectRole(user.id, projectId), "manage_project_members");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "manage_project_members");
     if (body.action === "invite") {
-      const project = getProject(projectId);
+      const project = await getProject(projectId);
       const result = createInvitation({ workspaceId: project!.workspaceId, projectId, email: body.email, role: body.role, invitedById: user.id });
       return Response.json({ ...getScriptAnalysisGraph(projectId), inviteToken: result.token }, { status: 201 });
     }

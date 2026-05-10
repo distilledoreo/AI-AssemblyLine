@@ -25,7 +25,7 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "view_project_dashboard");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "view_project_dashboard");
     return Response.json(getScriptAnalysisGraph(projectId));
   } catch (error) {
     return toErrorResponse(error);
@@ -36,7 +36,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "generate_storyboard_frames");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "generate_storyboard_frames");
 
     if ((request.headers.get("content-type") ?? "").includes("multipart/form-data")) {
       const form = await request.formData();

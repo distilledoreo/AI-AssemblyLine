@@ -22,7 +22,7 @@ const createProjectSchema = z.object({
 export async function GET() {
   try {
     const user = await requireCurrentUser();
-    return Response.json({ projects: listProjectsForUser(user.id) });
+    return Response.json({ projects: await listProjectsForUser(user.id) });
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   try {
     const user = await requireCurrentUser();
     const body = createProjectSchema.parse(await request.json());
-    assertWorkspaceRole(getWorkspaceRole(user.id, body.workspaceId), "owner");
+    assertWorkspaceRole(await getWorkspaceRole(user.id, body.workspaceId), "owner");
     const project = await createProjectForWorkspace(user.id, body);
     return Response.json({ project }, { status: 201 });
   } catch (error) {

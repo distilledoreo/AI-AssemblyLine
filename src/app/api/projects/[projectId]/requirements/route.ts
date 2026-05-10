@@ -14,7 +14,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "edit_asset_requirements");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "edit_asset_requirements");
     const body = addRequirementSchema.parse(await request.json());
     addSceneAssetRequirement(body.sceneId, body.assetId);
     return Response.json({ ok: true }, { status: 201 });
@@ -27,7 +27,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ proj
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "edit_asset_requirements");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "edit_asset_requirements");
     const { requirementId } = z.object({ requirementId: z.string().uuid() }).parse(await request.json());
     removeSceneAssetRequirement(requirementId);
     return Response.json({ ok: true });

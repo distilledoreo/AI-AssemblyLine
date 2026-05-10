@@ -16,8 +16,8 @@ export default async function DashboardPage() {
   return (
     <AppShell userName={user.name}>
       <DashboardClient
-        initialWorkspaces={listWorkspacesForUser(user.id)}
-        initialProjects={listProjectsForUser(user.id)}
+        initialWorkspaces={await listWorkspacesForUser(user.id)}
+        initialProjects={await listProjectsForUser(user.id)}
       />
     </AppShell>
   );

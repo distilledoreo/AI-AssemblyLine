@@ -25,7 +25,7 @@ async function analyzedProject() {
     email: "asset@example.com",
     password: "assemblyline",
   });
-  const workspace = createWorkspaceForUser(user.id, { name: "Asset Lab" });
+  const workspace = await createWorkspaceForUser(user.id, { name: "Asset Lab" });
   const project = await createProjectForWorkspace(user.id, { workspaceId: workspace.id, title: "Assets" });
   return uploadScriptForProject({ projectId: project.id, filename: "asset.txt", text: scriptText });
 }

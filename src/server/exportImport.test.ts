@@ -25,7 +25,7 @@ Mara points the silver telescope at the storm.`;
 
 async function createPortableProject() {
   const { user } = await signInWithCredentials({ email: "phase7@example.com", password: "assemblyline" });
-  const workspace = createWorkspaceForUser(user.id, { name: "Phase 7 Lab" });
+  const workspace = await createWorkspaceForUser(user.id, { name: "Phase 7 Lab" });
   const project = await createProjectForWorkspace(user.id, { workspaceId: workspace.id, title: "Portable Project" });
   const analyzed = await uploadScriptForProject({ projectId: project.id, filename: "portable.txt", text: scriptText });
   analyzed.assets.forEach((asset) => transitionAssetStatus(asset.id, "approved"));

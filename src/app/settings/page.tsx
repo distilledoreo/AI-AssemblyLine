@@ -11,7 +11,12 @@ export default async function SettingsPage() {
   if (!user) {
     redirect("/signin");
   }
-  const workspaces = listWorkspacesForUser(user.id);
+  const workspaces = await listWorkspacesForUser(user.id);
+  const providerKeysByWorkspace = new Map(
+    await Promise.all(
+      workspaces.map(async (workspace) => [workspace.id, await listProviderKeys(workspace.id)] as const),
+    ),
+  );
 
   return (
     <AppShell userName={user.name}>
@@ -31,10 +36,10 @@ export default async function SettingsPage() {
             <section className="panel span-6" key={workspace.id}>
               <h2>{workspace.name}</h2>
               <ul className="list">
-                {listProviderKeys(workspace.id).length === 0 ? (
+                {(providerKeysByWorkspace.get(workspace.id) ?? []).length === 0 ? (
                   <li className="notice">No provider keys configured.</li>
                 ) : (
-                  listProviderKeys(workspace.id).map((key) => (
+                  (providerKeysByWorkspace.get(workspace.id) ?? []).map((key) => (
                     <li className="list-item" key={key.id}>
                       <span>{key.label ?? key.providerSlug}</span>
                       <span className="meta">{key.maskedKey}</span>

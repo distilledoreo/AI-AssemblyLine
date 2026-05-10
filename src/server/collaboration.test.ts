@@ -22,7 +22,7 @@ describe("collaboration workflow", () => {
   it("creates signed invitations, accepts them, assigns work, and records activity", async () => {
     const { user: owner } = await signInWithCredentials({ email: "owner@example.com", password: "assemblyline" });
     const { user: artist } = await signInWithCredentials({ email: "artist@example.com", password: "assemblyline" });
-    const workspace = createWorkspaceForUser(owner.id, { name: "Team" });
+    const workspace = await createWorkspaceForUser(owner.id, { name: "Team" });
     const project = await createProjectForWorkspace(owner.id, { workspaceId: workspace.id, title: "Team Project" });
     const graph = await uploadScriptForProject({
       projectId: project.id,
@@ -57,7 +57,7 @@ describe("collaboration workflow", () => {
   it("enforces locked asset edit warnings and member role updates", async () => {
     const { user: owner } = await signInWithCredentials({ email: "owner2@example.com", password: "assemblyline" });
     const { user: reviewer } = await signInWithCredentials({ email: "reviewer@example.com", password: "assemblyline" });
-    const workspace = createWorkspaceForUser(owner.id, { name: "Locked" });
+    const workspace = await createWorkspaceForUser(owner.id, { name: "Locked" });
     const project = await createProjectForWorkspace(owner.id, { workspaceId: workspace.id, title: "Locked" });
     const graph = await uploadScriptForProject({
       projectId: project.id,

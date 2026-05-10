@@ -19,7 +19,7 @@ Anna holds a brass key.`;
 
 async function projectWithApprovedFrame() {
   const { user } = await signInWithCredentials({ email: "video@example.com", password: "assemblyline" });
-  const workspace = createWorkspaceForUser(user.id, { name: "Video Lab" });
+  const workspace = await createWorkspaceForUser(user.id, { name: "Video Lab" });
   const project = await createProjectForWorkspace(user.id, { workspaceId: workspace.id, title: "Video" });
   const analyzed = await uploadScriptForProject({ projectId: project.id, filename: "video.txt", text: scriptText });
   analyzed.assets.forEach((asset) => transitionAssetStatus(asset.id, "approved"));
@@ -58,7 +58,7 @@ describe("video workflow", () => {
 
   it("blocks clips without approved frames and exposes video provider capabilities", async () => {
     const { user } = await signInWithCredentials({ email: "novideo@example.com", password: "assemblyline" });
-    const workspace = createWorkspaceForUser(user.id, { name: "No Video" });
+    const workspace = await createWorkspaceForUser(user.id, { name: "No Video" });
     const project = await createProjectForWorkspace(user.id, { workspaceId: workspace.id, title: "No Video" });
     const graph = await uploadScriptForProject({ projectId: project.id, filename: "video.txt", text: scriptText });
 

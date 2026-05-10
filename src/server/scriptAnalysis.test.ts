@@ -30,7 +30,7 @@ async function createProject() {
     email: "writer@example.com",
     password: "assemblyline",
   });
-  const workspace = createWorkspaceForUser(user.id, { name: "Script Lab" });
+  const workspace = await createWorkspaceForUser(user.id, { name: "Script Lab" });
   return createProjectForWorkspace(user.id, { workspaceId: workspace.id, title: "Script Project" });
 }
 

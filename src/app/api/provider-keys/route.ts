@@ -20,8 +20,8 @@ export async function GET(request: Request) {
     const user = await requireCurrentUser();
     const url = new URL(request.url);
     const workspaceId = z.string().uuid().parse(url.searchParams.get("workspaceId"));
-    assertWorkspaceRole(getWorkspaceRole(user.id, workspaceId), "admin");
-    return Response.json({ providerKeys: listProviderKeys(workspaceId) });
+    assertWorkspaceRole(await getWorkspaceRole(user.id, workspaceId), "admin");
+    return Response.json({ providerKeys: await listProviderKeys(workspaceId) });
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -31,8 +31,8 @@ export async function POST(request: Request) {
   try {
     const user = await requireCurrentUser();
     const body = saveProviderKeySchema.parse(await request.json());
-    assertWorkspaceRole(getWorkspaceRole(user.id, body.workspaceId), "admin");
-    const providerKey = saveProviderKey(body.workspaceId, body);
+    assertWorkspaceRole(await getWorkspaceRole(user.id, body.workspaceId), "admin");
+    const providerKey = await saveProviderKey(body.workspaceId, body);
     return Response.json({ providerKey }, { status: 201 });
   } catch (error) {
     return toErrorResponse(error);

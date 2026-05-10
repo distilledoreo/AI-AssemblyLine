@@ -21,8 +21,8 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "view_project_dashboard");
-    return Response.json(getProjectDashboard(projectId));
+    assertProjectPermission(await getProjectRole(user.id, projectId), "view_project_dashboard");
+    return Response.json(await getProjectDashboard(projectId));
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -32,9 +32,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ proje
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "edit_project_settings");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "edit_project_settings");
     const body = updateProjectSchema.parse(await request.json());
-    return Response.json({ project: updateProject(projectId, body) });
+    return Response.json({ project: await updateProject(projectId, body) });
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -44,8 +44,8 @@ export async function DELETE(_request: Request, context: { params: Promise<{ pro
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "delete_project");
-    deleteProject(projectId);
+    assertProjectPermission(await getProjectRole(user.id, projectId), "delete_project");
+    await deleteProject(projectId);
     return Response.json({ ok: true });
   } catch (error) {
     return toErrorResponse(error);

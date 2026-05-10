@@ -37,7 +37,7 @@ export const BUNDLE_VERSION = 1;
 type ExportManifest = {
   bundleVersion: number;
   exportedAt: string;
-  project: ReturnType<typeof getProjectDashboard>["project"];
+  project: Awaited<ReturnType<typeof getProjectDashboard>>["project"];
   style?: ProjectStyle;
   graph: ScriptAnalysisGraph;
   media: Array<{ sourcePath: string; bundledPath: string; kind: string; exists: boolean }>;
@@ -71,12 +71,12 @@ async function copyMediaFiles(projectId: string, graph: ScriptAnalysisGraph) {
 }
 
 export async function exportProjectBundle(input: { projectId: string; userId: string }) {
-  const project = getProject(input.projectId);
+  const project = await getProject(input.projectId);
   if (!project) {
     throw new AppError("Project not found.", 404, "not_found");
   }
   await ensureProjectStorage(input.projectId);
-  const dashboard = getProjectDashboard(input.projectId);
+  const dashboard = await getProjectDashboard(input.projectId);
   const graph = getScriptAnalysisGraph(input.projectId);
   const job = createGenerationJob({
     projectId: input.projectId,
@@ -138,7 +138,7 @@ export async function importProjectBundle(input: { userId: string; manifestPath:
     throw new AppError(`Unsupported bundle version ${manifest.bundleVersion}.`, 400, "unsupported_bundle_version");
   }
 
-  const workspace = createWorkspaceForUser(input.userId, { name: `Imported ${manifest.project.title}` });
+  const workspace = await createWorkspaceForUser(input.userId, { name: `Imported ${manifest.project.title}` });
   const project = await createProjectForWorkspace(input.userId, {
     workspaceId: workspace.id,
     title: `Imported ${manifest.project.title}`,

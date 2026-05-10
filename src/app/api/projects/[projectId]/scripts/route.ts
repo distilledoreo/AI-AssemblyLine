@@ -14,7 +14,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "upload_script");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "upload_script");
     const contentType = request.headers.get("content-type") ?? "";
     if (contentType.includes("multipart/form-data")) {
       const form = await request.formData();
@@ -42,7 +42,7 @@ export async function PATCH(_request: Request, context: { params: Promise<{ proj
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "run_script_analysis");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "run_script_analysis");
     return Response.json(await runScriptAnalysis(projectId));
   } catch (error) {
     return toErrorResponse(error);

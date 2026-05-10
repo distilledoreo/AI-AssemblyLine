@@ -54,7 +54,7 @@ export async function uploadScriptForProject(input: {
   filename: string;
   text: string;
 }) {
-  const project = getProject(input.projectId);
+  const project = await getProject(input.projectId);
   if (!project) {
     throw new NotFoundError("Project not found.");
   }

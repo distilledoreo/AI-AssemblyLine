@@ -12,7 +12,7 @@ export async function GET(request: Request, context: { params: Promise<{ project
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(getProjectRole(user.id, projectId), "view_project_dashboard");
+    assertProjectPermission(await getProjectRole(user.id, projectId), "view_project_dashboard");
 
     const encoder = new TextEncoder();
     const lastEventId = request.headers.get("last-event-id") ?? undefined;
