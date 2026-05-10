@@ -25,7 +25,7 @@ async function projectWithApprovedFrame() {
   await Promise.all(analyzed.assets.map((asset) => transitionAssetStatus(asset.id, "approved")));
   const ready = getScriptAnalysisGraph(project.id);
   const generated = await generateStoryboardFrame({ projectId: project.id, shotId: ready.shots[0].id });
-  updateFrameVersion({ projectId: project.id, frameVersionId: generated.frameVersions[0].id, status: "approved" });
+  await updateFrameVersion({ projectId: project.id, frameVersionId: generated.frameVersions[0].id, status: "approved" });
   return { project, graph: getScriptAnalysisGraph(project.id) };
 }
 
@@ -42,7 +42,7 @@ describe("video workflow", () => {
       providerSlug: "runway",
     });
     const clipVersion = shotClipGraph.clipVersions[0];
-    updateClipVersion({ projectId: project.id, clipVersionId: clipVersion.id, status: "approved" });
+    await updateClipVersion({ projectId: project.id, clipVersionId: clipVersion.id, status: "approved" });
 
     const sceneClipGraph = await generateVideoClip({
       projectId: project.id,

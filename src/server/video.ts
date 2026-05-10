@@ -2,7 +2,14 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { KlingAdapter, RunwayAdapter } from "@/providers/videoProviders";
 import { AppError, NotFoundError } from "@/server/errors";
-import { createGenerationJob, getScriptAnalysisGraph, getStore } from "@/server/repository";
+import {
+  createGenerationJob,
+  getScriptAnalysisGraph,
+  getScriptAnalysisGraphForProject,
+  getStore,
+  persistClipVersionState,
+  persistGeneratedClipVersion,
+} from "@/server/repository";
 import { inspectClip } from "@/server/media";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
@@ -15,7 +22,7 @@ export async function generateVideoClip(input: {
   sceneId?: string;
   providerSlug?: "runway" | "kling";
 }) {
-  const graph = getScriptAnalysisGraph(input.projectId);
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const store = getStore();
   const frameVersions =
     input.mode === "shot"
@@ -51,15 +58,25 @@ export async function generateVideoClip(input: {
   );
   let clip = store.videoClips.find((candidate) =>
     input.mode === "shot" ? candidate.shotId === input.shotId : candidate.sceneId === input.sceneId,
+  ) ?? graph.videoClips.find((candidate) =>
+    input.mode === "shot" ? candidate.shotId === input.shotId : candidate.sceneId === input.sceneId,
   );
   const timestamp = nowIso();
   if (!clip) {
     clip = { id: createId(), shotId: input.shotId, sceneId: input.sceneId, createdAt: timestamp, updatedAt: timestamp };
+  } else {
+    clip.updatedAt = timestamp;
+  }
+  if (!store.videoClips.some((candidate) => candidate.id === clip.id)) {
     store.videoClips.push(clip);
   }
   const dir = path.join(projectFolderPath(input.projectId, "videos"), clip.id);
   await mkdir(dir, { recursive: true });
-  const versionNumber = store.clipVersions.filter((version) => version.clipId === clip.id).length + 1;
+  const knownClipVersions = [
+    ...store.clipVersions.filter((version) => version.clipId === clip.id),
+    ...graph.clipVersions.filter((version) => version.clipId === clip.id),
+  ];
+  const versionNumber = knownClipVersions.reduce((max, version) => Math.max(max, version.versionNumber), 0) + 1;
   const filePath = path.join(dir, `clip-v${versionNumber}.mp4`);
   await writeFile(filePath, result.video?.data ?? Buffer.from("mock-video"));
   const info = await inspectClip(filePath);
@@ -81,12 +98,16 @@ export async function generateVideoClip(input: {
   job.status = "complete";
   job.outputPayload = { clipId: clip.id, clipVersionId: version.id, media: info };
   job.completedAt = nowIso();
-  return getScriptAnalysisGraph(input.projectId);
+  await persistGeneratedClipVersion({ clip, version });
+  return getScriptAnalysisGraphForProject(input.projectId);
 }
 
-export function updateClipVersion(input: { projectId: string; clipVersionId: string; status: ClipVersion["status"] }) {
+export async function updateClipVersion(input: { projectId: string; clipVersionId: string; status: ClipVersion["status"] }) {
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const store = getStore();
-  const version = store.clipVersions.find((candidate) => candidate.id === input.clipVersionId);
+  const version =
+    store.clipVersions.find((candidate) => candidate.id === input.clipVersionId) ??
+    graph.clipVersions.find((candidate) => candidate.id === input.clipVersionId);
   if (!version) throw new NotFoundError("Clip version not found.");
   if (input.status === "approved") {
     store.clipVersions
@@ -96,7 +117,8 @@ export function updateClipVersion(input: { projectId: string; clipVersionId: str
       });
   }
   version.status = input.status;
-  return getScriptAnalysisGraph(input.projectId);
+  await persistClipVersionState(version);
+  return getScriptAnalysisGraphForProject(input.projectId);
 }
 
 function approvedFrameVersionsForShot(graph: ReturnType<typeof getScriptAnalysisGraph>, shotId?: string) {

@@ -667,6 +667,54 @@ function mapReviewNote(note: {
   };
 }
 
+function mapVideoClip(clip: {
+  id: string;
+  shotId?: string | null;
+  sceneId?: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}): VideoClip {
+  return {
+    id: clip.id,
+    shotId: clip.shotId ?? undefined,
+    sceneId: clip.sceneId ?? undefined,
+    createdAt: iso(clip.createdAt),
+    updatedAt: iso(clip.updatedAt),
+  };
+}
+
+function mapClipVersion(version: {
+  id: string;
+  clipId: string;
+  versionNumber: number;
+  prompt: string;
+  filePath: string;
+  thumbnailPath?: string | null;
+  durationMs: number;
+  status: ClipVersion["status"];
+  isStale: boolean;
+  sourceFrameVersionIds: unknown;
+  generationJobId?: string | null;
+  createdAt: Date | string;
+}): ClipVersion {
+  return {
+    id: version.id,
+    clipId: version.clipId,
+    versionNumber: version.versionNumber,
+    prompt: version.prompt,
+    filePath: version.filePath,
+    thumbnailPath: version.thumbnailPath ?? undefined,
+    durationMs: version.durationMs,
+    status: version.status,
+    isStale: version.isStale,
+    sourceFrameVersionIds: Array.isArray(version.sourceFrameVersionIds)
+      ? version.sourceFrameVersionIds.filter((id): id is string => typeof id === "string")
+      : [],
+    generationJobId: version.generationJobId ?? undefined,
+    createdAt: iso(version.createdAt),
+  };
+}
+
 function mapSceneAssetRequirement(requirement: {
   id: string;
   sceneId: string;
@@ -1227,6 +1275,24 @@ export async function getScriptAnalysisGraphForProject(projectId: string): Promi
   const reviewNotes = (await prisma.reviewNote.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } })).map(
     mapReviewNote,
   );
+  const videoClips = (shotIds.length || sceneIds.length)
+    ? (await prisma.videoClip.findMany({
+        where: {
+          OR: [
+            ...(shotIds.length ? [{ shotId: { in: shotIds } }] : []),
+            ...(sceneIds.length ? [{ sceneId: { in: sceneIds } }] : []),
+          ],
+        },
+        orderBy: { createdAt: "asc" },
+      })).map(mapVideoClip)
+    : [];
+  const videoClipIds = videoClips.map((clip) => clip.id);
+  const clipVersions = videoClipIds.length
+    ? (await prisma.clipVersion.findMany({
+        where: { clipId: { in: videoClipIds } },
+        orderBy: [{ clipId: "asc" }, { versionNumber: "asc" }],
+      })).map(mapClipVersion)
+    : [];
   const [jobs, events] = await Promise.all([
     prisma.generationJob.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } }),
     prisma.jobEvent.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } }),
@@ -1244,8 +1310,8 @@ export async function getScriptAnalysisGraphForProject(projectId: string): Promi
     storyboardFrames,
     frameVersions,
     reviewNotes,
-    videoClips: [],
-    clipVersions: [],
+    videoClips,
+    clipVersions,
     invitations: [],
     assignments: [],
     activityEvents: [],
@@ -1774,6 +1840,75 @@ export async function persistReviewNoteState(note: ReviewNote) {
       status: note.status,
       createdAt: new Date(note.createdAt),
       updatedAt: new Date(note.updatedAt),
+    },
+  }).catch(() => undefined);
+}
+
+export async function persistGeneratedClipVersion(input: {
+  clip: VideoClip;
+  version: ClipVersion;
+}) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.videoClip.upsert({
+    where: { id: input.clip.id },
+    update: {
+      shotId: input.clip.shotId,
+      sceneId: input.clip.sceneId,
+      updatedAt: new Date(input.clip.updatedAt),
+    },
+    create: {
+      id: input.clip.id,
+      shotId: input.clip.shotId,
+      sceneId: input.clip.sceneId,
+      createdAt: new Date(input.clip.createdAt),
+      updatedAt: new Date(input.clip.updatedAt),
+    },
+  }).catch(() => undefined);
+  await prisma.clipVersion.create({
+    data: {
+      id: input.version.id,
+      clipId: input.version.clipId,
+      versionNumber: input.version.versionNumber,
+      prompt: input.version.prompt,
+      filePath: input.version.filePath,
+      thumbnailPath: input.version.thumbnailPath,
+      durationMs: input.version.durationMs,
+      status: input.version.status,
+      isStale: input.version.isStale,
+      sourceFrameVersionIds: toPrismaJson(input.version.sourceFrameVersionIds) ?? [],
+      generationJobId: input.version.generationJobId,
+      createdAt: new Date(input.version.createdAt),
+    },
+  }).catch(() => undefined);
+  if (input.version.generationJobId) {
+    await prisma.generationJob.update({
+      where: { id: input.version.generationJobId },
+      data: {
+        status: "complete",
+        outputPayload: toPrismaJson({ clipId: input.clip.id, clipVersionId: input.version.id }),
+        completedAt: new Date(),
+      },
+    }).catch(() => undefined);
+  }
+}
+
+export async function persistClipVersionState(version: ClipVersion) {
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  if (version.status === "approved") {
+    await prisma.clipVersion.updateMany({
+      where: { clipId: version.clipId, status: "approved", id: { not: version.id } },
+      data: { status: "superseded" },
+    }).catch(() => undefined);
+  }
+  await prisma.clipVersion.update({
+    where: { id: version.id },
+    data: {
+      status: version.status,
+      isStale: version.isStale,
     },
   }).catch(() => undefined);
 }

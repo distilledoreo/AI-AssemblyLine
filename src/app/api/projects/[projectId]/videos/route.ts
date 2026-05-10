@@ -41,7 +41,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
       return Response.json(await generateVideoClip({ projectId, ...body }));
     }
     assertProjectPermission(await getProjectRole(user.id, projectId), "approve_reject_clips");
-    return Response.json(updateClipVersion({ projectId, clipVersionId: body.clipVersionId, status: body.status }));
+    return Response.json(await updateClipVersion({ projectId, clipVersionId: body.clipVersionId, status: body.status }));
   } catch (error) {
     return toErrorResponse(error);
   }

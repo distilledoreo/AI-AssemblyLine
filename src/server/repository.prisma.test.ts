@@ -116,7 +116,14 @@ const prismaMock = vi.hoisted(() => ({
     create: vi.fn(),
     findMany: vi.fn(),
   },
+  videoClip: {
+    upsert: vi.fn(),
+    findMany: vi.fn(),
+  },
   clipVersion: {
+    create: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
     updateMany: vi.fn(),
   },
   sceneAssetReq: {
@@ -618,6 +625,27 @@ describe("Prisma repository mode", () => {
       createdAt: timestamp,
       updatedAt: timestamp,
     };
+    const videoClip = {
+      id: "16161616-1616-4161-8161-161616161616",
+      shotId: shot.id,
+      sceneId: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const clipVersion = {
+      id: "17171717-1717-4171-8171-171717171717",
+      clipId: videoClip.id,
+      versionNumber: 1,
+      prompt: "Shot-by-shot video clip.",
+      filePath: "storage/projects/project/videos/clip.mp4",
+      thumbnailPath: "storage/projects/project/videos/clip.mp4",
+      durationMs: 3000,
+      status: "approved",
+      isStale: false,
+      sourceFrameVersionIds: [frameVersion.id],
+      generationJobId: null,
+      createdAt: timestamp,
+    };
     prismaMock.script.findMany.mockResolvedValue([script]);
     prismaMock.scriptVersion.findMany.mockResolvedValue([version]);
     prismaMock.scene.findMany.mockResolvedValue([scene]);
@@ -635,6 +663,8 @@ describe("Prisma repository mode", () => {
     prismaMock.storyboardFrame.findMany.mockResolvedValue([storyboardFrame]);
     prismaMock.frameVersion.findMany.mockResolvedValue([frameVersion]);
     prismaMock.reviewNote.findMany.mockResolvedValue([reviewNote]);
+    prismaMock.videoClip.findMany.mockResolvedValue([videoClip]);
+    prismaMock.clipVersion.findMany.mockResolvedValue([clipVersion]);
     prismaMock.generationJob.findMany.mockResolvedValue([]);
     prismaMock.jobEvent.findMany.mockResolvedValue([]);
 
@@ -675,6 +705,15 @@ describe("Prisma repository mode", () => {
       id: reviewNote.id,
       targetId: frameVersion.id,
       body: "Composition approved.",
+    });
+    expect(graph.videoClips[0]).toMatchObject({
+      id: videoClip.id,
+      shotId: shot.id,
+    });
+    expect(graph.clipVersions[0]).toMatchObject({
+      id: clipVersion.id,
+      clipId: videoClip.id,
+      sourceFrameVersionIds: [frameVersion.id],
     });
     expect(graph.sceneAssetRequirements[0]).toMatchObject({ sceneId: scene.id, assetId: asset.id });
     expect(graph.shotAssetRequirements[0]).toMatchObject({ shotId: shot.id, assetId: asset.id });
@@ -926,6 +965,60 @@ describe("Prisma repository mode", () => {
     });
     expect(prismaMock.reviewNote.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ id: note.id, targetId: version.id, body: "Composition approved." }),
+    });
+  });
+
+  it("persists video clip writes through Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const clip = {
+      id: "16161616-1616-4161-8161-161616161616",
+      shotId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const version = {
+      id: "17171717-1717-4171-8171-171717171717",
+      clipId: clip.id,
+      versionNumber: 1,
+      prompt: "Shot-by-shot video clip.",
+      filePath: "storage/projects/project/videos/clip.mp4",
+      thumbnailPath: "storage/projects/project/videos/clip.mp4",
+      durationMs: 3000,
+      status: "approved" as const,
+      isStale: false,
+      sourceFrameVersionIds: ["14141414-1414-4141-8141-141414141414"],
+      generationJobId: "99999999-9999-4999-8999-999999999999",
+      createdAt: timestamp.toISOString(),
+    };
+
+    prismaMock.videoClip.upsert.mockResolvedValue(clip);
+    prismaMock.clipVersion.create.mockResolvedValue(version);
+    prismaMock.clipVersion.update.mockResolvedValue(version);
+    prismaMock.clipVersion.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.generationJob.update.mockResolvedValue({ id: version.generationJobId });
+
+    await repository.persistGeneratedClipVersion({ clip, version });
+    await repository.persistClipVersionState(version);
+
+    expect(prismaMock.videoClip.upsert).toHaveBeenCalledWith({
+      where: { id: clip.id },
+      update: expect.objectContaining({ shotId: clip.shotId }),
+      create: expect.objectContaining({ id: clip.id, shotId: clip.shotId }),
+    });
+    expect(prismaMock.clipVersion.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: version.id,
+        clipId: clip.id,
+        sourceFrameVersionIds: version.sourceFrameVersionIds,
+      }),
+    });
+    expect(prismaMock.clipVersion.updateMany).toHaveBeenCalledWith({
+      where: { clipId: clip.id, status: "approved", id: { not: version.id } },
+      data: { status: "superseded" },
+    });
+    expect(prismaMock.clipVersion.update).toHaveBeenCalledWith({
+      where: { id: version.id },
+      data: expect.objectContaining({ status: "approved", isStale: false }),
     });
   });
 
