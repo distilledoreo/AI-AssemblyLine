@@ -10,6 +10,7 @@ import {
   persistClipVersionState,
   persistGeneratedClipVersion,
 } from "@/server/repository";
+import { isRedisQueueEnabled } from "@/server/queue";
 import { inspectClip } from "@/server/media";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
@@ -23,7 +24,6 @@ export async function generateVideoClip(input: {
   providerSlug?: "runway" | "kling";
 }) {
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
-  const store = getStore();
   const frameVersions =
     input.mode === "shot"
       ? approvedFrameVersionsForShot(graph, input.shotId)
@@ -39,13 +39,52 @@ export async function generateVideoClip(input: {
     providerSlug: adapter.slug,
     modelId: adapter.getCapabilities().models[0],
     inputPayload: {
-      prompt,
+      projectId: input.projectId,
       mode: input.mode,
+      shotId: input.shotId,
+      sceneId: input.sceneId,
+      providerSlug: input.providerSlug ?? "runway",
+      prompt,
       sourceFrameVersionIds: frameVersions.map((version) => version.id),
       polling: { intervalSeconds: 15, maxAttempts: 120 },
     },
   });
+  if (isRedisQueueEnabled()) {
+    return getScriptAnalysisGraphForProject(input.projectId);
+  }
+  return processVideoClipJob({
+    projectId: input.projectId,
+    mode: input.mode,
+    shotId: input.shotId,
+    sceneId: input.sceneId,
+    providerSlug: input.providerSlug ?? "runway",
+    jobId: job.id,
+  });
+}
+
+export async function processVideoClipJob(input: {
+  projectId: string;
+  mode: "shot" | "scene";
+  shotId?: string;
+  sceneId?: string;
+  providerSlug: "runway" | "kling";
+  jobId: string;
+}) {
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
+  const store = getStore();
+  const frameVersions =
+    input.mode === "shot"
+      ? approvedFrameVersionsForShot(graph, input.shotId)
+      : approvedFrameVersionsForScene(graph, input.sceneId);
+  if (frameVersions.length === 0) {
+    throw new AppError("Video generation requires approved storyboard frames.", 409, "missing_approved_frames");
+  }
+  const adapter = input.providerSlug === "kling" ? new KlingAdapter() : new RunwayAdapter();
+  const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
+  const job = store.generationJobs.find((candidate) => candidate.id === input.jobId);
+  if (!job) throw new NotFoundError("Generation job not found.");
   job.status = "polling";
+  job.startedAt = nowIso();
   const result = await adapter.generateVideo(
     {
       positivePrompt: prompt,

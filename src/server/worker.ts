@@ -3,6 +3,7 @@ import { createGenerationWorker, isRedisQueueEnabled } from "@/server/queue";
 import { processAssetReferenceJob } from "@/server/assetBible";
 import { processScriptAnalysisJob } from "@/server/scriptAnalysis";
 import { processStoryboardFrameJob } from "@/server/storyboard";
+import { processVideoClipJob } from "@/server/video";
 
 type WorkerJobData = {
   projectId?: string;
@@ -12,6 +13,8 @@ type WorkerJobData = {
   shotId?: string;
   keyframeIndex?: number;
   userDirection?: string;
+  mode?: "shot" | "scene";
+  sceneId?: string;
 };
 
 async function processAnalysisJob(job: Job<WorkerJobData>) {
@@ -55,6 +58,23 @@ async function processImageJob(job: Job<WorkerJobData>) {
   throw new Error(`Unsupported image job type: ${job.name}`);
 }
 
+async function processVideoJob(job: Job<WorkerJobData & { providerSlug?: "runway" | "kling" }>) {
+  if (job.name !== "video_clip") {
+    throw new Error(`Unsupported video job type: ${job.name}`);
+  }
+  if (!job.data.projectId || !job.data.mode || !job.data.providerSlug) {
+    throw new Error("Video clip jobs require projectId, mode, and providerSlug.");
+  }
+  return processVideoClipJob({
+    projectId: job.data.projectId,
+    mode: job.data.mode,
+    shotId: job.data.shotId,
+    sceneId: job.data.sceneId,
+    providerSlug: job.data.providerSlug,
+    jobId: String(job.id),
+  });
+}
+
 export function startGenerationWorkers() {
   if (!isRedisQueueEnabled()) {
     return { started: false, workers: [] };
@@ -62,6 +82,7 @@ export function startGenerationWorkers() {
   const workers = [
     createGenerationWorker("analysis", processAnalysisJob),
     createGenerationWorker("image", processImageJob),
+    createGenerationWorker("video", processVideoJob),
   ].filter(Boolean);
   return { started: workers.length > 0, workers };
 }
