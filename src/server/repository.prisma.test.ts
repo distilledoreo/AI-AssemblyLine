@@ -102,6 +102,15 @@ const prismaMock = vi.hoisted(() => ({
     create: vi.fn(),
     findMany: vi.fn(),
   },
+  storyboardFrame: {
+    findMany: vi.fn(),
+  },
+  frameVersion: {
+    findMany: vi.fn(),
+  },
+  reviewNote: {
+    findMany: vi.fn(),
+  },
   sceneAssetReq: {
     createMany: vi.fn(),
     deleteMany: vi.fn(),
@@ -566,6 +575,41 @@ describe("Prisma repository mode", () => {
       lightingStates: ["day", "night"],
       cameraSafeZones: null,
     };
+    const storyboardFrame = {
+      id: "13131313-1313-4131-8131-131313131313",
+      shotId: shot.id,
+      keyframeIndex: 0,
+      sketchFilePath: "storage/projects/project/storyboards/sketch.png",
+      sketchWarning: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const frameVersion = {
+      id: "14141414-1414-4141-8141-141414141414",
+      frameId: storyboardFrame.id,
+      versionNumber: 1,
+      prompt: "Wide frame of Anna in the room.",
+      filePath: "storage/projects/project/storyboards/frame.png",
+      thumbnailPath: "storage/projects/project/storyboards/frame-thumb.png",
+      status: "approved",
+      isStale: false,
+      generationJobId: null,
+      annotations: { rectangle: true },
+      createdAt: timestamp,
+    };
+    const reviewNote = {
+      id: "15151515-1515-4151-8151-151515151515",
+      projectId: script.projectId,
+      authorId: "11111111-1111-4111-8111-111111111111",
+      targetType: "frame_version",
+      targetId: frameVersion.id,
+      parentNoteId: null,
+      body: "Composition approved.",
+      markupFilePath: null,
+      status: "open",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
     prismaMock.script.findMany.mockResolvedValue([script]);
     prismaMock.scriptVersion.findMany.mockResolvedValue([version]);
     prismaMock.scene.findMany.mockResolvedValue([scene]);
@@ -580,6 +624,9 @@ describe("Prisma repository mode", () => {
     prismaMock.assetReference.findMany.mockResolvedValue([assetReference]);
     prismaMock.sceneAssetReq.findMany.mockResolvedValue([sceneReq]);
     prismaMock.shotAssetReq.findMany.mockResolvedValue([shotReq]);
+    prismaMock.storyboardFrame.findMany.mockResolvedValue([storyboardFrame]);
+    prismaMock.frameVersion.findMany.mockResolvedValue([frameVersion]);
+    prismaMock.reviewNote.findMany.mockResolvedValue([reviewNote]);
     prismaMock.generationJob.findMany.mockResolvedValue([]);
     prismaMock.jobEvent.findMany.mockResolvedValue([]);
 
@@ -604,6 +651,22 @@ describe("Prisma repository mode", () => {
       id: assetReference.id,
       assetVersionId: assetVersion.id,
       thumbnailPath: "storage/projects/project/assets/reference-thumb.png",
+    });
+    expect(graph.storyboardFrames[0]).toMatchObject({
+      id: storyboardFrame.id,
+      shotId: shot.id,
+      sketchFilePath: "storage/projects/project/storyboards/sketch.png",
+    });
+    expect(graph.frameVersions[0]).toMatchObject({
+      id: frameVersion.id,
+      frameId: storyboardFrame.id,
+      status: "approved",
+      annotations: { rectangle: true },
+    });
+    expect(graph.reviewNotes[0]).toMatchObject({
+      id: reviewNote.id,
+      targetId: frameVersion.id,
+      body: "Composition approved.",
     });
     expect(graph.sceneAssetRequirements[0]).toMatchObject({ sceneId: scene.id, assetId: asset.id });
     expect(graph.shotAssetRequirements[0]).toMatchObject({ shotId: shot.id, assetId: asset.id });

@@ -588,6 +588,85 @@ function mapAssetReference(reference: {
   };
 }
 
+function mapStoryboardFrame(frame: {
+  id: string;
+  shotId: string;
+  keyframeIndex: number;
+  sketchFilePath?: string | null;
+  sketchWarning?: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}): StoryboardFrame {
+  return {
+    id: frame.id,
+    shotId: frame.shotId,
+    keyframeIndex: frame.keyframeIndex,
+    sketchFilePath: frame.sketchFilePath ?? undefined,
+    sketchWarning: frame.sketchWarning ?? undefined,
+    createdAt: iso(frame.createdAt),
+    updatedAt: iso(frame.updatedAt),
+  };
+}
+
+function mapFrameVersion(version: {
+  id: string;
+  frameId: string;
+  versionNumber: number;
+  prompt: string;
+  filePath: string;
+  thumbnailPath?: string | null;
+  status: FrameVersion["status"];
+  isStale: boolean;
+  generationJobId?: string | null;
+  annotations?: unknown;
+  createdAt: Date | string;
+}): FrameVersion {
+  return {
+    id: version.id,
+    frameId: version.frameId,
+    versionNumber: version.versionNumber,
+    prompt: version.prompt,
+    filePath: version.filePath,
+    thumbnailPath: version.thumbnailPath ?? undefined,
+    status: version.status,
+    isStale: version.isStale,
+    generationJobId: version.generationJobId ?? undefined,
+    annotations:
+      version.annotations && typeof version.annotations === "object" && !Array.isArray(version.annotations)
+        ? (version.annotations as Record<string, unknown>)
+        : undefined,
+    createdAt: iso(version.createdAt),
+  };
+}
+
+function mapReviewNote(note: {
+  id: string;
+  projectId: string;
+  authorId: string;
+  targetType: ReviewNote["targetType"];
+  targetId: string;
+  parentNoteId?: string | null;
+  body: string;
+  markupFilePath?: string | null;
+  status: ReviewNote["status"];
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}): ReviewNote {
+  return {
+    id: note.id,
+    projectId: note.projectId,
+    authorId: note.authorId,
+    targetType: note.targetType,
+    targetId: note.targetId,
+    parentNoteId: note.parentNoteId ?? undefined,
+    body: note.body,
+    markupFilePath: note.markupFilePath ?? undefined,
+    status: note.status,
+    createdAt: iso(note.createdAt),
+    updatedAt: iso(note.updatedAt),
+  };
+}
+
 function mapSceneAssetRequirement(requirement: {
   id: string;
   sceneId: string;
@@ -1132,6 +1211,22 @@ export async function getScriptAnalysisGraphForProject(projectId: string): Promi
         mapShotAssetRequirement,
       )
     : [];
+  const storyboardFrames = shotIds.length
+    ? (await prisma.storyboardFrame.findMany({
+        where: { shotId: { in: shotIds } },
+        orderBy: [{ shotId: "asc" }, { keyframeIndex: "asc" }],
+      })).map(mapStoryboardFrame)
+    : [];
+  const frameIds = storyboardFrames.map((frame) => frame.id);
+  const frameVersions = frameIds.length
+    ? (await prisma.frameVersion.findMany({
+        where: { frameId: { in: frameIds } },
+        orderBy: [{ frameId: "asc" }, { versionNumber: "asc" }],
+      })).map(mapFrameVersion)
+    : [];
+  const reviewNotes = (await prisma.reviewNote.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } })).map(
+    mapReviewNote,
+  );
   const [jobs, events] = await Promise.all([
     prisma.generationJob.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } }),
     prisma.jobEvent.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } }),
@@ -1146,9 +1241,9 @@ export async function getScriptAnalysisGraphForProject(projectId: string): Promi
     assetDetails,
     assetVersions,
     assetReferences,
-    storyboardFrames: [],
-    frameVersions: [],
-    reviewNotes: [],
+    storyboardFrames,
+    frameVersions,
+    reviewNotes,
     videoClips: [],
     clipVersions: [],
     invitations: [],
