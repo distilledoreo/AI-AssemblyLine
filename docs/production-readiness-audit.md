@@ -16,7 +16,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 | Redis-backed SSE | `emitProjectEvent` publishes to Redis and the SSE subscription listens on a Redis project channel when Redis mode is enabled. SSE catch-up replay reads persisted Prisma events in Prisma mode. Local runtime verification is blocked until Redis is available. | Partially complete |
 | Real OpenAI calls | OpenAI adapter no longer throws for live keys. It calls `/v1/responses` for text/structured output and `/v1/images/generations` for images. Asset reference and storyboard generation now resolve the project workspace's encrypted OpenAI provider key, then fall back to `OPENAI_API_KEY`, then mock mode for local tests without credentials. Mocked HTTP tests cover payload and error-class mapping. | Partially complete |
 | Real OpenAI key smoke test | `npm run smoke:openai` performs a low-token live Responses API structured-output call when `OPENAI_API_KEY` is set. `openaiSmoke.test.ts` covers missing-key failure and the live-call payload shape with a mocked fetch. No real API key has been verified in this environment yet. | Blocked |
-| Health checks | `GET /api/health` now actively checks Postgres with `SELECT 1` and Redis with `PING`, returning `503` and dependency error details when either dependency is unreachable. `health.test.ts` covers healthy and degraded dependency states. | Passing for mocked dependencies; blocked for local real services |
+| Health checks | `GET /api/health` now actively checks Postgres with `SELECT 1` and Redis with `PING`, returning `503` when either dependency is unreachable. Production health responses redact raw dependency exception text unless `HEALTH_VERBOSE_ERRORS=1` is set for private diagnostics. `health.test.ts` covers healthy, degraded, and production-redacted dependency states. | Passing for mocked dependencies; blocked for local real services |
 | API error capture | Unexpected route errors are captured through `captureError` before returning `500`; expected `AppError` responses are not reported. `errors.test.ts` covers both paths. | Passing |
 | Local dependency bring-up | `compose.yaml` defines PostgreSQL 16 and Redis 7 with health checks and persistent volumes. `npm run services:up`, `services:down`, and `services:logs` wrap Docker Compose for local production-like dependencies. Runtime verification is blocked because Docker is not installed in this environment. | Partially complete |
 | Next.js production build conventions | The request guard uses `src/proxy.ts` with `export function proxy`, replacing the deprecated `src/middleware.ts` convention. `proxy.test.ts` covers protected-route redirects and authenticated pass-through. | Passing |
@@ -29,7 +29,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
-- `npm test`: passing, 23 files and 67 tests.
+- `npm test`: passing, 23 files and 68 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
@@ -37,7 +37,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - `prisma validate`: passing when `DATABASE_URL` is set for schema validation.
 - `npm run test:e2e`: passing, 1 Chromium workflow test.
 - `QUEUE_MODE=inline npm run worker`: exits cleanly with Redis disabled message.
-- `GET /api/health` against the live local dev server returns `503` with `status: "degraded"` and dependency error details.
+- `GET /api/health` against the live local dev server returns `503` with `status: "degraded"` and local dependency diagnostics. Production responses redact raw dependency exception details by default.
 - Docker preflight: `docker --version` and `docker compose version` fail because Docker is not installed in this environment.
 - Local Postgres TCP check: failed on `127.0.0.1:5432`.
 - Local Redis TCP check: failed on `127.0.0.1:6379`.

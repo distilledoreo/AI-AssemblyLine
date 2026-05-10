@@ -44,7 +44,7 @@ async function checkDatabase(configured: boolean): Promise<DependencyHealth> {
       configured: true,
       reachable: false,
       latencyMs: Date.now() - started,
-      error: error instanceof Error ? error.message : "Database health check failed.",
+      error: healthErrorMessage(error, "Database health check failed."),
     };
   }
 }
@@ -69,9 +69,16 @@ async function checkRedis(redisUrl: string): Promise<DependencyHealth> {
       configured: true,
       reachable: false,
       latencyMs: Date.now() - started,
-      error: error instanceof Error ? error.message : "Redis health check failed.",
+      error: healthErrorMessage(error, "Redis health check failed."),
     };
   } finally {
     redis.disconnect();
   }
+}
+
+function healthErrorMessage(error: unknown, fallback: string) {
+  if (process.env.NODE_ENV === "production" && process.env.HEALTH_VERBOSE_ERRORS !== "1") {
+    return fallback;
+  }
+  return error instanceof Error ? error.message : fallback;
 }

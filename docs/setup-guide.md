@@ -62,7 +62,7 @@ npm run build
 
 For browser verification, start the dev server and exercise the relevant dashboard workflow directly.
 
-For production-style dependency verification, call `GET /api/health` after Postgres and Redis are configured. The endpoint returns `200` only when both dependencies are reachable; a `503` response includes the failing dependency and error message.
+For production-style dependency verification, call `GET /api/health` after Postgres and Redis are configured. The endpoint returns `200` only when both dependencies are reachable; a `503` response identifies the failing dependency. In production, raw dependency exception text is redacted unless `HEALTH_VERBOSE_ERRORS=1` is set for a private diagnostic run.
 
 ## Export and import smoke test
 
