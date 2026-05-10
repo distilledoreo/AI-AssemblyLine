@@ -9,6 +9,8 @@ import {
   createScriptVersionForProject,
   getProject,
   getScriptAnalysisGraph,
+  getScriptAnalysisGraphForProject,
+  getScriptVersionById,
   getStore,
   deleteSceneAssetRequirement,
   getAssetById,
@@ -20,6 +22,7 @@ import {
   persistSceneState,
   persistShotState,
   refreshPrismaReadiness,
+  markGenerationJobRunning,
   updateScriptVersionAnalysisStatus,
 } from "@/server/repository";
 import { isRedisQueueEnabled } from "@/server/queue";
@@ -118,10 +121,9 @@ export async function uploadScriptForProject(input: {
 }
 
 export async function runScriptAnalysis(projectId: string, scriptVersionId?: string) {
-  const store = getStore();
   const version =
-    store.scriptVersions.find((candidate) => candidate.id === scriptVersionId) ??
-    getScriptAnalysisGraph(projectId).activeVersion;
+    (scriptVersionId ? await getScriptVersionById(scriptVersionId) : undefined) ??
+    (await getScriptAnalysisGraphForProject(projectId)).activeVersion;
   if (!version) {
     throw new NotFoundError("Script version not found.");
   }
@@ -134,19 +136,16 @@ export async function runScriptAnalysis(projectId: string, scriptVersionId?: str
 }
 
 export async function processScriptAnalysisJob(input: { projectId: string; scriptVersionId: string; jobId: string }) {
-  const store = getStore();
-  const version = store.scriptVersions.find((candidate) => candidate.id === input.scriptVersionId);
+  const version = await getScriptVersionById(input.scriptVersionId);
   if (!version) {
     throw new NotFoundError("Script version not found.");
   }
-  const job = store.generationJobs.find((candidate) => candidate.id === input.jobId);
+  const job = await markGenerationJobRunning(input.jobId);
   if (!job) {
     throw new NotFoundError("Generation job not found.");
   }
 
   await updateScriptVersionAnalysisStatus(version.id, "running");
-  job.status = "running";
-  job.startedAt = nowIso();
   addJobEvent({
     jobId: job.id,
     projectId: input.projectId,
@@ -199,7 +198,7 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
     message: "Script analysis complete.",
     progressPct: 100,
   });
-  return getScriptAnalysisGraph(input.projectId);
+  return getScriptAnalysisGraphForProject(input.projectId);
 }
 
 function createScriptAnalysisJob(projectId: string, scriptVersionId: string) {

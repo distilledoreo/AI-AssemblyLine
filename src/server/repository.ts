@@ -1736,6 +1736,18 @@ export async function getSceneById(sceneId: string) {
   return scene ? mapScene(scene) : undefined;
 }
 
+export async function getScriptVersionById(scriptVersionId: string) {
+  const local = getStore().scriptVersions.find((candidate) => candidate.id === scriptVersionId);
+  if (local) {
+    return local;
+  }
+  if (!isPrismaRepositoryEnabled()) {
+    return undefined;
+  }
+  const version = await prisma.scriptVersion.findUnique({ where: { id: scriptVersionId } }).catch(() => undefined);
+  return version ? mapScriptVersion(version) : undefined;
+}
+
 export async function getShotById(shotId: string) {
   const local = getStore().shots.find((candidate) => candidate.id === shotId);
   if (local) {

@@ -56,6 +56,7 @@ const prismaMock = vi.hoisted(() => ({
   scriptVersion: {
     create: vi.fn(),
     createMany: vi.fn(),
+    findUnique: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
@@ -418,6 +419,30 @@ describe("Prisma repository mode", () => {
         completedAt: expect.any(Date),
       }),
     });
+  });
+
+  it("loads script versions from Prisma for out-of-process analysis workers", async () => {
+    const version = {
+      id: "88888888-8888-4888-8888-888888888888",
+      scriptId: "99999999-9999-4999-8999-999999999999",
+      versionNumber: 1,
+      filePath: "storage/projects/project/uploads/v1-pilot.txt",
+      rawText: "INT. ROOM - DAY\nANNA\nAnna waits.",
+      analysisStatus: "pending",
+      isActive: true,
+      createdAt: timestamp,
+    };
+    prismaMock.scriptVersion.findUnique.mockResolvedValue(version);
+
+    const repository = await import("@/server/repository");
+    repository.resetStoreForTests();
+
+    await expect(repository.getScriptVersionById(version.id)).resolves.toMatchObject({
+      id: version.id,
+      rawText: version.rawText,
+      analysisStatus: "pending",
+    });
+    expect(prismaMock.scriptVersion.findUnique).toHaveBeenCalledWith({ where: { id: version.id } });
   });
 
   it("persists uploaded script versions through Prisma while mirroring the local graph", async () => {
