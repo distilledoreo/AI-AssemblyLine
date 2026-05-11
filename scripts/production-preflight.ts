@@ -1,0 +1,133 @@
+import { Buffer } from "node:buffer";
+import { spawnSync } from "node:child_process";
+import net from "node:net";
+
+type Env = Record<string, string | undefined>;
+type CheckResult = {
+  name: string;
+  ok: boolean;
+  detail: string;
+};
+
+const requiredEnv = ["DATABASE_URL", "REDIS_URL", "NEXTAUTH_URL", "NEXTAUTH_SECRET", "ENCRYPTION_KEY"] as const;
+
+export function evaluateProductionPreflight(
+  env: Env,
+  commandExists: (command: string) => boolean = defaultCommandExists,
+): CheckResult[] {
+  const results: CheckResult[] = [];
+  for (const name of requiredEnv) {
+    const value = env[name]?.trim();
+    results.push({
+      name,
+      ok: Boolean(value),
+      detail: value ? "configured" : "missing",
+    });
+  }
+
+  const secret = env.NEXTAUTH_SECRET?.trim() ?? "";
+  results.push({
+    name: "NEXTAUTH_SECRET length",
+    ok: secret.length >= 32,
+    detail: secret.length >= 32 ? "at least 32 characters" : "must be at least 32 characters",
+  });
+
+  const encryptionKey = env.ENCRYPTION_KEY?.trim() ?? "";
+  const decodedKeyLength = decodeBase64Length(encryptionKey);
+  results.push({
+    name: "ENCRYPTION_KEY length",
+    ok: decodedKeyLength === 32,
+    detail: decodedKeyLength === 32 ? "32 decoded bytes" : "must decode to exactly 32 bytes",
+  });
+
+  const openAiKey = env.OPENAI_API_KEY?.trim() ?? "";
+  results.push({
+    name: "OPENAI_API_KEY",
+    ok: Boolean(openAiKey) && openAiKey !== "mock",
+    detail: openAiKey && openAiKey !== "mock" ? "configured for live smoke test" : "missing or mock",
+  });
+
+  for (const command of ["ffmpeg", "ffprobe"]) {
+    const exists = commandExists(command);
+    results.push({
+      name: command,
+      ok: exists,
+      detail: exists ? "available on PATH" : "not found on PATH",
+    });
+  }
+
+  return results;
+}
+
+export async function runProductionPreflight(env: Env = process.env) {
+  const results = evaluateProductionPreflight(env);
+  results.push(await checkTcpUrl("Postgres TCP", env.DATABASE_URL));
+  results.push(await checkTcpUrl("Redis TCP", env.REDIS_URL));
+  return results;
+}
+
+function defaultCommandExists(command: string) {
+  return spawnSync(command, ["-version"], { stdio: "ignore" }).status === 0;
+}
+
+function decodeBase64Length(value: string) {
+  try {
+    return Buffer.from(value, "base64").length;
+  } catch {
+    return 0;
+  }
+}
+
+async function checkTcpUrl(name: string, value: string | undefined): Promise<CheckResult> {
+  if (!value) {
+    return { name, ok: false, detail: "URL is missing" };
+  }
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return { name, ok: false, detail: "URL is invalid" };
+  }
+  const port = Number(url.port || (url.protocol.startsWith("postgres") ? 5432 : 6379));
+  const host = url.hostname || "localhost";
+  const reachable = await canConnect(host, port, 2500);
+  return {
+    name,
+    ok: reachable,
+    detail: reachable ? `${host}:${port} reachable` : `${host}:${port} unreachable`,
+  };
+}
+
+function canConnect(host: string, port: number, timeoutMs: number) {
+  return new Promise<boolean>((resolve) => {
+    const socket = net.createConnection({ host, port });
+    const finish = (ok: boolean) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once("connect", () => finish(true));
+    socket.once("timeout", () => finish(false));
+    socket.once("error", () => finish(false));
+  });
+}
+
+async function main() {
+  const results = await runProductionPreflight();
+  for (const result of results) {
+    console.log(`${result.ok ? "PASS" : "FAIL"} ${result.name}: ${result.detail}`);
+  }
+  const failures = results.filter((result) => !result.ok);
+  if (failures.length > 0) {
+    console.error(`Production preflight failed with ${failures.length} blocker(s).`);
+    process.exitCode = 1;
+  }
+}
+
+if (process.argv[1]?.endsWith("production-preflight.ts")) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

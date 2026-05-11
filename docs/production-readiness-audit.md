@@ -43,7 +43,8 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Provider-key saving now rejects a literal `mock` OpenAI key in production before encryption/storage.
 - Mock-backed placeholder providers now fail with `provider_not_configured` in production instead of silently returning fake Stability, Runway, Kling, Seedance, Pika, Luma, or ElevenLabs outputs.
 - Direct OpenAI adapter mock-mode calls now fail with `provider_not_configured` in production, covering callers that bypass project credential resolution.
-- `npm test`: passing, 27 files and 81 tests.
+- `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, live OpenAI smoke-test credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
+- `npm test`: passing, 28 files and 83 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
@@ -51,6 +52,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - `prisma validate`: passing when `DATABASE_URL` is set for schema validation.
 - `npm run test:e2e`: passing, 1 Chromium workflow test.
 - `QUEUE_MODE=inline npm run worker`: exits cleanly with Redis disabled message.
+- `npm run preflight:production`: fails in this environment with 12 explicit blockers: missing production env vars, missing real OpenAI key, missing FFmpeg/ffprobe, and missing Postgres/Redis URLs.
 - `GET /api/health` against the live local dev server returns `503` with `status: "degraded"` and local dependency diagnostics. Production responses redact raw dependency exception details by default.
 - Docker preflight: `docker --version` and `docker compose version` fail because Docker is not installed in this environment.
 - Local Postgres TCP check: failed on `127.0.0.1:5432`.
