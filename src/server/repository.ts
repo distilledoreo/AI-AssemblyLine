@@ -3049,14 +3049,14 @@ export async function refreshPrismaReadiness(projectId: string) {
     graph.scenes.map((scene) => {
       const reqs = graph.sceneAssetRequirements.filter((req) => req.sceneId === scene.id && !req.isOptional);
       const status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
-      return prisma.scene.update({ where: { id: scene.id }, data: { status } }).catch(() => undefined);
+      return prisma.scene.update({ where: { id: scene.id }, data: { status } });
     }),
   );
   await Promise.all(
     graph.shots.map((shot) => {
       const reqs = graph.shotAssetRequirements.filter((req) => req.shotId === shot.id && !req.isOptional);
       const status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
-      return prisma.shot.update({ where: { id: shot.id }, data: { status } }).catch(() => undefined);
+      return prisma.shot.update({ where: { id: shot.id }, data: { status } });
     }),
   );
 }

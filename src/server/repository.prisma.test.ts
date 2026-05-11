@@ -186,6 +186,185 @@ vi.mock("@/server/prisma", () => ({ prisma: prismaMock }));
 
 const timestamp = new Date("2026-05-10T12:00:00.000Z");
 
+function mockReadinessGraph() {
+  const projectId = "33333333-3333-4333-8333-333333333333";
+  const scriptId = "aaaaaaaa-1111-4aaa-8aaa-aaaaaaaaaaaa";
+  const scriptVersionId = "aaaaaaaa-2222-4aaa-8aaa-aaaaaaaaaaaa";
+  const readySceneId = "aaaaaaaa-3333-4aaa-8aaa-aaaaaaaaaaaa";
+  const blockedSceneId = "aaaaaaaa-4444-4aaa-8aaa-aaaaaaaaaaaa";
+  const readyShotId = "aaaaaaaa-5555-4aaa-8aaa-aaaaaaaaaaaa";
+  const blockedShotId = "aaaaaaaa-6666-4aaa-8aaa-aaaaaaaaaaaa";
+  const approvedAssetId = "aaaaaaaa-7777-4aaa-8aaa-aaaaaaaaaaaa";
+  const draftAssetId = "aaaaaaaa-8888-4aaa-8aaa-aaaaaaaaaaaa";
+
+  prismaMock.script.findMany.mockResolvedValue([
+    { id: scriptId, projectId, filename: "pilot.fdx", createdAt: timestamp },
+  ]);
+  prismaMock.scriptVersion.findMany.mockResolvedValue([
+    {
+      id: scriptVersionId,
+      scriptId,
+      versionNumber: 1,
+      filePath: "storage/projects/project/scripts/pilot.fdx",
+      rawText: "INT. ROOM - DAY",
+      analysisStatus: "completed",
+      isActive: true,
+      createdAt: timestamp,
+    },
+  ]);
+  prismaMock.scene.findMany.mockResolvedValue([
+    {
+      id: readySceneId,
+      scriptVersionId,
+      sceneNumber: 1,
+      heading: "INT. READY ROOM - DAY",
+      summary: "Ready scene.",
+      scriptStartLine: 1,
+      scriptEndLine: 4,
+      locationHint: "Ready Room",
+      status: "blocked",
+      isUserEdited: false,
+      warnings: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: blockedSceneId,
+      scriptVersionId,
+      sceneNumber: 2,
+      heading: "INT. BLOCKED ROOM - DAY",
+      summary: "Blocked scene.",
+      scriptStartLine: 5,
+      scriptEndLine: 8,
+      locationHint: "Blocked Room",
+      status: "blocked",
+      isUserEdited: false,
+      warnings: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ]);
+  prismaMock.shot.findMany.mockResolvedValue([
+    {
+      id: readyShotId,
+      sceneId: readySceneId,
+      shotNumber: 1,
+      action: "Ready shot.",
+      cameraAngle: null,
+      cameraMovement: null,
+      lensNotes: null,
+      lightingNotes: null,
+      userDirection: null,
+      status: "blocked",
+      isUserEdited: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: blockedShotId,
+      sceneId: blockedSceneId,
+      shotNumber: 1,
+      action: "Blocked shot.",
+      cameraAngle: null,
+      cameraMovement: null,
+      lensNotes: null,
+      lightingNotes: null,
+      userDirection: null,
+      status: "blocked",
+      isUserEdited: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ]);
+  prismaMock.asset.findMany.mockResolvedValue([
+    {
+      id: approvedAssetId,
+      projectId,
+      type: "location",
+      canonicalName: "Ready Room",
+      aliases: [],
+      status: "approved",
+      continuityNotes: null,
+      negativePrompts: null,
+      description: null,
+      firstAppearance: null,
+      isUserEdited: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: draftAssetId,
+      projectId,
+      type: "location",
+      canonicalName: "Blocked Room",
+      aliases: [],
+      status: "draft",
+      continuityNotes: null,
+      negativePrompts: null,
+      description: null,
+      firstAppearance: null,
+      isUserEdited: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ]);
+  prismaMock.characterDetail.findMany.mockResolvedValue([]);
+  prismaMock.wardrobeDetail.findMany.mockResolvedValue([]);
+  prismaMock.locationDetail.findMany.mockResolvedValue([]);
+  prismaMock.creatureDetail.findMany.mockResolvedValue([]);
+  prismaMock.propDetail.findMany.mockResolvedValue([]);
+  prismaMock.assetVersion.findMany.mockResolvedValue([]);
+  prismaMock.assetReference.findMany.mockResolvedValue([]);
+  prismaMock.sceneAssetReq.findMany.mockResolvedValue([
+    {
+      id: "aaaaaaaa-9999-4aaa-8aaa-aaaaaaaaaaaa",
+      sceneId: readySceneId,
+      assetId: approvedAssetId,
+      isOptional: false,
+      detectedBy: "ai",
+      createdAt: timestamp,
+    },
+    {
+      id: "bbbbbbbb-1111-4bbb-8bbb-bbbbbbbbbbbb",
+      sceneId: blockedSceneId,
+      assetId: draftAssetId,
+      isOptional: false,
+      detectedBy: "ai",
+      createdAt: timestamp,
+    },
+  ]);
+  prismaMock.shotAssetReq.findMany.mockResolvedValue([
+    {
+      id: "bbbbbbbb-2222-4bbb-8bbb-bbbbbbbbbbbb",
+      shotId: readyShotId,
+      assetId: approvedAssetId,
+      isOptional: false,
+      detectedBy: "ai",
+      createdAt: timestamp,
+    },
+    {
+      id: "bbbbbbbb-3333-4bbb-8bbb-bbbbbbbbbbbb",
+      shotId: blockedShotId,
+      assetId: draftAssetId,
+      isOptional: false,
+      detectedBy: "ai",
+      createdAt: timestamp,
+    },
+  ]);
+  prismaMock.storyboardFrame.findMany.mockResolvedValue([]);
+  prismaMock.frameVersion.findMany.mockResolvedValue([]);
+  prismaMock.reviewNote.findMany.mockResolvedValue([]);
+  prismaMock.videoClip.findMany.mockResolvedValue([]);
+  prismaMock.clipVersion.findMany.mockResolvedValue([]);
+  prismaMock.invitation.findMany.mockResolvedValue([]);
+  prismaMock.assignment.findMany.mockResolvedValue([]);
+  prismaMock.activityEvent.findMany.mockResolvedValue([]);
+  prismaMock.generationJob.findMany.mockResolvedValue([]);
+  prismaMock.jobEvent.findMany.mockResolvedValue([]);
+
+  return { projectId, readySceneId, blockedSceneId, readyShotId, blockedShotId };
+}
+
 describe("Prisma repository mode", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1184,6 +1363,37 @@ describe("Prisma repository mode", () => {
     });
     expect(graph.sceneAssetRequirements[0]).toMatchObject({ sceneId: scene.id, assetId: asset.id });
     expect(graph.shotAssetRequirements[0]).toMatchObject({ shotId: shot.id, assetId: asset.id });
+  });
+
+  it("refreshes Prisma scene and shot readiness statuses", async () => {
+    const repository = await import("@/server/repository");
+    const { projectId, readySceneId, blockedSceneId, readyShotId, blockedShotId } = mockReadinessGraph();
+    prismaMock.scene.update.mockResolvedValue({});
+    prismaMock.shot.update.mockResolvedValue({});
+
+    await repository.refreshPrismaReadiness(projectId);
+
+    expect(prismaMock.scene.update).toHaveBeenCalledWith({ where: { id: readySceneId }, data: { status: "ready" } });
+    expect(prismaMock.scene.update).toHaveBeenCalledWith({ where: { id: blockedSceneId }, data: { status: "blocked" } });
+    expect(prismaMock.shot.update).toHaveBeenCalledWith({ where: { id: readyShotId }, data: { status: "ready" } });
+    expect(prismaMock.shot.update).toHaveBeenCalledWith({ where: { id: blockedShotId }, data: { status: "blocked" } });
+  });
+
+  it("surfaces scene readiness write failures from Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const { projectId } = mockReadinessGraph();
+    prismaMock.scene.update.mockRejectedValue(new Error("scene readiness write failed"));
+
+    await expect(repository.refreshPrismaReadiness(projectId)).rejects.toThrow("scene readiness write failed");
+  });
+
+  it("surfaces shot readiness write failures from Prisma", async () => {
+    const repository = await import("@/server/repository");
+    const { projectId } = mockReadinessGraph();
+    prismaMock.scene.update.mockResolvedValue({});
+    prismaMock.shot.update.mockRejectedValue(new Error("shot readiness write failed"));
+
+    await expect(repository.refreshPrismaReadiness(projectId)).rejects.toThrow("shot readiness write failed");
   });
 
   it("persists Asset Bible status and manual requirements through Prisma", async () => {
