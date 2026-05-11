@@ -6,6 +6,7 @@ import { DEVELOPMENT_ENCRYPTION_KEY, DEVELOPMENT_NEXTAUTH_SECRET } from "@/lib/c
 import { checkStorageRoot, evaluateProductionPreflight, runProductionPreflight } from "../../scripts/production-preflight";
 
 const validEnv = {
+  NODE_ENV: "production",
   DATABASE_URL: "postgresql://assemblyline:assemblyline@localhost:5432/assemblyline",
   REDIS_URL: "redis://localhost:6379",
   NEXTAUTH_URL: "https://assemblyline.example.com",
@@ -25,6 +26,15 @@ describe("production preflight", () => {
     const results = evaluateProductionPreflight(validEnv, () => true);
 
     expect(results.every((result) => result.ok)).toBe(true);
+  });
+
+  it("requires NODE_ENV production for release verification", () => {
+    const results = evaluateProductionPreflight({ ...validEnv, NODE_ENV: "" }, () => true);
+
+    expect(results.find((result) => result.name === "NODE_ENV")).toMatchObject({
+      ok: false,
+      detail: "must be production for release verification",
+    });
   });
 
   it("reports missing services, weak secrets, mock provider keys, and missing media tools", () => {

@@ -20,6 +20,13 @@ export function evaluateProductionPreflight(
   commandExists: (command: string) => boolean = defaultCommandExists,
 ): CheckResult[] {
   const results: CheckResult[] = [];
+  const nodeEnv = env.NODE_ENV?.trim() ?? "";
+  results.push({
+    name: "NODE_ENV",
+    ok: nodeEnv === "production",
+    detail: nodeEnv === "production" ? "production" : "must be production for release verification",
+  });
+
   for (const name of requiredEnv) {
     const value = env[name]?.trim();
     results.push({
