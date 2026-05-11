@@ -72,7 +72,8 @@ test("creator can run the core project workflow and export a bundle", async ({ p
   await page.goto(`/projects/${projectId}`);
   await expect(page.getByRole("heading", { name: "Export and operations" })).toBeVisible();
   await expect(page.getByText("Bundle version")).toBeVisible();
-  await expect(page.getByText("bytedance-seedance, pika, luma, elevenlabs")).toBeVisible();
+  await expect(page.getByText("Development-only adapter snapshots")).toBeVisible();
+  await expect(page.getByText("pika (development-only)")).toBeVisible();
   await expect(page.getByText("Approved frames: 1")).toBeVisible();
 
   await page.getByRole("link", { name: "Script" }).click();

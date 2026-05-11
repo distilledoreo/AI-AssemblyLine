@@ -2,6 +2,16 @@ import { createMockAdapter } from "@/providers/mockFactory";
 import { assertMockProviderAllowed } from "@/providers/productionGuard";
 import type { AsyncJobStatus, ComposedPrompt, ImageCapabilities, TextCapabilities, TextOptions, VideoCapabilities, VideoOptions } from "@/providers/types";
 
+const DEVELOPMENT_ONLY_ADAPTER_NOTE = "Capability snapshot only; live production generation is not wired for this provider.";
+
+export type ExtendedAdapterCapabilitySnapshot = {
+  slug: string;
+  capabilities: VideoCapabilities | ImageCapabilities | TextCapabilities;
+  productionReady: false;
+  executionMode: "development_mock_only";
+  note: string;
+};
+
 export class SeedanceAdapter {
   readonly slug = "bytedance-seedance";
   private readonly mock = createMockAdapter(this.slug);
@@ -109,5 +119,13 @@ export function getRemainingAdapterCapabilities() {
     new PikaAdapter(),
     new LumaAdapter(),
     new ElevenLabsAdapter(),
-  ].map((adapter) => ({ slug: adapter.slug, capabilities: adapter.getCapabilities() as VideoCapabilities | ImageCapabilities | TextCapabilities }));
+  ].map(
+    (adapter): ExtendedAdapterCapabilitySnapshot => ({
+      slug: adapter.slug,
+      capabilities: adapter.getCapabilities() as VideoCapabilities | ImageCapabilities | TextCapabilities,
+      productionReady: false,
+      executionMode: "development_mock_only",
+      note: DEVELOPMENT_ONLY_ADAPTER_NOTE,
+    }),
+  );
 }

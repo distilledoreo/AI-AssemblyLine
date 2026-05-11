@@ -227,7 +227,7 @@ Live Runway output is submitted to `POST https://api.dev.runwayml.com/v1/image_t
 
 Video generation treats a provider response without video bytes or an async provider job ID as `provider_output_missing`; it fails the GenerationJob rather than writing placeholder media.
 
-Mock-backed placeholder adapters for providers that do not yet have live HTTP clients, including Kling, Seedance, Pika, Luma, and ElevenLabs, are development/test-only. In production, attempting generation through one of these placeholder adapters fails with `provider_not_configured` until a real provider client and credentials are configured.
+Mock-backed placeholder adapters for providers that do not yet have live HTTP clients, including Kling, Seedance, Pika, Luma, and ElevenLabs, are development/test-only. In production, attempting generation through one of these placeholder adapters fails with `provider_not_configured` until a real provider client and credentials are configured. Operations metadata may expose their capability snapshots for planning, but each snapshot is marked `productionReady: false` with `executionMode: "development_mock_only"` and the UI labels them as development-only so users do not confuse roadmap metadata with executable production providers.
 
 ## Model selector behavior
 

@@ -121,6 +121,16 @@ describe("phase 7 export, import, operations, and adapters", () => {
     expect(adapters.find((adapter) => adapter.slug === "pika")?.capabilities).toMatchObject({
       supportsVideoExtension: true,
     });
+    expect(adapters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slug: "pika",
+          productionReady: false,
+          executionMode: "development_mock_only",
+          note: expect.stringContaining("Capability snapshot only"),
+        }),
+      ]),
+    );
   });
 
   it("rejects unreadable import manifests with a user-facing error", async () => {

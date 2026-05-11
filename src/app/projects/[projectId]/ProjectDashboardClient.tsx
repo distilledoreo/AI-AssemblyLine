@@ -54,7 +54,13 @@ type OperationsPayload = {
     }>;
     sentryEnabled: boolean;
   };
-  adapters: Array<{ slug: string; capabilities: { models?: string[]; maxDurationSeconds?: number } }>;
+  adapters: Array<{
+    slug: string;
+    capabilities: { models?: string[]; maxDurationSeconds?: number };
+    productionReady?: boolean;
+    executionMode?: string;
+    note?: string;
+  }>;
 };
 
 export type ProjectDashboardView = "overview" | "script" | "asset-bible" | "storyboard" | "video";
@@ -843,8 +849,12 @@ export function ProjectDashboardClient({
               </li>
             ) : null}
             <li className="list-item">
-              <span>Additional adapters</span>
-              <span className="meta">{operations?.adapters.map((adapter) => adapter.slug).join(", ") ?? "loading"}</span>
+              <span>Development-only adapter snapshots</span>
+              <span className="meta">
+                {operations?.adapters
+                  .map((adapter) => `${adapter.slug} (${adapter.productionReady ? "production-ready" : "development-only"})`)
+                  .join(", ") ?? "loading"}
+              </span>
             </li>
           </ul>
         </section>
