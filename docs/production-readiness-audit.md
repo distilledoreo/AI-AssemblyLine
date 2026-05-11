@@ -49,6 +49,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
+- Frame and clip approval persistence now batches previous-version superseding and selected-version approval into one Prisma transaction, preventing partial approval state after late database failures.
 - Generated video clip persistence now batches the Prisma clip upsert, clip-version insert, and generation-job completion into one transaction, preventing partial generated-clip state after late database failures.
 - Generated storyboard frame persistence now batches the Prisma frame upsert, frame-version insert, shot status update, and generation-job completion into one transaction, preventing partial generated-frame state after late database failures.
 - Prisma project creation now verifies project media-directory setup before writing the project row, preventing storage setup failures from leaving production projects without backing media directories.

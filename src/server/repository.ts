@@ -2953,10 +2953,21 @@ export async function persistFrameVersionState(version: FrameVersion) {
     return;
   }
   if (version.status === "approved") {
-    await prisma.frameVersion.updateMany({
-      where: { frameId: version.frameId, status: "approved", id: { not: version.id } },
-      data: { status: "superseded" },
-    });
+    await prisma.$transaction([
+      prisma.frameVersion.updateMany({
+        where: { frameId: version.frameId, status: "approved", id: { not: version.id } },
+        data: { status: "superseded" },
+      }),
+      prisma.frameVersion.update({
+        where: { id: version.id },
+        data: {
+          status: version.status,
+          annotations: toPrismaJson(version.annotations),
+          isStale: version.isStale,
+        },
+      }),
+    ]);
+    return;
   }
   await prisma.frameVersion.update({
     where: { id: version.id },
@@ -3080,10 +3091,20 @@ export async function persistClipVersionState(version: ClipVersion) {
     return;
   }
   if (version.status === "approved") {
-    await prisma.clipVersion.updateMany({
-      where: { clipId: version.clipId, status: "approved", id: { not: version.id } },
-      data: { status: "superseded" },
-    });
+    await prisma.$transaction([
+      prisma.clipVersion.updateMany({
+        where: { clipId: version.clipId, status: "approved", id: { not: version.id } },
+        data: { status: "superseded" },
+      }),
+      prisma.clipVersion.update({
+        where: { id: version.id },
+        data: {
+          status: version.status,
+          isStale: version.isStale,
+        },
+      }),
+    ]);
+    return;
   }
   await prisma.clipVersion.update({
     where: { id: version.id },

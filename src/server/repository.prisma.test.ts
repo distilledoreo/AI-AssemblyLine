@@ -2285,6 +2285,8 @@ describe("Prisma repository mode", () => {
       annotations: { library: "fabric-compatible-json" },
     });
     await repository.persistFrameVersionState(version);
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(2);
+    expect(prismaMock.$transaction.mock.calls[1]?.[0]).toHaveLength(2);
     await repository.persistReviewNoteState(note);
 
     expect(prismaMock.storyboardFrame.upsert).toHaveBeenCalledWith({
@@ -2352,6 +2354,29 @@ describe("Prisma repository mode", () => {
     expect(prismaMock.$transaction.mock.calls[0]?.[0]).toHaveLength(4);
   });
 
+  it("rejects approved storyboard frame state when the approval transaction fails", async () => {
+    const repository = await import("@/server/repository");
+    const version = {
+      id: "14141414-1414-4141-8141-141414141414",
+      frameId: "13131313-1313-4131-8131-131313131313",
+      versionNumber: 2,
+      prompt: "Approved frame.",
+      filePath: "storage/projects/project/storyboards/frame.png",
+      thumbnailPath: "storage/projects/project/storyboards/frame-thumb.png",
+      status: "approved" as const,
+      isStale: false,
+      annotations: { reviewer: "lead" },
+      createdAt: timestamp.toISOString(),
+    };
+    prismaMock.frameVersion.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.frameVersion.update.mockResolvedValue(version);
+    prismaMock.$transaction.mockRejectedValueOnce(new Error("frame approval transaction failed"));
+
+    await expect(repository.persistFrameVersionState(version)).rejects.toThrow("frame approval transaction failed");
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction.mock.calls[0]?.[0]).toHaveLength(2);
+  });
+
   it("persists video clip writes through Prisma", async () => {
     const repository = await import("@/server/repository");
     const clip = {
@@ -2393,6 +2418,8 @@ describe("Prisma repository mode", () => {
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
     expect(prismaMock.$transaction.mock.calls[0]?.[0]).toHaveLength(3);
     await repository.persistClipVersionState(version);
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(2);
+    expect(prismaMock.$transaction.mock.calls[1]?.[0]).toHaveLength(2);
 
     expect(prismaMock.videoClip.findFirst).toHaveBeenCalledWith({ where: { shotId: clip.shotId } });
     expect(prismaMock.clipVersion.findUnique).toHaveBeenCalledWith({ where: { id: version.id } });
@@ -2450,6 +2477,30 @@ describe("Prisma repository mode", () => {
     );
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
     expect(prismaMock.$transaction.mock.calls[0]?.[0]).toHaveLength(3);
+  });
+
+  it("rejects approved video clip state when the approval transaction fails", async () => {
+    const repository = await import("@/server/repository");
+    const version = {
+      id: "17171717-1717-4171-8171-171717171717",
+      clipId: "16161616-1616-4161-8161-161616161616",
+      versionNumber: 2,
+      prompt: "Approved clip.",
+      filePath: "storage/projects/project/videos/clip.mp4",
+      thumbnailPath: "storage/projects/project/videos/clip.mp4",
+      durationMs: 3000,
+      status: "approved" as const,
+      isStale: false,
+      sourceFrameVersionIds: ["14141414-1414-4141-8141-141414141414"],
+      createdAt: timestamp.toISOString(),
+    };
+    prismaMock.clipVersion.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.clipVersion.update.mockResolvedValue(version);
+    prismaMock.$transaction.mockRejectedValueOnce(new Error("clip approval transaction failed"));
+
+    await expect(repository.persistClipVersionState(version)).rejects.toThrow("clip approval transaction failed");
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction.mock.calls[0]?.[0]).toHaveLength(2);
   });
 
   it("persists collaboration records through Prisma", async () => {

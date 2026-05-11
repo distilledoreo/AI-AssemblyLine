@@ -88,7 +88,7 @@ Storyboard frames use a versioning model parallel to asset versioning:
 - **Regenerating** a frame creates a new `FrameVersion` with status `draft`. The previous version is preserved.
 - **Creating a variation** also creates a new `FrameVersion`. The prompt is pre-filled from the source version for easy modification.
 - **Generated-frame persistence** commits the storyboard frame upsert, new frame version, shot storyboard status, and related generation-job completion in one Prisma transaction.
-- **Approving** a new version automatically sets the previous approved version to `superseded`.
+- **Approving** a new version automatically sets the previous approved version to `superseded`. In Prisma mode, superseding previous approved frame versions and approving the selected frame version commit in one transaction.
 - **Staleness** is set automatically when upstream assets or the project style change (see [data-model.md](data-model.md) for cascading rules). Users see a warning banner and can dismiss it or regenerate.
 
 ## Video generation modes
@@ -136,6 +136,8 @@ Video clips use the same status model as frames:
 Each ClipVersion records which FrameVersion IDs were used as input. When any of those FrameVersions are superseded or go stale, the ClipVersion is automatically marked `stale`.
 
 Generated video clip persistence commits the video clip upsert, new clip version, and related generation-job completion in one Prisma transaction.
+
+Approving a clip version supersedes previous approved versions for the same clip and updates the selected version in one Prisma transaction.
 
 ## Video prompt sources
 
