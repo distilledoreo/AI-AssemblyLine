@@ -32,6 +32,13 @@ function jsonRequest(body: unknown) {
   });
 }
 
+function multipartRequest(form: FormData) {
+  return new Request("http://localhost/api/projects/33333333-3333-4333-8333-333333333333/storyboards", {
+    method: "POST",
+    body: form,
+  });
+}
+
 describe("Storyboard API permissions", () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -78,5 +85,20 @@ describe("Storyboard API permissions", () => {
     expect(response.status).toBe(403);
     expect(body.error.code).toBe("forbidden");
     expect(routeMocks.generateStoryboardFrame).not.toHaveBeenCalled();
+  });
+
+  it("returns a client error when sketch upload omits the file", async () => {
+    routeMocks.requireCurrentUser.mockResolvedValue({ id: "artist-1" });
+    routeMocks.getProjectRole.mockResolvedValue("artist");
+    const form = new FormData();
+    form.set("shotId", "22222222-2222-4222-8222-222222222222");
+    const { POST } = await import("@/app/api/projects/[projectId]/storyboards/route");
+
+    const response = await POST(multipartRequest(form), context);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error.code).toBe("missing_upload_file");
+    expect(routeMocks.attachSketch).not.toHaveBeenCalled();
   });
 });

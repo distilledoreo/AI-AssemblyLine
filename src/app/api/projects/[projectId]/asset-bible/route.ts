@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { toErrorResponse } from "@/server/errors";
+import { AppError, toErrorResponse } from "@/server/errors";
 import { getProjectRole, getScriptAnalysisGraphForProject } from "@/server/repository";
 import { assertProjectPermission, type ProjectAction } from "@/server/rbac";
 import { requireCurrentUser } from "@/server/session";
@@ -57,7 +57,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
       const form = await request.formData();
       const file = form.get("file");
       if (!(file instanceof File)) {
-        throw new Error("Reference upload requires a file.");
+        throw new AppError("Reference upload requires a file.", 400, "missing_upload_file");
       }
       await uploadAssetReference({
         projectId,

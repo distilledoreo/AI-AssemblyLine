@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { toErrorResponse } from "@/server/errors";
+import { AppError, toErrorResponse } from "@/server/errors";
 import { getProjectRole, getScriptAnalysisGraphForProject } from "@/server/repository";
 import { assertProjectPermission, type ProjectAction } from "@/server/rbac";
 import { requireCurrentUser } from "@/server/session";
@@ -42,7 +42,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
       assertProjectPermission(role, "use_drawing_markup_tools");
       const form = await request.formData();
       const file = form.get("file");
-      if (!(file instanceof File)) throw new Error("Sketch upload requires a file.");
+      if (!(file instanceof File)) throw new AppError("Sketch upload requires a file.", 400, "missing_upload_file");
       return Response.json(
         await attachSketch({
           projectId,

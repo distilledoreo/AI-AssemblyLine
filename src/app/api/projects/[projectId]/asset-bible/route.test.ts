@@ -38,6 +38,13 @@ function jsonRequest(body: unknown) {
   });
 }
 
+function multipartRequest(form: FormData) {
+  return new Request("http://localhost/api/projects/33333333-3333-4333-8333-333333333333/asset-bible", {
+    method: "POST",
+    body: form,
+  });
+}
+
 describe("Asset Bible API permissions", () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -84,5 +91,20 @@ describe("Asset Bible API permissions", () => {
     expect(response.status).toBe(403);
     expect(body.error.code).toBe("forbidden");
     expect(routeMocks.generateAssetReference).not.toHaveBeenCalled();
+  });
+
+  it("returns a client error when reference upload omits the file", async () => {
+    routeMocks.requireCurrentUser.mockResolvedValue({ id: "producer-1" });
+    routeMocks.getProjectRole.mockResolvedValue("producer");
+    const form = new FormData();
+    form.set("assetId", "11111111-1111-4111-8111-111111111111");
+    const { POST } = await import("@/app/api/projects/[projectId]/asset-bible/route");
+
+    const response = await POST(multipartRequest(form), context);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error.code).toBe("missing_upload_file");
+    expect(routeMocks.uploadAssetReference).not.toHaveBeenCalled();
   });
 });
