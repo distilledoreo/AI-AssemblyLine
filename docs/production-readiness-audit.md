@@ -49,6 +49,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Provider-key saving now rejects a literal `mock` key for every provider in production before encryption/storage.
 - Stability image generation now has a live HTTP path for Stable Image Core/Ultra when a workspace Stability key or `STABILITY_API_KEY` is configured.
 - `npm run smoke:stability` now provides a release-time live Stability API check when `STABILITY_API_KEY` is available.
+- Stability successful HTTP responses now must include non-empty image bytes; empty image bodies fail as fatal provider errors instead of being stored as generated media.
 - Mock-backed placeholder providers now fail with `provider_not_configured` in production instead of silently returning fake Runway, Kling, Seedance, Pika, Luma, or ElevenLabs outputs.
 - Direct OpenAI adapter mock-mode calls now fail with `provider_not_configured` in production, covering callers that bypass project credential resolution.
 - OpenAI successful HTTP responses now must include output text for Responses API calls and non-empty base64 image data for image calls; malformed success payloads fail as fatal provider errors instead of being stringified or accepted as empty image output.
@@ -84,7 +85,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Project deletes now distinguish Prisma not-found records from real write failures, surfacing production database errors instead of misreporting every delete failure as `not_found`.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 34 files and 164 tests.
+- `npm test`: passing, 34 files and 165 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.

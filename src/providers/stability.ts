@@ -70,8 +70,14 @@ export class StabilityAdapter implements ImageAdapter {
       Object.assign(error, { errorClass: classifyStabilityStatus(response.status), status: response.status });
       throw error;
     }
+    const data = Buffer.from(await response.arrayBuffer());
+    if (data.length === 0) {
+      const error = new Error("Stability response did not include usable image data.");
+      Object.assign(error, { errorClass: "fatal", status: 502 });
+      throw error;
+    }
     return {
-      data: Buffer.from(await response.arrayBuffer()),
+      data,
       mimeType: response.headers.get("content-type")?.split(";")[0] || "image/png",
     };
   }

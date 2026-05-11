@@ -74,6 +74,27 @@ describe("Stability adapter", () => {
     ).rejects.toMatchObject({ errorClass: "rate_limit", status: 429 });
   });
 
+  it("rejects malformed successful Stability responses without image bytes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array(), {
+        status: 200,
+        headers: { "content-type": "image/png" },
+      }),
+    );
+
+    await expect(
+      new StabilityAdapter("sk-stability-test", fetchMock).generateImage(prompt, {
+        modelId: "stable-image-core",
+        width: 1024,
+        height: 1024,
+      }),
+    ).rejects.toMatchObject({
+      message: "Stability response did not include usable image data.",
+      errorClass: "fatal",
+      status: 502,
+    });
+  });
+
   it("blocks missing-key mock generation in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
 
