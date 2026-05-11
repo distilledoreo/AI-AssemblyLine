@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { OpenAIAdapter } from "@/providers/openai";
 import { AppError, NotFoundError } from "@/server/errors";
 import { createId, nowIso } from "@/server/ids";
 import {
@@ -28,6 +29,7 @@ import {
   updateScriptVersionAnalysisStatus,
 } from "@/server/repository";
 import { isRedisQueueEnabled } from "@/server/queue";
+import { resolveOpenAiApiKeyForProject } from "@/server/providerKeys";
 import { projectFolderPath } from "@/server/storage";
 import type { Asset, AssetType, Scene, Shot } from "@/server/types";
 
@@ -162,7 +164,8 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
     message: "Pass 1: extracting scenes.",
     progressPct: 15,
   });
-  const sceneOutputs = extractScenes(version.rawText);
+  const analysis = await analyzeScriptWithConfiguredProvider(input.projectId, version.rawText);
+  const sceneOutputs = analysis.scenes;
 
   addJobEvent({
     jobId: job.id,
@@ -171,7 +174,7 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
     message: "Pass 2: breaking scenes into shots.",
     progressPct: 45,
   });
-  const shotOutputs = sceneOutputs.map((scene) => breakSceneIntoShots(scene, version.rawText));
+  const shotOutputs = analysis.shots;
 
   addJobEvent({
     jobId: job.id,
@@ -180,11 +183,11 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
     message: "Pass 3: detecting and deduplicating assets.",
     progressPct: 75,
   });
-  const assetOutput = detectAssets(sceneOutputs, shotOutputs, version.rawText);
+  const assetOutput = analysis.assets;
 
   await persistAnalysis(input.projectId, version.id, sceneOutputs, shotOutputs, assetOutput);
   await updateScriptVersionAnalysisStatus(version.id, "complete");
-  completeGenerationJob(job.id, {
+  await completeGenerationJob(job.id, {
     status: "complete",
     outputPayload: {
       scenes: sceneOutputs.length,
@@ -207,10 +210,152 @@ function createScriptAnalysisJob(projectId: string, scriptVersionId: string) {
   return createGenerationJob({
     projectId,
     type: "script_analysis",
-    providerSlug: "local-mock",
-    modelId: "deterministic-script-pass-v1",
+    providerSlug: process.env.OPENAI_API_KEY ? "openai" : "local-mock",
+    modelId: process.env.OPENAI_ANALYSIS_MODEL ?? (process.env.OPENAI_API_KEY ? "gpt-4.1-mini" : "deterministic-script-pass-v1"),
     inputPayload: { projectId, scriptVersionId, preserveUserEdits: true },
   });
+}
+
+async function analyzeScriptWithConfiguredProvider(projectId: string, scriptText: string) {
+  const apiKey = await resolveOpenAiApiKeyForProject(projectId);
+  if (apiKey === "mock") {
+    const scenes = extractScenes(scriptText);
+    const shots = scenes.map((scene) => breakSceneIntoShots(scene, scriptText));
+    return {
+      scenes,
+      shots,
+      assets: detectAssets(scenes, shots, scriptText),
+    };
+  }
+
+  const adapter = new OpenAIAdapter(apiKey);
+  const modelId = process.env.OPENAI_ANALYSIS_MODEL ?? "gpt-4.1-mini";
+  const scenes = await runScenePass(adapter, modelId, scriptText);
+  const shots = await runShotPass(adapter, modelId, scriptText, scenes);
+  const assets = await runAssetPass(adapter, modelId, scriptText, scenes, shots);
+  return { scenes, shots, assets };
+}
+
+async function runScenePass(adapter: OpenAIAdapter, modelId: string, scriptText: string) {
+  const result = await adapter.generateStructuredOutput(
+    [
+      "Extract scene boundaries from this script as strict JSON.",
+      "Return only scenes with sceneNumber, heading, summary, scriptStartLine, scriptEndLine, and optional locationHint.",
+      scriptText,
+    ].join("\n\n"),
+    {
+      type: "object",
+      properties: {
+        scenes: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              sceneNumber: { type: "number" },
+              heading: { type: "string" },
+              summary: { type: "string" },
+              scriptStartLine: { type: "number" },
+              scriptEndLine: { type: "number" },
+              locationHint: { type: "string" },
+            },
+            required: ["sceneNumber", "heading", "summary", "scriptStartLine", "scriptEndLine"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["scenes"],
+      additionalProperties: false,
+    },
+    { modelId, responseFormat: "json" },
+  );
+  const parsed = extractJsonFromModelOutput(result.content) as { scenes?: ScriptSceneOutput[] };
+  if (!Array.isArray(parsed.scenes) || parsed.scenes.length === 0) {
+    throw new AppError("OpenAI scene analysis returned no scenes.", 502, "provider_invalid_output");
+  }
+  return parsed.scenes;
+}
+
+async function runShotPass(adapter: OpenAIAdapter, modelId: string, scriptText: string, scenes: ScriptSceneOutput[]) {
+  const result = await adapter.generateStructuredOutput(
+    [
+      "Break these scenes into production storyboard shots as strict JSON.",
+      "Return shotBreakdowns. Each entry must include sceneNumber and shots with shotNumber, action, cameraAngle, cameraMovement, lensNotes, and lightingNotes.",
+      JSON.stringify({ scenes, scriptText }),
+    ].join("\n\n"),
+    {
+      type: "object",
+      properties: {
+        shotBreakdowns: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              sceneNumber: { type: "number" },
+              shots: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    shotNumber: { type: "number" },
+                    action: { type: "string" },
+                    cameraAngle: { type: "string" },
+                    cameraMovement: { type: "string" },
+                    lensNotes: { type: "string" },
+                    lightingNotes: { type: "string" },
+                  },
+                  required: ["shotNumber", "action"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ["sceneNumber", "shots"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["shotBreakdowns"],
+      additionalProperties: false,
+    },
+    { modelId, responseFormat: "json" },
+  );
+  const parsed = extractJsonFromModelOutput(result.content) as { shotBreakdowns?: ScriptShotOutput[] };
+  if (!Array.isArray(parsed.shotBreakdowns) || parsed.shotBreakdowns.length === 0) {
+    throw new AppError("OpenAI shot analysis returned no shots.", 502, "provider_invalid_output");
+  }
+  return parsed.shotBreakdowns;
+}
+
+async function runAssetPass(
+  adapter: OpenAIAdapter,
+  modelId: string,
+  scriptText: string,
+  scenes: ScriptSceneOutput[],
+  shots: ScriptShotOutput[],
+) {
+  const result = await adapter.generateStructuredOutput(
+    [
+      "Detect and deduplicate production assets as strict JSON.",
+      "Return assets, sceneAssetLinks, shotAssetLinks, and warnings.",
+      JSON.stringify({ scenes, shots, scriptText }),
+    ].join("\n\n"),
+    {
+      type: "object",
+      properties: {
+        assets: { type: "array", items: { type: "object" } },
+        sceneAssetLinks: { type: "array", items: { type: "object" } },
+        shotAssetLinks: { type: "array", items: { type: "object" } },
+        warnings: { type: "array", items: { type: "string" } },
+      },
+      required: ["assets", "sceneAssetLinks", "shotAssetLinks", "warnings"],
+      additionalProperties: false,
+    },
+    { modelId, responseFormat: "json" },
+  );
+  const parsed = extractJsonFromModelOutput(result.content) as ScriptAssetOutput;
+  if (!Array.isArray(parsed.assets) || !Array.isArray(parsed.sceneAssetLinks) || !Array.isArray(parsed.shotAssetLinks)) {
+    throw new AppError("OpenAI asset analysis returned invalid asset data.", 502, "provider_invalid_output");
+  }
+  return { ...parsed, warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [] };
 }
 
 export function extractScenes(scriptText: string): ScriptSceneOutput[] {

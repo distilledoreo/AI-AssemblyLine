@@ -4,7 +4,7 @@ Script analysis is the first production step. The system ingests an uploaded scr
 
 ## Pipeline overview
 
-Script analysis runs as a multi-pass LLM pipeline. Each pass has a focused objective and a structured output schema. The passes run sequentially within a single `GenerationJob` of type `script_analysis`.
+Script analysis runs as a multi-pass LLM pipeline when a real OpenAI provider key is configured for the project workspace or `OPENAI_API_KEY` is set. Each pass has a focused objective and a structured output schema. The passes run sequentially within a single `GenerationJob` of type `script_analysis`. Local development and automated tests without a provider key use the deterministic heuristic parser so the workflow remains runnable without API spend; production requires real provider credentials.
 
 ### Pass 1 — Scene extraction
 

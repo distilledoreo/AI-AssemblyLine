@@ -193,6 +193,8 @@ Runtime generation paths resolve OpenAI credentials from the project workspace's
 
 The OpenAI adapter itself also blocks direct mock-mode usage when `NODE_ENV=production`, so production safety does not depend on all callers using the project credential resolver.
 
+Script analysis uses the OpenAI text adapter for its scene, shot, and asset passes whenever real credentials are resolved. The deterministic parser remains only for local development and tests that run without provider credentials.
+
 Mock-backed placeholder adapters for providers that do not yet have live HTTP clients, including Stability, Runway, Kling, Seedance, Pika, Luma, and ElevenLabs, are development/test-only. In production, attempting generation through one of these placeholder adapters fails with `provider_not_configured` until a real provider client and credentials are configured.
 
 ## Model selector behavior
