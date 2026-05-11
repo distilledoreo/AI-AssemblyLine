@@ -107,4 +107,19 @@ describe("Asset Bible API permissions", () => {
     expect(body.error.code).toBe("missing_upload_file");
     expect(routeMocks.uploadAssetReference).not.toHaveBeenCalled();
   });
+
+  it("returns a client error when reference upload omits the asset target", async () => {
+    routeMocks.requireCurrentUser.mockResolvedValue({ id: "producer-1" });
+    routeMocks.getProjectRole.mockResolvedValue("producer");
+    const form = new FormData();
+    form.set("file", new File([Buffer.from("image")], "reference.png", { type: "image/png" }));
+    const { POST } = await import("@/app/api/projects/[projectId]/asset-bible/route");
+
+    const response = await POST(multipartRequest(form), context);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error.code).toBe("missing_upload_target");
+    expect(routeMocks.uploadAssetReference).not.toHaveBeenCalled();
+  });
 });

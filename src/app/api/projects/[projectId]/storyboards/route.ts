@@ -20,6 +20,9 @@ const storyboardActionSchema = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("comment"), frameVersionId: z.string().uuid(), body: z.string().min(1) }),
 ]);
+const uploadSketchSchema = z.object({
+  shotId: z.string().uuid(),
+});
 
 export async function GET(_request: Request, context: { params: Promise<{ projectId: string }> }) {
   try {
@@ -43,10 +46,14 @@ export async function POST(request: Request, context: { params: Promise<{ projec
       const form = await request.formData();
       const file = form.get("file");
       if (!(file instanceof File)) throw new AppError("Sketch upload requires a file.", 400, "missing_upload_file");
+      const upload = uploadSketchSchema.safeParse({ shotId: form.get("shotId") });
+      if (!upload.success) {
+        throw new AppError("Sketch upload requires a valid shotId.", 400, "missing_upload_target");
+      }
       return Response.json(
         await attachSketch({
           projectId,
-          shotId: String(form.get("shotId")),
+          shotId: upload.data.shotId,
           fileName: file.name,
           mimeType: file.type,
           data: Buffer.from(await file.arrayBuffer()),

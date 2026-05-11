@@ -34,6 +34,9 @@ const jsonActionSchema = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("style"), style: z.record(z.string(), z.unknown()) }),
 ]);
+const uploadAssetReferenceSchema = z.object({
+  assetId: z.string().uuid(),
+});
 
 export async function GET(_request: Request, context: { params: Promise<{ projectId: string }> }) {
   try {
@@ -59,9 +62,13 @@ export async function POST(request: Request, context: { params: Promise<{ projec
       if (!(file instanceof File)) {
         throw new AppError("Reference upload requires a file.", 400, "missing_upload_file");
       }
+      const upload = uploadAssetReferenceSchema.safeParse({ assetId: form.get("assetId") });
+      if (!upload.success) {
+        throw new AppError("Reference upload requires a valid assetId.", 400, "missing_upload_target");
+      }
       await uploadAssetReference({
         projectId,
-        assetId: String(form.get("assetId")),
+        assetId: upload.data.assetId,
         filename: file.name,
         data: Buffer.from(await file.arrayBuffer()),
         mimeType: file.type,

@@ -101,4 +101,19 @@ describe("Storyboard API permissions", () => {
     expect(body.error.code).toBe("missing_upload_file");
     expect(routeMocks.attachSketch).not.toHaveBeenCalled();
   });
+
+  it("returns a client error when sketch upload omits the shot target", async () => {
+    routeMocks.requireCurrentUser.mockResolvedValue({ id: "artist-1" });
+    routeMocks.getProjectRole.mockResolvedValue("artist");
+    const form = new FormData();
+    form.set("file", new File([Buffer.from("sketch")], "sketch.png", { type: "image/png" }));
+    const { POST } = await import("@/app/api/projects/[projectId]/storyboards/route");
+
+    const response = await POST(multipartRequest(form), context);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error.code).toBe("missing_upload_target");
+    expect(routeMocks.attachSketch).not.toHaveBeenCalled();
+  });
 });
