@@ -44,6 +44,7 @@ Import paths must resolve under the configured storage root and end with `.assem
 Readable bundle manifests are validated for the required project metadata and graph collections before import records are created; malformed manifests return `invalid_import_bundle`.
 Bundle graph references are checked before import as well, so broken scene/shot/asset/frame/clip links return `invalid_import_bundle` instead of creating partial imported records.
 Bundle graph IDs must be unique within each imported collection; duplicate IDs are rejected before remapping.
+Assignment records must reference exactly one target, and the target ID must match the assignment target type.
 Imported collaboration, job, and event records are remapped onto the new workspace/project. Assignments and activity authors are assigned to the importing user, invitation token hashes are regenerated so old tokens cannot be reused, and historical active jobs are restored as `canceled` records instead of being resumed in the new project.
 
 ## Remaining adapters

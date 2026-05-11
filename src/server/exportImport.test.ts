@@ -199,6 +199,65 @@ describe("phase 7 export, import, operations, and adapters", () => {
     });
   });
 
+  it("rejects bundle manifests with malformed assignment targets before importing records", async () => {
+    const { user } = await signInWithCredentials({ email: "bad-assignment-import@example.com", password: "assemblyline" });
+    const bundleDir = projectFolderPath("bad-assignment-import-project", "exports");
+    await mkdir(bundleDir, { recursive: true });
+    const malformedAssignmentPath = path.join(bundleDir, "bad-assignment.assemblyline-bundle.json");
+    await writeFile(
+      malformedAssignmentPath,
+      JSON.stringify({
+        bundleVersion: 1,
+        exportedAt: new Date().toISOString(),
+        project: {
+          title: "Bad Assignment",
+          targetFormat: "short",
+          aspectRatio: "16:9",
+          rightsPolicy: {},
+        },
+        graph: {
+          scripts: [],
+          scenes: [{ id: "scene-1", scriptVersionId: "version-1" }],
+          shots: [{ id: "shot-1", sceneId: "scene-1" }],
+          assets: [],
+          assetDetails: [],
+          assetVersions: [],
+          assetReferences: [],
+          storyboardFrames: [],
+          frameVersions: [],
+          reviewNotes: [],
+          videoClips: [],
+          clipVersions: [],
+          invitations: [],
+          assignments: [
+            {
+              id: "assignment-1",
+              projectId: "project-1",
+              userId: "user-1",
+              targetType: "scene",
+              shotId: "shot-1",
+              status: "open",
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+          ],
+          activityEvents: [],
+          sceneAssetRequirements: [],
+          shotAssetRequirements: [],
+          jobs: [],
+          events: [],
+        },
+        media: [],
+        importInstructions: [],
+      }),
+    );
+
+    await expect(importProjectBundle({ userId: user.id, manifestPath: malformedAssignmentPath })).rejects.toMatchObject({
+      code: "invalid_import_bundle",
+      status: 400,
+    });
+  });
+
   it("rejects bundle manifests with duplicate graph IDs before importing records", async () => {
     const { user } = await signInWithCredentials({ email: "duplicate-import@example.com", password: "assemblyline" });
     const bundleDir = projectFolderPath("duplicate-import-project", "exports");

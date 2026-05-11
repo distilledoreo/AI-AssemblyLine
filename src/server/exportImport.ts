@@ -325,12 +325,27 @@ function validateImportManifestReferences(manifest: ExportManifest) {
   });
   graph.scenes.forEach((scene) => requireKnownId(scriptVersionIds, scene.scriptVersionId, "scene script version"));
   graph.assignments.forEach((assignment) => {
+    assertImportedAssignmentTargetShape(assignment);
     requireKnownId(sceneIds, assignment.sceneId, "assignment scene");
     requireKnownId(shotIds, assignment.shotId, "assignment shot");
     requireKnownId(assetIds, assignment.assetId, "assignment asset");
   });
   const jobIds = new Set(graph.jobs.map((job) => job.id));
   graph.events.forEach((event) => requireKnownId(jobIds, event.jobId, "job event job"));
+}
+
+function assertImportedAssignmentTargetShape(assignment: Assignment) {
+  const targetIds = [assignment.sceneId, assignment.shotId, assignment.assetId].filter(Boolean);
+  if (targetIds.length !== 1) {
+    throw new AppError("Import bundle assignment records must reference exactly one target.", 400, "invalid_import_bundle");
+  }
+  if (
+    (assignment.targetType === "scene" && !assignment.sceneId) ||
+    (assignment.targetType === "shot" && !assignment.shotId) ||
+    (assignment.targetType === "asset" && !assignment.assetId)
+  ) {
+    throw new AppError("Import bundle assignment target type does not match its target ID.", 400, "invalid_import_bundle");
+  }
 }
 
 function resolveImportManifestPath(manifestPath: string) {
