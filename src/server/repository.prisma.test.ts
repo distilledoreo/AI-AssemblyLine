@@ -723,12 +723,13 @@ describe("Prisma repository mode", () => {
     });
   });
 
-  it("mirrors generation jobs and job events into Prisma in production repository mode", async () => {
+  it("persists generation jobs and job events through Prisma without seeding a local job mirror", async () => {
     prismaMock.generationJob.create.mockResolvedValue({});
     prismaMock.generationJob.update.mockResolvedValue({});
     prismaMock.jobEvent.create.mockResolvedValue({});
 
     const repository = await import("@/server/repository");
+    repository.resetStoreForTests();
     const job = await repository.createGenerationJob({
       projectId: "33333333-3333-4333-8333-333333333333",
       type: "script_analysis",
@@ -768,6 +769,8 @@ describe("Prisma repository mode", () => {
         outputPayload: { scenes: 1, shots: 1, assets: 2 },
       }),
     });
+    expect(repository.getStore().generationJobs).toHaveLength(0);
+    expect(repository.getStore().jobEvents).toHaveLength(0);
   });
 
   it("rejects job creation when the Prisma job write fails", async () => {
@@ -893,6 +896,11 @@ describe("Prisma repository mode", () => {
       providerSlug: "runway",
       providerJobId: "task-live",
       retryCount: 4,
+    });
+    expect(repository.getStore().generationJobs[0]).toMatchObject({
+      id: "job-stale-lifecycle",
+      status: "queued",
+      retryCount: 0,
     });
   });
 

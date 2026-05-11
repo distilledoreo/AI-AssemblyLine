@@ -3491,17 +3491,6 @@ export async function completeGenerationJob(
         completedAt: new Date(completedAt),
       },
     });
-    const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
-    if (local) {
-      Object.assign(local, {
-        status: input.status,
-        outputPayload: input.outputPayload,
-        errorMessage: input.errorMessage,
-        errorClass: input.errorClass,
-        retryCount: input.retryCount ?? local.retryCount,
-        completedAt,
-      });
-    }
     return isMappableJobRecord(updated) ? mapJob(updated) : getGenerationJob(jobId);
   }
 
@@ -3535,15 +3524,6 @@ export async function markGenerationJobProviderSubmitted(
         startedAt: new Date(submittedAt),
       },
     });
-    const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
-    if (local) {
-      Object.assign(local, {
-        status: "provider_submitted" as const,
-        providerJobId: input.providerJobId,
-        outputPayload: input.outputPayload,
-        completedAt: undefined,
-      });
-    }
     return isMappableJobRecord(updated) ? mapJob(updated) : getGenerationJob(jobId);
   }
 
@@ -3598,10 +3578,6 @@ export async function markGenerationJobRunning(jobId: string, status: Generation
       where: { id: jobId },
       data: { status, startedAt: new Date(startedAt) },
     });
-    const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
-    if (local) {
-      Object.assign(local, { status, startedAt });
-    }
     return isMappableJobRecord(updated) ? mapJob(updated) : getGenerationJob(jobId);
   }
 
@@ -3762,7 +3738,9 @@ export async function createGenerationJob(input: {
       },
     });
   }
-  getStore().generationJobs.push(job);
+  if (!isPrismaRepositoryEnabled()) {
+    getStore().generationJobs.push(job);
+  }
   await submitGenerationJob(job);
   await addJobEvent({
     jobId: job.id,
@@ -3792,7 +3770,9 @@ export async function addJobEvent(input: Omit<JobEvent, "id" | "createdAt">) {
       },
     });
   }
-  getStore().jobEvents.push(event);
+  if (!isPrismaRepositoryEnabled()) {
+    getStore().jobEvents.push(event);
+  }
   await emitProjectEvent(event);
   return event;
 }

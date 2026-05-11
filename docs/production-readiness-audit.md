@@ -169,7 +169,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Export bundle and generation-job reads now surface Prisma failures instead of falling back to stale in-memory state during production-mode database outages.
 - Foundational repository lookups for members, scenes, scripts, shots, assets, storyboard/video records, requirements, and invitations now surface Prisma failures instead of treating production database read errors as missing in-memory data.
 - Foundational project-member, scene, script-version, shot, asset, frame-version, clip-version, video-clip, scene-requirement, invitation, and generation-job lookups now prefer Prisma records whenever Prisma mode is enabled, so stale local process mirrors cannot override production database state.
-- GenerationJob lifecycle writes for running, provider-submitted, and terminal states now return Prisma-updated job records in Prisma mode while only syncing the local mirror as a development compatibility shadow.
+- GenerationJob lifecycle writes for running, provider-submitted, and terminal states now return Prisma-updated job records in Prisma mode without syncing a process-local job mirror.
 - Script-version analysis status writes now return Prisma-updated records in Prisma mode while only syncing the local mirror as a development compatibility shadow.
 - Project deletes now distinguish Prisma not-found records from real write failures, surfacing production database errors instead of misreporting every delete failure as `not_found`.
 - Asset Bible reference saves now commit each asset version and attached asset reference in one Prisma transaction, preventing orphaned version/reference persistence if either production write fails.
@@ -195,3 +195,4 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Local Postgres TCP check: failed on `127.0.0.1:5432`.
 - Local Redis TCP check: failed on `127.0.0.1:6379`.
 - Real OpenAI smoke-test preflight: `OPENAI_API_KEY` is not set in this environment.
+- Prisma-mode generation job creation, job events, and lifecycle transitions now avoid seeding or updating the process-local job/event store; `repository.prisma.test.ts` covers the no-local-mirror contract while the CI Prisma repository smoke covers the same persistence path against real Postgres.
