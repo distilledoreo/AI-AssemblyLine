@@ -29,7 +29,7 @@ The local MVP can run with default development values. Production-style deployme
 
 The checked-in `.env.example` uses `QUEUE_MODE=inline` and `REPOSITORY_MODE=memory` for a bare local development loop. Production should leave both unset or set them to `redis` and `prisma`; production runtime config and preflight reject the development-only values.
 
-Provider keys are entered in the app settings and encrypted server-side. The dashboard does not prefill mock keys; paste real OpenAI, Stability, and Runway API keys for production verification. In production, the server rejects `mock`, placeholder, and checked-in example values regardless of casing or surrounding whitespace, and saved provider keys are limited to those live-wired providers. Provider keys are never written to exports.
+Provider keys are entered in the app settings and encrypted server-side. The dashboard does not prefill mock keys; paste real OpenAI, Stability, Runway, and Google AI API keys for production verification. In production, the server rejects `mock`, placeholder, and checked-in example values regardless of casing or surrounding whitespace, and saved provider keys are limited to those live-wired providers. Provider keys are never written to exports.
 
 ## OpenAI provider
 
@@ -51,7 +51,7 @@ npm run smoke:openai
 
 Optionally set `OPENAI_SMOKE_MODEL` to override the default `gpt-4.1-mini`. The smoke command performs a small Responses API structured-output request and prints the provider response id, model, short content preview, and token usage.
 
-To run the live Stability and Runway smoke tests manually:
+To run the live Stability, Runway, and Google AI / Veo smoke tests manually:
 
 ```bash
 set STABILITY_API_KEY=sk-...
@@ -59,9 +59,12 @@ npm run smoke:stability
 
 set RUNWAYML_API_SECRET=key_...
 npm run smoke:runway
+
+set GEMINI_API_KEY=key_...
+npm run smoke:google-veo
 ```
 
-Optionally set `STABILITY_SMOKE_MODEL` or `RUNWAY_SMOKE_MODEL` to override the defaults. The Runway smoke command submits a short async video task and prints the provider task id without waiting for final output.
+Optionally set `STABILITY_SMOKE_MODEL`, `RUNWAY_SMOKE_MODEL`, or `GOOGLE_VEO_SMOKE_MODEL` to override the defaults. The Runway and Google AI smoke commands submit short async video tasks and print the returned provider task or operation id without waiting for final output.
 
 Provider smoke commands also load `.env`, `.env.production`, `.env.local`, and `.env.production.local` from the project root while preserving exported shell overrides, matching `npm run preflight:production`.
 
@@ -78,9 +81,9 @@ npm run build
 
 For browser verification, start the dev server and exercise the relevant dashboard workflow directly.
 
-For production-style dependency verification, call `GET /api/health` after Postgres, Redis, and `STORAGE_ROOT` are configured. The endpoint returns `200` only when Postgres and Redis are reachable and the storage root is writable; a `503` response identifies the failing dependency. The response also includes non-secret OpenAI, Stability, and Runway server fallback key readiness under `providerEnv`. In production, raw dependency exception text is redacted unless `HEALTH_VERBOSE_ERRORS=1` is set for a private diagnostic run.
+For production-style dependency verification, call `GET /api/health` after Postgres, Redis, and `STORAGE_ROOT` are configured. The endpoint returns `200` only when Postgres and Redis are reachable and the storage root is writable; a `503` response identifies the failing dependency. The response also includes non-secret OpenAI, Stability, Runway, and Google AI server fallback key readiness under `providerEnv`; Google AI reports configured when either `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY` is set to a live value. In production, raw dependency exception text is redacted unless `HEALTH_VERBOSE_ERRORS=1` is set for a private diagnostic run.
 
-Run `NODE_ENV=production npm run preflight:production` before release. It loads `.env`, `.env.production`, `.env.local`, and `.env.production.local` from the project root while preserving exported shell overrides, then verifies production runtime mode, required production environment variables, `NEXTAUTH_URL` format (origin only, HTTPS outside localhost), secret/key lengths and fallback-value guards, production queue mode (`QUEUE_MODE` unset or `redis`), production repository mode (`REPOSITORY_MODE` unset or `prisma`), dependency audit status, Prisma schema validity, Prisma migration-file presence, writable `STORAGE_ROOT`, real non-placeholder OpenAI, Stability, and Runway credentials, optional Google/GitHub OAuth client/secret pair consistency, FFmpeg/ffprobe availability, Postgres/Redis URL schemes, and TCP reachability for Postgres and Redis. Use `npm run security:audit` when you only need the dependency audit, `npm run prisma:validate` when you only need to check the Prisma schema, and `npm run prisma:migrate:deploy` to apply checked-in migrations to a production database.
+Run `NODE_ENV=production npm run preflight:production` before release. It loads `.env`, `.env.production`, `.env.local`, and `.env.production.local` from the project root while preserving exported shell overrides, then verifies production runtime mode, required production environment variables, `NEXTAUTH_URL` format (origin only, HTTPS outside localhost), secret/key lengths and fallback-value guards, production queue mode (`QUEUE_MODE` unset or `redis`), production repository mode (`REPOSITORY_MODE` unset or `prisma`), dependency audit status, Prisma schema validity, Prisma migration-file presence, writable `STORAGE_ROOT`, real non-placeholder OpenAI, Stability, Runway, and Google AI credentials, optional Google/GitHub OAuth client/secret pair consistency, FFmpeg/ffprobe availability, Postgres/Redis URL schemes, and TCP reachability for Postgres and Redis. Use `npm run security:audit` when you only need the dependency audit, `npm run prisma:validate` when you only need to check the Prisma schema, and `npm run prisma:migrate:deploy` to apply checked-in migrations to a production database.
 
 ## Export and import smoke test
 

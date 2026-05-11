@@ -174,9 +174,10 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Local credentials sign-in now creates the database session through the same Prisma user upsert that creates or updates the user, preventing successful credential sign-in from leaving a user row without an active session.
 - Scene and shot readiness refreshes now commit all recalculated status updates in one Prisma transaction, preventing asset-approval refreshes from leaving scenes and shots at different dependency-calculation revisions.
 - Google AI / Veo is now a live-wired video provider alongside Runway: encrypted workspace keys or `GEMINI_API_KEY` / `GOOGLE_AI_API_KEY` can submit Gemini API async video operations, poll operation status, and download completed output with the required Google API key header.
+- `.env.example`, setup docs, and `/api/health` now expose Google AI / Veo production setup consistently. Health readiness accepts either `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY`, matching the runtime resolver and production preflight.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway/Google AI credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 36 files and 176 tests.
+- `npm test`: passing, 46 files and 274 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.

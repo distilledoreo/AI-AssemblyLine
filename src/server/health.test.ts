@@ -35,6 +35,7 @@ describe("health checks", () => {
     delete process.env.STABILITY_API_KEY;
     delete process.env.RUNWAYML_API_SECRET;
     delete process.env.GEMINI_API_KEY;
+    delete process.env.GOOGLE_AI_API_KEY;
     vi.unstubAllEnvs();
     resetConfigForTests();
   });
@@ -50,7 +51,7 @@ describe("health checks", () => {
     process.env.OPENAI_API_KEY = "sk-live-health";
     process.env.STABILITY_API_KEY = "sk-stability-health";
     process.env.RUNWAYML_API_SECRET = "key_runway_health";
-    process.env.GEMINI_API_KEY = "gemini-live-health";
+    process.env.GOOGLE_AI_API_KEY = "google-ai-live-health";
     resetConfigForTests();
 
     prismaMock.$queryRaw.mockResolvedValue([{ "?column?": 1 }]);
@@ -67,7 +68,7 @@ describe("health checks", () => {
         openai: { configured: true, envVar: "OPENAI_API_KEY" },
         stability: { configured: true, envVar: "STABILITY_API_KEY" },
         runway: { configured: true, envVar: "RUNWAYML_API_SECRET" },
-        "google-ai": { configured: true, envVar: "GEMINI_API_KEY" },
+        "google-ai": { configured: true, envVar: "GEMINI_API_KEY or GOOGLE_AI_API_KEY" },
       },
     });
     expect(prismaMock.$queryRaw).toHaveBeenCalled();

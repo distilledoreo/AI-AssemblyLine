@@ -111,7 +111,7 @@ describe("production preflight", () => {
         "OPENAI_API_KEY",
         "STABILITY_API_KEY",
         "RUNWAYML_API_SECRET",
-        "GEMINI_API_KEY",
+        "GEMINI_API_KEY or GOOGLE_AI_API_KEY",
         "ffmpeg",
         "ffprobe",
       ]),
@@ -142,9 +142,25 @@ describe("production preflight", () => {
       ok: false,
       detail: "missing, mock, or placeholder",
     });
-    expect(results.find((result) => result.name === "GEMINI_API_KEY")).toMatchObject({
+    expect(results.find((result) => result.name === "GEMINI_API_KEY or GOOGLE_AI_API_KEY")).toMatchObject({
       ok: false,
       detail: "missing, mock, or placeholder",
+    });
+  });
+
+  it("accepts GOOGLE_AI_API_KEY as the Google Veo production key fallback", () => {
+    const results = evaluateProductionPreflight(
+      {
+        ...validEnv,
+        GEMINI_API_KEY: "",
+        GOOGLE_AI_API_KEY: "google-ai-prod-veo-smoke-abc123",
+      },
+      () => true,
+    );
+
+    expect(results.find((result) => result.name === "GEMINI_API_KEY or GOOGLE_AI_API_KEY")).toMatchObject({
+      ok: true,
+      detail: "configured for live Veo submission",
     });
   });
 

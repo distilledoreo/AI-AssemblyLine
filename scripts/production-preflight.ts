@@ -121,9 +121,9 @@ export function evaluateProductionPreflight(
     detail: isLiveProviderApiKey(runwayKey) ? "configured for live video submission" : "missing, mock, or placeholder",
   });
 
-  const geminiKey = (env.GEMINI_API_KEY ?? env.GOOGLE_AI_API_KEY)?.trim() ?? "";
+  const geminiKey = env.GEMINI_API_KEY?.trim() || env.GOOGLE_AI_API_KEY?.trim() || "";
   results.push({
-    name: "GEMINI_API_KEY",
+    name: "GEMINI_API_KEY or GOOGLE_AI_API_KEY",
     ok: isLiveProviderApiKey(geminiKey),
     detail: isLiveProviderApiKey(geminiKey) ? "configured for live Veo submission" : "missing, mock, or placeholder",
   });

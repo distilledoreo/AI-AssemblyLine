@@ -49,16 +49,22 @@ export async function getAppHealthSnapshot(): Promise<AppHealthSnapshot> {
 }
 
 function checkProviderEnv(): AppHealthSnapshot["providerEnv"] {
-  const envByProvider: Record<LiveProviderSlug, string> = {
-    openai: "OPENAI_API_KEY",
-    stability: "STABILITY_API_KEY",
-    runway: "RUNWAYML_API_SECRET",
-    "google-ai": "GEMINI_API_KEY",
+  const envByProvider: Record<LiveProviderSlug, string[]> = {
+    openai: ["OPENAI_API_KEY"],
+    stability: ["STABILITY_API_KEY"],
+    runway: ["RUNWAYML_API_SECRET"],
+    "google-ai": ["GEMINI_API_KEY", "GOOGLE_AI_API_KEY"],
   };
   return Object.fromEntries(
     LIVE_PROVIDER_SLUGS.map((provider) => {
-      const envVar = envByProvider[provider];
-      return [provider, { envVar, configured: isLiveProviderApiKey(process.env[envVar]) }];
+      const envVars = envByProvider[provider];
+      return [
+        provider,
+        {
+          envVar: envVars.join(" or "),
+          configured: envVars.some((envVar) => isLiveProviderApiKey(process.env[envVar])),
+        },
+      ];
     }),
   ) as AppHealthSnapshot["providerEnv"];
 }
