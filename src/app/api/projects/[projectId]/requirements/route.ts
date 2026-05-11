@@ -16,7 +16,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     const { projectId } = await context.params;
     assertProjectPermission(await getProjectRole(user.id, projectId), "edit_asset_requirements");
     const body = addRequirementSchema.parse(await request.json());
-    await addSceneAssetRequirement(body.sceneId, body.assetId);
+    await addSceneAssetRequirement(projectId, body.sceneId, body.assetId);
     return Response.json({ ok: true }, { status: 201 });
   } catch (error) {
     return toErrorResponse(error);
@@ -29,7 +29,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ proj
     const { projectId } = await context.params;
     assertProjectPermission(await getProjectRole(user.id, projectId), "edit_asset_requirements");
     const { requirementId } = z.object({ requirementId: z.string().uuid() }).parse(await request.json());
-    await removeSceneAssetRequirement(requirementId);
+    await removeSceneAssetRequirement(projectId, requirementId);
     return Response.json({ ok: true });
   } catch (error) {
     return toErrorResponse(error);

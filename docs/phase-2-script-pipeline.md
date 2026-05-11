@@ -22,6 +22,7 @@ The local development pipeline uses a deterministic analyzer that follows the th
 - `PATCH /api/projects/{projectId}/shots/{shotId}` updates editable shot metadata and user direction.
 - `PATCH /api/projects/{projectId}/assets/{assetId}` updates detected asset metadata/status.
 - `POST` and `DELETE /api/projects/{projectId}/requirements` add or remove scene-to-asset requirement links.
+- Scene, shot, asset, and requirement IDs must belong to the route `projectId`; cross-project IDs return `not_found` and are not mutated.
 
 ## Analysis behavior
 

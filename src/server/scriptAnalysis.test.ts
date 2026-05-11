@@ -7,10 +7,13 @@ import {
   signInWithCredentials,
 } from "@/server/repository";
 import {
+  addSceneAssetRequirement,
   detectAssets,
   extractJsonFromModelOutput,
   extractScenes,
+  removeSceneAssetRequirement,
   runScriptAnalysis,
+  updateAsset,
   updateScene,
   updateShot,
   uploadScriptForProject,
@@ -69,8 +72,8 @@ describe("script analysis pipeline", () => {
     const firstScene = graph.scenes[0];
     const firstShot = graph.shots.find((shot) => shot.sceneId === firstScene.id);
 
-    await updateScene(firstScene.id, { summary: "User-confirmed coffee shop beat." });
-    await updateShot(firstShot!.id, { userDirection: "Hold on Anna before revealing the key." });
+    await updateScene(project.id, firstScene.id, { summary: "User-confirmed coffee shop beat." });
+    await updateShot(project.id, firstShot!.id, { userDirection: "Hold on Anna before revealing the key." });
     await runScriptAnalysis(project.id, graph.activeVersion?.id);
 
     const updatedGraph = getScriptAnalysisGraph(project.id);
@@ -87,5 +90,47 @@ describe("script analysis pipeline", () => {
 
     expect(assets.warnings).toContain("No INT./EXT. scene headings were detected; review the generated scene manually.");
     expect(extractJsonFromModelOutput("```json\n{\"ok\":true}\n```")).toEqual({ ok: true });
+  });
+
+  it("rejects cross-project scene, shot, asset, and requirement mutations", async () => {
+    const firstProject = await createProject();
+    const firstGraph = await uploadScriptForProject({
+      projectId: firstProject.id,
+      filename: "first.txt",
+      text: scriptText,
+    });
+    const secondProject = await createProject();
+    const secondGraph = await uploadScriptForProject({
+      projectId: secondProject.id,
+      filename: "second.txt",
+      text: scriptText,
+    });
+    const firstScene = firstGraph.scenes[0];
+    const firstShot = firstGraph.shots.find((shot) => shot.sceneId === firstScene.id)!;
+    const firstAsset = firstGraph.assets[0];
+    const firstRequirement = firstGraph.sceneAssetRequirements[0];
+    const secondScene = secondGraph.scenes[0];
+
+    await expect(updateScene(secondProject.id, firstScene.id, { summary: "Cross-project edit" })).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(updateShot(secondProject.id, firstShot.id, { userDirection: "Cross-project edit" })).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(updateAsset(secondProject.id, firstAsset.id, { description: "Cross-project edit" })).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(addSceneAssetRequirement(secondProject.id, secondScene.id, firstAsset.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(removeSceneAssetRequirement(secondProject.id, firstRequirement.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
+
+    const unchangedGraph = getScriptAnalysisGraph(firstProject.id);
+    expect(unchangedGraph.scenes.find((scene) => scene.id === firstScene.id)?.summary).not.toBe("Cross-project edit");
+    expect(unchangedGraph.shots.find((shot) => shot.id === firstShot.id)?.userDirection).toBeUndefined();
+    expect(unchangedGraph.assets.find((asset) => asset.id === firstAsset.id)?.description).not.toBe("Cross-project edit");
+    expect(unchangedGraph.sceneAssetRequirements.some((requirement) => requirement.id === firstRequirement.id)).toBe(true);
   });
 });

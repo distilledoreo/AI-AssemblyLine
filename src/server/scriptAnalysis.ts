@@ -12,14 +12,10 @@ import {
   getNextScriptVersionNumberForProject,
   getScriptAnalysisGraph,
   getScriptAnalysisGraphForProject,
-  getSceneAssetRequirementById,
   getSceneAssetRequirementBySceneAndAsset,
   getScriptVersionById,
   supersedeScriptVersionScenes,
   deleteSceneAssetRequirement,
-  getAssetById,
-  getSceneById,
-  getShotById,
   persistGeneratedScriptAnalysis,
   persistAssetState,
   persistSceneAssetRequirement,
@@ -477,6 +473,42 @@ export function extractJsonFromModelOutput(output: string) {
   return JSON.parse(candidate);
 }
 
+async function requireSceneInProject(projectId: string, sceneId: string) {
+  const graph = await getScriptAnalysisGraphForProject(projectId);
+  const scene = graph.scenes.find((candidate) => candidate.id === sceneId);
+  if (!scene) {
+    throw new NotFoundError("Scene not found.");
+  }
+  return scene;
+}
+
+async function requireShotInProject(projectId: string, shotId: string) {
+  const graph = await getScriptAnalysisGraphForProject(projectId);
+  const shot = graph.shots.find((candidate) => candidate.id === shotId);
+  if (!shot) {
+    throw new NotFoundError("Shot not found.");
+  }
+  return shot;
+}
+
+async function requireAssetInProject(projectId: string, assetId: string) {
+  const graph = await getScriptAnalysisGraphForProject(projectId);
+  const asset = graph.assets.find((candidate) => candidate.id === assetId);
+  if (!asset) {
+    throw new NotFoundError("Asset not found.");
+  }
+  return asset;
+}
+
+async function requireSceneAssetRequirementInProject(projectId: string, requirementId: string) {
+  const graph = await getScriptAnalysisGraphForProject(projectId);
+  const requirement = graph.sceneAssetRequirements.find((candidate) => candidate.id === requirementId);
+  if (!requirement) {
+    throw new NotFoundError("Requirement not found.");
+  }
+  return requirement;
+}
+
 async function persistAnalysis(
   projectId: string,
   scriptVersionId: string,
@@ -497,44 +529,32 @@ async function persistAnalysis(
   refreshLocalReadiness(projectId);
 }
 
-export async function updateScene(sceneId: string, input: Partial<Pick<Scene, "heading" | "summary" | "locationHint" | "status">>) {
-  const scene = await getSceneById(sceneId);
-  if (!scene) {
-    throw new NotFoundError("Scene not found.");
-  }
+export async function updateScene(projectId: string, sceneId: string, input: Partial<Pick<Scene, "heading" | "summary" | "locationHint" | "status">>) {
+  const scene = await requireSceneInProject(projectId, sceneId);
   Object.assign(scene, input, { isUserEdited: true, updatedAt: nowIso() });
   await persistSceneState(scene);
   return scene;
 }
 
-export async function updateShot(shotId: string, input: Partial<Pick<Shot, "action" | "cameraAngle" | "cameraMovement" | "lensNotes" | "lightingNotes" | "userDirection" | "status">>) {
-  const shot = await getShotById(shotId);
-  if (!shot) {
-    throw new NotFoundError("Shot not found.");
-  }
+export async function updateShot(projectId: string, shotId: string, input: Partial<Pick<Shot, "action" | "cameraAngle" | "cameraMovement" | "lensNotes" | "lightingNotes" | "userDirection" | "status">>) {
+  const shot = await requireShotInProject(projectId, shotId);
   Object.assign(shot, input, { isUserEdited: true, updatedAt: nowIso() });
   await persistShotState(shot);
   return shot;
 }
 
-export async function updateAsset(assetId: string, input: Partial<Pick<Asset, "canonicalName" | "type" | "status" | "description" | "continuityNotes" | "negativePrompts">>) {
-  const asset = await getAssetById(assetId);
-  if (!asset) {
-    throw new NotFoundError("Asset not found.");
-  }
+export async function updateAsset(projectId: string, assetId: string, input: Partial<Pick<Asset, "canonicalName" | "type" | "status" | "description" | "continuityNotes" | "negativePrompts">>) {
+  const asset = await requireAssetInProject(projectId, assetId);
   Object.assign(asset, input, { isUserEdited: true, updatedAt: nowIso() });
-  refreshLocalReadiness(asset.projectId);
+  refreshLocalReadiness(projectId);
   await persistAssetState(asset);
-  await refreshPrismaReadiness(asset.projectId);
+  await refreshPrismaReadiness(projectId);
   return asset;
 }
 
-export async function addSceneAssetRequirement(sceneId: string, assetId: string) {
-  const scene = await getSceneById(sceneId);
-  const asset = await getAssetById(assetId);
-  if (!scene || !asset) {
-    throw new NotFoundError("Scene or asset not found.");
-  }
+export async function addSceneAssetRequirement(projectId: string, sceneId: string, assetId: string) {
+  await requireSceneInProject(projectId, sceneId);
+  await requireAssetInProject(projectId, assetId);
   const existing = await getSceneAssetRequirementBySceneAndAsset(sceneId, assetId);
   if (!existing) {
     const requirement = {
@@ -547,18 +567,15 @@ export async function addSceneAssetRequirement(sceneId: string, assetId: string)
     } as const;
     await persistSceneAssetRequirement(requirement);
   }
-  refreshLocalReadiness(asset.projectId);
-  await refreshPrismaReadiness(asset.projectId);
+  refreshLocalReadiness(projectId);
+  await refreshPrismaReadiness(projectId);
 }
 
-export async function removeSceneAssetRequirement(requirementId: string) {
-  const requirement = await getSceneAssetRequirementById(requirementId);
-  const asset = requirement ? await getAssetById(requirement.assetId) : undefined;
+export async function removeSceneAssetRequirement(projectId: string, requirementId: string) {
+  await requireSceneAssetRequirementInProject(projectId, requirementId);
   await deleteSceneAssetRequirement(requirementId);
-  if (asset) {
-    refreshLocalReadiness(asset.projectId);
-    await refreshPrismaReadiness(asset.projectId);
-  }
+  refreshLocalReadiness(projectId);
+  await refreshPrismaReadiness(projectId);
 }
 
 function summarizeLines(lines: string[]) {
