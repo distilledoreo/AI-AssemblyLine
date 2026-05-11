@@ -31,6 +31,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
+- Video review updates now read individual clip versions through the repository layer before persisting approval/superseded state, so Prisma mode does not depend on the script-analysis graph or in-memory clip-version search for that path.
 - `npm test`: passing, 25 files and 73 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.

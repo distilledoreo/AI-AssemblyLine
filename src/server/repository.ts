@@ -1812,6 +1812,15 @@ export async function getFrameVersionById(frameVersionId: string) {
   return version ? mapFrameVersion(version) : undefined;
 }
 
+export async function getClipVersionById(clipVersionId: string) {
+  const local = getStore().clipVersions.find((candidate) => candidate.id === clipVersionId);
+  if (!isPrismaRepositoryEnabled()) {
+    return local;
+  }
+  const version = await prisma.clipVersion.findUnique({ where: { id: clipVersionId } }).catch(() => undefined);
+  return version ? mapClipVersion(version) : local;
+}
+
 export async function persistSceneState(scene: Scene) {
   if (!isPrismaRepositoryEnabled()) {
     return;

@@ -5,6 +5,7 @@ import { AppError, NotFoundError } from "@/server/errors";
 import {
   completeGenerationJob,
   createGenerationJob,
+  getClipVersionById,
   getScriptAnalysisGraphForProject,
   getStore,
   markGenerationJobRunning,
@@ -139,12 +140,10 @@ export async function processVideoClipJob(input: {
 }
 
 export async function updateClipVersion(input: { projectId: string; clipVersionId: string; status: ClipVersion["status"] }) {
-  const graph = await getScriptAnalysisGraphForProject(input.projectId);
-  const store = getStore();
-  const version =
-    store.clipVersions.find((candidate) => candidate.id === input.clipVersionId) ??
-    graph.clipVersions.find((candidate) => candidate.id === input.clipVersionId);
+  const version = await getClipVersionById(input.clipVersionId);
   if (!version) throw new NotFoundError("Clip version not found.");
+  mirrorClipVersionForLegacyState(version);
+  const store = getStore();
   if (input.status === "approved") {
     store.clipVersions
       .filter((candidate) => candidate.clipId === version.clipId && candidate.status === "approved")
@@ -155,6 +154,13 @@ export async function updateClipVersion(input: { projectId: string; clipVersionI
   version.status = input.status;
   await persistClipVersionState(version);
   return getScriptAnalysisGraphForProject(input.projectId);
+}
+
+function mirrorClipVersionForLegacyState(version: ClipVersion) {
+  const store = getStore();
+  if (!store.clipVersions.some((candidate) => candidate.id === version.id)) {
+    store.clipVersions.push(version);
+  }
 }
 
 function approvedFrameVersionsForShot(graph: ScriptAnalysisGraph, shotId?: string) {

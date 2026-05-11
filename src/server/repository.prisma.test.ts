@@ -141,6 +141,7 @@ const prismaMock = vi.hoisted(() => ({
   clipVersion: {
     create: vi.fn(),
     createMany: vi.fn(),
+    findUnique: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
@@ -1364,13 +1365,20 @@ describe("Prisma repository mode", () => {
 
     prismaMock.videoClip.upsert.mockResolvedValue(clip);
     prismaMock.clipVersion.create.mockResolvedValue(version);
+    prismaMock.clipVersion.findUnique.mockResolvedValue(version);
     prismaMock.clipVersion.update.mockResolvedValue(version);
     prismaMock.clipVersion.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.generationJob.update.mockResolvedValue({ id: version.generationJobId });
 
+    await expect(repository.getClipVersionById(version.id)).resolves.toMatchObject({
+      id: version.id,
+      clipId: clip.id,
+      sourceFrameVersionIds: version.sourceFrameVersionIds,
+    });
     await repository.persistGeneratedClipVersion({ clip, version });
     await repository.persistClipVersionState(version);
 
+    expect(prismaMock.clipVersion.findUnique).toHaveBeenCalledWith({ where: { id: version.id } });
     expect(prismaMock.videoClip.upsert).toHaveBeenCalledWith({
       where: { id: clip.id },
       update: expect.objectContaining({ shotId: clip.shotId }),
