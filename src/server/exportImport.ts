@@ -11,7 +11,6 @@ import {
   createWorkspaceForUser,
   getProject,
   getProjectDashboard,
-  getScriptAnalysisGraph,
   getScriptAnalysisGraphForProject,
   getStore,
   markGenerationJobRunning,
@@ -131,7 +130,7 @@ export async function processExportProjectBundleJob(input: { projectId: string; 
     createdById: input.userId,
     createdAt: nowIso(),
   });
-  completeGenerationJob(job.id, { status: "complete", outputPayload: { manifestPath, bundleId: bundle.id } });
+  await completeGenerationJob(job.id, { status: "complete", outputPayload: { manifestPath, bundleId: bundle.id } });
   addJobEvent({ jobId: job.id, projectId: input.projectId, eventType: "status_change", message: "Export complete.", progressPct: 100 });
   return { bundle, manifestPath, manifest, job };
 }
@@ -274,7 +273,7 @@ export async function processImportProjectBundleJob(input: { userId: string; man
     reviewNotes,
   });
 
-  completeGenerationJob(job.id, { status: "complete", outputPayload: { importedProjectId: project.id } });
+  await completeGenerationJob(job.id, { status: "complete", outputPayload: { importedProjectId: project.id } });
   addJobEvent({ jobId: job.id, projectId: job.projectId, eventType: "status_change", message: "Import complete.", progressPct: 100 });
-  return { project, graph: getScriptAnalysisGraph(project.id), job };
+  return { project, graph: await getScriptAnalysisGraphForProject(project.id), job };
 }

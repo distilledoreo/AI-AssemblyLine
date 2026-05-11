@@ -37,6 +37,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Requirement editor add/remove operations now read scene-asset links through repository helpers before duplicate checks and deletion, so Prisma mode no longer depends on local requirement collections for those edits.
 - Storyboard frame re-approval now persists stale state to dependent video clip versions through the repository when upstream approved frames are superseded.
 - Video generation now locates existing shot/scene clips through repository helpers before creating a new clip version, so clip reuse in Prisma mode does not depend on local video clip state.
+- Export/import jobs now await repository job completion updates, and import returns the restored graph through the repository read path after persistence.
 - `npm test`: passing, 25 files and 73 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
