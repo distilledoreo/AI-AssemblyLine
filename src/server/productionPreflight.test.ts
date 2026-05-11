@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { DEVELOPMENT_ENCRYPTION_KEY, DEVELOPMENT_NEXTAUTH_SECRET } from "@/lib/config";
 import { checkStorageRoot, evaluateProductionPreflight, runProductionPreflight } from "../../scripts/production-preflight";
 
 const validEnv = {
@@ -54,6 +55,28 @@ describe("production preflight", () => {
         "ffprobe",
       ]),
     );
+  });
+
+  it("rejects development fallback secrets even when their shape is otherwise valid", () => {
+    const results = evaluateProductionPreflight(
+      {
+        ...validEnv,
+        NEXTAUTH_SECRET: DEVELOPMENT_NEXTAUTH_SECRET,
+        ENCRYPTION_KEY: DEVELOPMENT_ENCRYPTION_KEY,
+      },
+      () => true,
+    );
+
+    expect(results.find((result) => result.name === "NEXTAUTH_SECRET length")).toMatchObject({ ok: true });
+    expect(results.find((result) => result.name === "ENCRYPTION_KEY length")).toMatchObject({ ok: true });
+    expect(results.find((result) => result.name === "NEXTAUTH_SECRET production value")).toMatchObject({
+      ok: false,
+      detail: "must not use the development fallback secret",
+    });
+    expect(results.find((result) => result.name === "ENCRYPTION_KEY production value")).toMatchObject({
+      ok: false,
+      detail: "must not use the development fallback encryption key",
+    });
   });
 
   it("allows omitted OAuth providers but rejects partial OAuth configuration", () => {

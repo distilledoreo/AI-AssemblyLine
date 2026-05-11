@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
+import { DEVELOPMENT_ENCRYPTION_KEY, DEVELOPMENT_NEXTAUTH_SECRET } from "../src/lib/config";
 import { isLiveProviderApiKey } from "../src/providers/providerKeySafety";
 
 type Env = Record<string, string | undefined>;
@@ -36,6 +37,11 @@ export function evaluateProductionPreflight(
     ok: secret.length >= 32,
     detail: secret.length >= 32 ? "at least 32 characters" : "must be at least 32 characters",
   });
+  results.push({
+    name: "NEXTAUTH_SECRET production value",
+    ok: Boolean(secret) && secret !== DEVELOPMENT_NEXTAUTH_SECRET,
+    detail: secret && secret !== DEVELOPMENT_NEXTAUTH_SECRET ? "not a known development fallback" : "must not use the development fallback secret",
+  });
 
   const encryptionKey = env.ENCRYPTION_KEY?.trim() ?? "";
   const decodedKeyLength = decodeBase64Length(encryptionKey);
@@ -43,6 +49,14 @@ export function evaluateProductionPreflight(
     name: "ENCRYPTION_KEY length",
     ok: decodedKeyLength === 32,
     detail: decodedKeyLength === 32 ? "32 decoded bytes" : "must decode to exactly 32 bytes",
+  });
+  results.push({
+    name: "ENCRYPTION_KEY production value",
+    ok: Boolean(encryptionKey) && encryptionKey !== DEVELOPMENT_ENCRYPTION_KEY,
+    detail:
+      encryptionKey && encryptionKey !== DEVELOPMENT_ENCRYPTION_KEY
+        ? "not a known development fallback"
+        : "must not use the development fallback encryption key",
   });
 
   const queueMode = env.QUEUE_MODE?.trim().toLowerCase() ?? "";

@@ -1,6 +1,11 @@
 import { Buffer } from "node:buffer";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getConfig, resetConfigForTests } from "@/lib/config";
+import {
+  DEVELOPMENT_ENCRYPTION_KEY,
+  DEVELOPMENT_NEXTAUTH_SECRET,
+  getConfig,
+  resetConfigForTests,
+} from "@/lib/config";
 
 const validEnv = {
   DATABASE_URL: "postgresql://assemblyline:assemblyline@localhost:5432/assemblyline",
@@ -32,6 +37,19 @@ describe("runtime config", () => {
     }
 
     expect(() => getConfig()).toThrow(/ENCRYPTION_KEY/);
+  });
+
+  it("rejects development fallback secrets in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    for (const [key, value] of Object.entries({
+      ...validEnv,
+      NEXTAUTH_SECRET: DEVELOPMENT_NEXTAUTH_SECRET,
+      ENCRYPTION_KEY: DEVELOPMENT_ENCRYPTION_KEY,
+    })) {
+      vi.stubEnv(key, value);
+    }
+
+    expect(() => getConfig()).toThrow(/development fallback/);
   });
 
   it("rejects insecure or deep-link NEXTAUTH_URL values in production", () => {

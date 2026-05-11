@@ -1,16 +1,26 @@
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 
+export const DEVELOPMENT_NEXTAUTH_SECRET = "development-secret-replace-before-production";
+export const DEVELOPMENT_ENCRYPTION_KEY = Buffer.alloc(32, 3).toString("base64");
+
 const configSchema = z.object({
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
   NEXTAUTH_URL: z.string().url().refine((value) => process.env.NODE_ENV !== "production" || isProductionAuthOrigin(value), {
     message: "must be an https origin URL outside localhost",
   }),
-  NEXTAUTH_SECRET: z.string().min(32),
-  ENCRYPTION_KEY: z.string().refine((value) => decodeBase64Length(value) === 32, {
-    message: "must decode to exactly 32 bytes",
+  NEXTAUTH_SECRET: z.string().min(32).refine((value) => process.env.NODE_ENV !== "production" || !isDevelopmentSecret(value), {
+    message: "must not use the development fallback secret",
   }),
+  ENCRYPTION_KEY: z
+    .string()
+    .refine((value) => decodeBase64Length(value) === 32, {
+      message: "must decode to exactly 32 bytes",
+    })
+    .refine((value) => process.env.NODE_ENV !== "production" || !isDevelopmentEncryptionKey(value), {
+      message: "must not use the development fallback encryption key",
+    }),
   STORAGE_ROOT: z.string().min(1).default("./storage"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
   PORT: z.coerce.number().int().positive().default(3000),
@@ -29,8 +39,8 @@ function developmentFallbacks() {
     DATABASE_URL: "postgresql://assemblyline:assemblyline@localhost:5432/assemblyline",
     REDIS_URL: "redis://localhost:6379",
     NEXTAUTH_URL: "http://localhost:3000",
-    NEXTAUTH_SECRET: "development-secret-replace-before-production",
-    ENCRYPTION_KEY: Buffer.alloc(32, 3).toString("base64"),
+    NEXTAUTH_SECRET: DEVELOPMENT_NEXTAUTH_SECRET,
+    ENCRYPTION_KEY: DEVELOPMENT_ENCRYPTION_KEY,
     STORAGE_ROOT: "./storage",
     LOG_LEVEL: "info",
   };
@@ -69,4 +79,12 @@ function isProductionAuthOrigin(value: string) {
   } catch {
     return false;
   }
+}
+
+function isDevelopmentSecret(value: string) {
+  return value.trim() === DEVELOPMENT_NEXTAUTH_SECRET;
+}
+
+function isDevelopmentEncryptionKey(value: string) {
+  return value.trim() === DEVELOPMENT_ENCRYPTION_KEY;
 }
