@@ -174,6 +174,7 @@ async function persistWorkerFailure(job: Job<WorkerJobData>, error: unknown) {
     status: "failed",
     errorMessage: message,
     errorClass,
+    retryCount: retryCountForAttempt(job),
   });
   addJobEvent({
     jobId,
@@ -185,6 +186,10 @@ async function persistWorkerFailure(job: Job<WorkerJobData>, error: unknown) {
 }
 
 const terminalStatuses = new Set<GenerationJobStatus>(["complete", "failed", "canceled"]);
+
+function retryCountForAttempt(job: Job<WorkerJobData>) {
+  return Math.max(1, Number(job.attemptsMade ?? 0) + 1);
+}
 
 function classifyWorkerError(error: unknown): ErrorClass {
   const errorClass = readErrorClass(error);

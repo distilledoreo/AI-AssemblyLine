@@ -26,6 +26,12 @@ export async function getProjectJobMetrics(projectId: string) {
     return acc;
   }, {});
   const completed = graph.jobs.filter((job): job is GenerationJob & { completedAt: string } => Boolean(job.completedAt));
+  const totalRetries = graph.jobs.reduce((sum, job) => sum + job.retryCount, 0);
+  const retriedJobs = graph.jobs.filter((job) => job.retryCount > 0);
+  const retriesByType = graph.jobs.reduce<Record<string, number>>((acc, job) => {
+    acc[job.type] = (acc[job.type] ?? 0) + job.retryCount;
+    return acc;
+  }, {});
   const averageDurationMs = completed.length
     ? Math.round(
         completed.reduce((sum, job) => sum + (new Date(job.completedAt).getTime() - new Date(job.createdAt).getTime()), 0) /
@@ -38,6 +44,9 @@ export async function getProjectJobMetrics(projectId: string) {
     totalJobs: graph.jobs.length,
     jobsByType,
     jobsByStatus,
+    totalRetries,
+    retriedJobs: retriedJobs.length,
+    retriesByType,
     averageDurationMs,
     queueHealth: await getQueueHealthSnapshot(),
     sentryEnabled: Boolean(process.env.SENTRY_DSN),

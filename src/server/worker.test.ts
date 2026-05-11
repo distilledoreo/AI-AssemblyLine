@@ -100,6 +100,7 @@ describe("worker bootstrap", () => {
       analysisProcessor({
         id: "job-1",
         name: "script_analysis",
+        attemptsMade: 0,
         data: {
           projectId: "project-1",
           scriptVersionId: "script-version-1",
@@ -111,6 +112,7 @@ describe("worker bootstrap", () => {
       status: "failed",
       errorMessage: "OpenAI rate limited the analysis pass.",
       errorClass: "rate_limit",
+      retryCount: 1,
     });
     expect(workerMocks.addJobEvent).toHaveBeenCalledWith({
       jobId: "job-1",

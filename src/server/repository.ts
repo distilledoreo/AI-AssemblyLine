@@ -3195,6 +3195,7 @@ export function completeGenerationJob(
     outputPayload?: unknown;
     errorMessage?: string;
     errorClass?: GenerationJob["errorClass"];
+    retryCount?: number;
   },
 ) {
   const job = getStore().generationJobs.find((candidate) => candidate.id === jobId);
@@ -3209,6 +3210,7 @@ export function completeGenerationJob(
         outputPayload: toPrismaJson(input.outputPayload),
         errorMessage: input.errorMessage,
         errorClass: input.errorClass,
+        retryCount: input.retryCount,
         completedAt: new Date(),
       },
     }).catch(() => undefined);
@@ -3219,6 +3221,7 @@ export function completeGenerationJob(
     outputPayload: input.outputPayload,
     errorMessage: input.errorMessage,
     errorClass: input.errorClass,
+    retryCount: input.retryCount ?? job.retryCount,
     completedAt: nowIso(),
   });
   if (isPrismaRepositoryEnabled()) {
@@ -3229,6 +3232,7 @@ export function completeGenerationJob(
         outputPayload: toPrismaJson(input.outputPayload),
         errorMessage: input.errorMessage,
         errorClass: input.errorClass,
+        retryCount: input.retryCount,
         completedAt: new Date(job.completedAt!),
       },
     }).catch(() => undefined);

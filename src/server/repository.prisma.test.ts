@@ -412,6 +412,7 @@ describe("Prisma repository mode", () => {
     expect(repository.completeGenerationJob(job.id, {
       status: "complete",
       outputPayload: { manifestPath: "storage/projects/project/export.json" },
+      retryCount: 2,
     })).toBeUndefined();
 
     await vi.waitFor(() => expect(prismaMock.generationJob.update).toHaveBeenCalledTimes(2));
@@ -424,6 +425,7 @@ describe("Prisma repository mode", () => {
       data: expect.objectContaining({
         status: "complete",
         outputPayload: { manifestPath: "storage/projects/project/export.json" },
+        retryCount: 2,
         completedAt: expect.any(Date),
       }),
     });
