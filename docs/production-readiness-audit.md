@@ -71,9 +71,10 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Asset Bible merge requirement reassignment now surfaces Prisma write failures instead of silently continuing after missed scene or shot requirement updates.
 - Project update writes now distinguish Prisma not-found records from real write failures, surfacing production database errors instead of misreporting every failure as `not_found`.
 - Scene and shot readiness refreshes now surface Prisma write failures instead of silently continuing after missed production status updates.
+- Export bundle and generation-job reads now surface Prisma failures instead of falling back to stale in-memory state during production-mode database outages.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 33 files and 134 tests.
+- `npm test`: passing, 33 files and 137 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.

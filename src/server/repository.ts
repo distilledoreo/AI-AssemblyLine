@@ -3187,10 +3187,8 @@ export async function listExportBundles(projectId: string) {
     const bundles = await prisma.exportBundle.findMany({
       where: { projectId },
       orderBy: { createdAt: "desc" },
-    }).catch(() => undefined);
-    if (bundles) {
-      return bundles.map(mapExportBundle);
-    }
+    });
+    return bundles.map(mapExportBundle);
   }
   return getStore().exportBundles.filter((bundle) => bundle.projectId === projectId);
 }
@@ -3283,7 +3281,7 @@ export async function getGenerationJob(jobId: string) {
   if (!isPrismaRepositoryEnabled()) {
     return undefined;
   }
-  const job = await prisma.generationJob.findUnique({ where: { id: jobId } }).catch(() => undefined);
+  const job = await prisma.generationJob.findUnique({ where: { id: jobId } });
   return job ? mapJob(job) : undefined;
 }
 
@@ -3300,10 +3298,8 @@ export async function listSubmittedProviderJobs(input: {
         ...(input.providerSlug ? { providerSlug: input.providerSlug } : {}),
       },
       orderBy: { createdAt: "asc" },
-    }).catch(() => undefined);
-    if (jobs) {
-      return jobs.map(mapJob);
-    }
+    });
+    return jobs.map(mapJob);
   }
   return getStore().generationJobs.filter(
     (job) =>

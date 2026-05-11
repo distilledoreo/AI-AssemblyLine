@@ -700,6 +700,25 @@ describe("Prisma repository mode", () => {
     });
   });
 
+  it("surfaces submitted provider job read failures from Prisma", async () => {
+    const repository = await import("@/server/repository");
+    prismaMock.generationJob.findMany.mockRejectedValue(new Error("submitted job read failed"));
+
+    await expect(repository.listSubmittedProviderJobs({ type: "video_clip", providerSlug: "runway" })).rejects.toThrow(
+      "submitted job read failed",
+    );
+  });
+
+  it("surfaces generation job read failures from Prisma", async () => {
+    const repository = await import("@/server/repository");
+    repository.resetStoreForTests();
+    prismaMock.generationJob.findUnique.mockRejectedValue(new Error("generation job read failed"));
+
+    await expect(repository.getGenerationJob("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")).rejects.toThrow(
+      "generation job read failed",
+    );
+  });
+
   it("loads script versions from Prisma for out-of-process analysis workers", async () => {
     const version = {
       id: "88888888-8888-4888-8888-888888888888",
@@ -2099,6 +2118,15 @@ describe("Prisma repository mode", () => {
     prismaMock.exportBundle.create.mockRejectedValue(new Error("export bundle write failed"));
 
     await expect(repository.addExportBundle(bundle)).rejects.toThrow("export bundle write failed");
+  });
+
+  it("surfaces export bundle read failures from Prisma", async () => {
+    const repository = await import("@/server/repository");
+    prismaMock.exportBundle.findMany.mockRejectedValue(new Error("export bundle read failed"));
+
+    await expect(repository.listExportBundles("33333333-3333-4333-8333-333333333333")).rejects.toThrow(
+      "export bundle read failed",
+    );
   });
 
   it("persists imported project graph records through Prisma", async () => {
