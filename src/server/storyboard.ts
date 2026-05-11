@@ -132,10 +132,16 @@ export async function updateFrameVersion(input: {
   status?: FrameVersion["status"];
   annotations?: Record<string, unknown>;
 }) {
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
+  const belongsToProject = graph.frameVersions.some((candidate) => candidate.id === input.frameVersionId);
+  if (!belongsToProject) {
+    throw new NotFoundError("Frame version not found.");
+  }
   const version = await getFrameVersionById(input.frameVersionId);
-  if (!version) throw new NotFoundError("Frame version not found.");
+  if (!version) {
+    throw new NotFoundError("Frame version not found.");
+  }
   if (input.status === "approved") {
-    const graph = await getScriptAnalysisGraphForProject(input.projectId);
     const priorApprovedVersions = graph.frameVersions.filter(
       (candidate) => candidate.id !== version.id && candidate.frameId === version.frameId && candidate.status === "approved",
     );
@@ -189,6 +195,10 @@ export async function addFrameComment(input: {
   body: string;
   parentNoteId?: string;
 }) {
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
+  if (!graph.frameVersions.some((candidate) => candidate.id === input.frameVersionId)) {
+    throw new NotFoundError("Frame version not found.");
+  }
   const note: ReviewNote = {
     id: createId(),
     projectId: input.projectId,

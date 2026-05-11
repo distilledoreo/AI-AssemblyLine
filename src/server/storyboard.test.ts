@@ -99,6 +99,35 @@ describe("storyboard workflow", () => {
     expect(updated.storyboardFrames[0].sketchFilePath).toContain("thumbnail.png");
   });
 
+  it("rejects frame updates and comments when the frame version belongs to another project", async () => {
+    const first = await readyProject();
+    const firstGraph = getScriptAnalysisGraph(first.project.id);
+    const generated = await generateStoryboardFrame({
+      projectId: first.project.id,
+      shotId: firstGraph.shots[0].id,
+      keyframeIndex: 0,
+    });
+    const foreignFrameVersionId = generated.frameVersions[0].id;
+    const second = await readyProject();
+
+    await expect(
+      updateFrameVersion({
+        projectId: second.project.id,
+        frameVersionId: foreignFrameVersionId,
+        status: "approved",
+      }),
+    ).rejects.toMatchObject({ code: "not_found" });
+
+    await expect(
+      addFrameComment({
+        projectId: second.project.id,
+        authorId: second.user.id,
+        frameVersionId: foreignFrameVersionId,
+        body: "Looks good.",
+      }),
+    ).rejects.toMatchObject({ code: "not_found" });
+  });
+
   it("composes prompts with conflict and truncation warnings", async () => {
     const { graph } = await readyProject();
     const prompt = composeStoryboardPrompt({
