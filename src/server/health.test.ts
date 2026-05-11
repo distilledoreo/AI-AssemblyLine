@@ -71,6 +71,7 @@ describe("health checks", () => {
   it("reports degraded with dependency errors when checks fail", async () => {
     process.env.DATABASE_URL = "postgresql://assemblyline:assemblyline@localhost:5432/assemblyline";
     process.env.REDIS_URL = "redis://localhost:6379";
+    process.env.OPENAI_API_KEY = " MOCK ";
     resetConfigForTests();
 
     prismaMock.$queryRaw.mockRejectedValue(new Error("database down"));

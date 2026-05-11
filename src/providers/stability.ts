@@ -1,5 +1,6 @@
 import { createMockAdapter } from "@/providers/mockFactory";
 import { assertMockProviderAllowed } from "@/providers/productionGuard";
+import { isMockProviderApiKey, normalizeProviderApiKey } from "@/providers/providerKeySafety";
 import type { ComposedPrompt, ImageAdapter, ImageOptions, ImageResult } from "@/providers/types";
 
 export class StabilityAdapter implements ImageAdapter {
@@ -12,8 +13,8 @@ export class StabilityAdapter implements ImageAdapter {
   ) {}
 
   async generateImage(prompt: ComposedPrompt, options: ImageOptions): Promise<ImageResult> {
-    const apiKey = normalizeApiKey(this.apiKey);
-    if (apiKey && apiKey !== "mock") {
+    const apiKey = normalizeProviderApiKey(this.apiKey);
+    if (apiKey && !isMockProviderApiKey(apiKey)) {
       const images: ImageResult["images"] = [];
       const count = Math.max(1, Math.min(options.count ?? 1, this.getCapabilities().maxImageCount));
       for (let index = 0; index < count; index += 1) {
@@ -82,10 +83,6 @@ export class StabilityAdapter implements ImageAdapter {
       mimeType: response.headers.get("content-type")?.split(";")[0] || "image/png",
     };
   }
-}
-
-function normalizeApiKey(apiKey: string) {
-  return apiKey.trim();
 }
 
 function stabilityEndpointForModel(modelId: string) {

@@ -1,4 +1,5 @@
 import { OpenAIAdapter } from "@/providers/openai";
+import { isMockProviderApiKey, normalizeProviderApiKey } from "@/providers/providerKeySafety";
 
 export type OpenAiSmokeResult = {
   provider: "openai";
@@ -16,8 +17,8 @@ export async function runOpenAiSmoke(input: {
   modelId?: string;
   fetchImpl?: typeof fetch;
 }): Promise<OpenAiSmokeResult> {
-  const apiKey = input.apiKey?.trim();
-  if (!apiKey || apiKey === "mock") {
+  const apiKey = normalizeProviderApiKey(input.apiKey);
+  if (!apiKey || isMockProviderApiKey(apiKey)) {
     throw new Error("OPENAI_API_KEY must be set to a real OpenAI API key for the live smoke test.");
   }
 

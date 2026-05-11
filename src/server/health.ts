@@ -1,5 +1,6 @@
 import IORedis from "ioredis";
 import { getConfig } from "@/lib/config";
+import { isLiveProviderApiKey } from "@/providers/providerKeySafety";
 import type { LiveProviderSlug } from "@/providers/liveProviderCatalog";
 import { LIVE_PROVIDER_SLUGS } from "@/providers/liveProviderCatalog";
 import { prisma } from "@/server/prisma";
@@ -44,8 +45,7 @@ function checkProviderEnv(): AppHealthSnapshot["providerEnv"] {
   return Object.fromEntries(
     LIVE_PROVIDER_SLUGS.map((provider) => {
       const envVar = envByProvider[provider];
-      const value = process.env[envVar]?.trim();
-      return [provider, { envVar, configured: Boolean(value && value !== "mock") }];
+      return [provider, { envVar, configured: isLiveProviderApiKey(process.env[envVar]) }];
     }),
   ) as AppHealthSnapshot["providerEnv"];
 }

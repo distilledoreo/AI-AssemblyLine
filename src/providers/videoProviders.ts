@@ -1,5 +1,6 @@
 import { createMockAdapter } from "@/providers/mockFactory";
 import { assertMockProviderAllowed } from "@/providers/productionGuard";
+import { isMockProviderApiKey, normalizeProviderApiKey } from "@/providers/providerKeySafety";
 import type { AsyncJobStatus, ComposedPrompt, VideoAdapter, VideoOptions, VideoResult } from "@/providers/types";
 
 export class RunwayAdapter implements VideoAdapter {
@@ -12,8 +13,8 @@ export class RunwayAdapter implements VideoAdapter {
   ) {}
 
   async generateVideo(prompt: ComposedPrompt, options: VideoOptions): Promise<VideoResult> {
-    const apiKey = normalizeApiKey(this.apiKey);
-    if (apiKey && apiKey !== "mock") {
+    const apiKey = normalizeProviderApiKey(this.apiKey);
+    if (apiKey && !isMockProviderApiKey(apiKey)) {
       const response = await this.runwayRequest("https://api.dev.runwayml.com/v1/image_to_video", {
         model: normalizeRunwayModel(options.modelId),
         promptText: prompt.positivePrompt,
@@ -31,8 +32,8 @@ export class RunwayAdapter implements VideoAdapter {
   }
 
   async checkJobStatus(providerJobId: string): Promise<AsyncJobStatus> {
-    const apiKey = normalizeApiKey(this.apiKey);
-    if (!apiKey || apiKey === "mock") {
+    const apiKey = normalizeProviderApiKey(this.apiKey);
+    if (!apiKey || isMockProviderApiKey(apiKey)) {
       assertMockProviderAllowed(this.slug);
       return this.mock.checkJobStatus?.(providerJobId) ?? { status: "complete", progress: 100 };
     }
@@ -71,10 +72,6 @@ export class RunwayAdapter implements VideoAdapter {
     }
     return payload;
   }
-}
-
-function normalizeApiKey(apiKey: string) {
-  return apiKey.trim();
 }
 
 export class KlingAdapter {

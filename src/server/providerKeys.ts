@@ -1,3 +1,4 @@
+import { isLiveProviderApiKey, normalizeProviderApiKey } from "@/providers/providerKeySafety";
 import { AppError } from "@/server/errors";
 import { decryptProjectProviderKey } from "@/server/repository";
 
@@ -38,7 +39,7 @@ export async function resolveRunwayApiKeyForProject(projectId: string) {
 
 async function resolveProviderKey(projectId: string, providerSlug: ProviderSlug, fallbackKey: string | undefined) {
   const workspaceKey = await resolveWorkspaceProviderKey(projectId, providerSlug);
-  return workspaceKey?.trim() || fallbackKey?.trim();
+  return normalizeProviderApiKey(workspaceKey) || normalizeProviderApiKey(fallbackKey);
 }
 
 async function resolveWorkspaceProviderKey(projectId: string, providerSlug: ProviderSlug) {
@@ -57,5 +58,5 @@ function isNotFoundError(error: unknown) {
 }
 
 function isUsableProviderKey(key: string | undefined): key is string {
-  return Boolean(key && (key !== "mock" || process.env.NODE_ENV !== "production"));
+  return process.env.NODE_ENV === "production" ? isLiveProviderApiKey(key) : Boolean(normalizeProviderApiKey(key));
 }

@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { OpenAIAdapter } from "@/providers/openai";
+import { isMockProviderApiKey } from "@/providers/providerKeySafety";
 import { AppError, NotFoundError } from "@/server/errors";
 import { createId, nowIso } from "@/server/ids";
 import {
@@ -188,7 +189,7 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
 
 async function createScriptAnalysisJob(projectId: string, scriptVersionId: string) {
   const apiKey = await resolveOpenAiApiKeyForProject(projectId);
-  const usesLiveOpenAi = apiKey !== "mock";
+  const usesLiveOpenAi = !isMockProviderApiKey(apiKey);
   return createGenerationJob({
     projectId,
     type: "script_analysis",
@@ -200,7 +201,7 @@ async function createScriptAnalysisJob(projectId: string, scriptVersionId: strin
 
 async function analyzeScriptWithConfiguredProvider(projectId: string, scriptText: string) {
   const apiKey = await resolveOpenAiApiKeyForProject(projectId);
-  if (apiKey === "mock") {
+  if (isMockProviderApiKey(apiKey)) {
     const scenes = extractScenes(scriptText);
     const shots = scenes.map((scene) => breakSceneIntoShots(scene, scriptText));
     return {

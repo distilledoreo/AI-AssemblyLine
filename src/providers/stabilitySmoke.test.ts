@@ -3,7 +3,7 @@ import { runStabilitySmoke } from "@/providers/stabilitySmoke";
 
 describe("Stability smoke helper", () => {
   it("requires a real API key", async () => {
-    await expect(runStabilitySmoke({ apiKey: "mock" })).rejects.toThrow(/STABILITY_API_KEY/);
+    await expect(runStabilitySmoke({ apiKey: " Mock " })).rejects.toThrow(/STABILITY_API_KEY/);
     await expect(runStabilitySmoke({ apiKey: "" })).rejects.toThrow(/STABILITY_API_KEY/);
   });
 

@@ -3,7 +3,7 @@ import { runOpenAiSmoke } from "@/providers/openaiSmoke";
 
 describe("OpenAI smoke helper", () => {
   it("requires a real API key", async () => {
-    await expect(runOpenAiSmoke({ apiKey: "mock" })).rejects.toThrow(/OPENAI_API_KEY/);
+    await expect(runOpenAiSmoke({ apiKey: " MOCK " })).rejects.toThrow(/OPENAI_API_KEY/);
     await expect(runOpenAiSmoke({ apiKey: "" })).rejects.toThrow(/OPENAI_API_KEY/);
   });
 

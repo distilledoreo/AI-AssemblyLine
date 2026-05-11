@@ -3,7 +3,7 @@ import { runRunwaySmoke } from "@/providers/runwaySmoke";
 
 describe("Runway smoke helper", () => {
   it("requires a real API key", async () => {
-    await expect(runRunwaySmoke({ apiKey: "mock" })).rejects.toThrow(/RUNWAYML_API_SECRET/);
+    await expect(runRunwaySmoke({ apiKey: " mOcK " })).rejects.toThrow(/RUNWAYML_API_SECRET/);
     await expect(runRunwaySmoke({ apiKey: "" })).rejects.toThrow(/RUNWAYML_API_SECRET/);
   });
 

@@ -34,9 +34,9 @@ describe("production preflight", () => {
         NEXTAUTH_URL: "https://assemblyline.example.com",
         NEXTAUTH_SECRET: "short",
         ENCRYPTION_KEY: "not-32-bytes",
-        OPENAI_API_KEY: "mock",
-        STABILITY_API_KEY: "mock",
-        RUNWAYML_API_SECRET: "mock",
+        OPENAI_API_KEY: "MOCK",
+        STABILITY_API_KEY: " Mock ",
+        RUNWAYML_API_SECRET: "mOcK",
       },
       () => false,
     );

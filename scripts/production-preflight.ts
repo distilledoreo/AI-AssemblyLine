@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
+import { isLiveProviderApiKey } from "../src/providers/providerKeySafety";
 
 type Env = Record<string, string | undefined>;
 type CheckResult = {
@@ -59,22 +60,22 @@ export function evaluateProductionPreflight(
   const openAiKey = env.OPENAI_API_KEY?.trim() ?? "";
   results.push({
     name: "OPENAI_API_KEY",
-    ok: Boolean(openAiKey) && openAiKey !== "mock",
-    detail: openAiKey && openAiKey !== "mock" ? "configured for live smoke test" : "missing or mock",
+    ok: isLiveProviderApiKey(openAiKey),
+    detail: isLiveProviderApiKey(openAiKey) ? "configured for live smoke test" : "missing or mock",
   });
 
   const stabilityKey = env.STABILITY_API_KEY?.trim() ?? "";
   results.push({
     name: "STABILITY_API_KEY",
-    ok: Boolean(stabilityKey) && stabilityKey !== "mock",
-    detail: stabilityKey && stabilityKey !== "mock" ? "configured for live smoke test" : "missing or mock",
+    ok: isLiveProviderApiKey(stabilityKey),
+    detail: isLiveProviderApiKey(stabilityKey) ? "configured for live smoke test" : "missing or mock",
   });
 
   const runwayKey = env.RUNWAYML_API_SECRET?.trim() ?? "";
   results.push({
     name: "RUNWAYML_API_SECRET",
-    ok: Boolean(runwayKey) && runwayKey !== "mock",
-    detail: runwayKey && runwayKey !== "mock" ? "configured for live video submission" : "missing or mock",
+    ok: isLiveProviderApiKey(runwayKey),
+    detail: isLiveProviderApiKey(runwayKey) ? "configured for live video submission" : "missing or mock",
   });
 
   results.push(oauthPairCheck("Google OAuth", env, ["AUTH_GOOGLE_ID", "GOOGLE_CLIENT_ID", "GOOGLE_ID"], [

@@ -95,7 +95,7 @@ describe("foundation repository flows", () => {
     await expect(
       saveProviderKey("00000000-0000-4000-8000-000000000000", {
         providerSlug: "stability",
-        apiKey: "mock",
+        apiKey: " MOCK ",
       }),
     ).rejects.toMatchObject({ code: "provider_key_missing" });
   });

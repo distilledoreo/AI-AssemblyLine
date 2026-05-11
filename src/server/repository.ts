@@ -10,6 +10,7 @@ import { emitProjectEvent } from "@/server/queue";
 import { submitGenerationJob } from "@/server/queue";
 import { prisma } from "@/server/prisma";
 import { isLiveProviderSlug } from "@/providers/liveProviderCatalog";
+import { isMockProviderApiKey } from "@/providers/providerKeySafety";
 import { ensureProjectStorage, projectStoragePath } from "@/server/storage";
 import type {
   GenerationJob,
@@ -3362,7 +3363,7 @@ export async function saveProviderKey(
   if (!providerSlug || apiKey.length < 3) {
     throw new AppError("Provider slug and API key are required.");
   }
-  if (process.env.NODE_ENV === "production" && apiKey === "mock") {
+  if (process.env.NODE_ENV === "production" && isMockProviderApiKey(apiKey)) {
     throw new AppError("A real provider API key is required in production.", 400, "provider_key_missing");
   }
 

@@ -33,8 +33,8 @@ describe("provider key resolution", () => {
     });
   });
 
-  it("rejects mock OpenAI credentials in production", async () => {
-    vi.stubEnv("OPENAI_API_KEY", "mock");
+  it("rejects mock OpenAI credentials in production regardless of casing", async () => {
+    vi.stubEnv("OPENAI_API_KEY", " MOCK ");
     vi.stubEnv("NODE_ENV", "production");
 
     await expect(resolveOpenAiApiKeyForProject("00000000-0000-4000-8000-000000000000")).rejects.toMatchObject({
