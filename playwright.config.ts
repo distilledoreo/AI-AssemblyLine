@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
@@ -11,7 +13,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "npm.cmd run dev -- --hostname 127.0.0.1 --port 3100",
+    command: `${npmCommand} run dev -- --hostname 127.0.0.1 --port 3100`,
     url: "http://127.0.0.1:3100/signin",
     reuseExistingServer: false,
     timeout: 90_000,

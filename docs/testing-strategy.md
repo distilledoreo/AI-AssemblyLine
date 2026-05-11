@@ -74,7 +74,7 @@ Integration and E2E tests use a separate Postgres database (`assemblyline_test`)
 - Test coverage is tracked but not gated (no minimum percentage). Coverage trends are monitored for regressions.
 - Provider mock factory is the only way to test provider interactions in CI. Real API calls are never made in automated tests.
 
-The checked-in GitHub Actions workflow at `.github/workflows/ci.yml` runs on pull requests and pushes to `main`. It installs with `npm ci`, generates and validates the Prisma client/schema, runs the dependency audit, runs Vitest, lint, the production build, installs Chromium, and runs the Playwright E2E workflow. The Playwright step uses inline queue mode, memory repository mode, mocked/local providers, and disposable local storage so browser coverage can verify non-secret behavior without real API keys or external production services.
+The checked-in GitHub Actions workflow at `.github/workflows/ci.yml` runs on pull requests and pushes to `main`. It installs with `npm ci`, generates and validates the Prisma client/schema, runs the dependency audit, runs Vitest, lint, the production build, installs Chromium, and runs the Playwright E2E workflow. The Playwright step uses inline queue mode, memory repository mode, mocked/local providers, disposable local storage, and a platform-aware npm command so browser coverage can run on both Windows development machines and Linux CI runners without real API keys or external production services.
 
 ## What to test per phase
 
