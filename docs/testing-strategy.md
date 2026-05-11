@@ -37,6 +37,7 @@ Test critical user flows through the full stack (browser → API → database �
 - Video clip generation.
 - Export and re-import of a project bundle.
 - Team invitation and role enforcement.
+- Conditional Google/GitHub OAuth button visibility with fake OAuth clients.
 
 Framework: **Playwright** with a dedicated test database and mocked provider adapters.
 

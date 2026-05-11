@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 
 test("creator can run the core project workflow and export a bundle", async ({ page }) => {
   await page.goto("/signin");
+  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
   await page.getByRole("textbox", { name: "Email" }).fill(`e2e-${Date.now()}@example.com`);
   await page.getByRole("textbox", { name: "Password" }).fill("assemblyline");
   await page.getByRole("button", { name: "Sign in" }).click();
