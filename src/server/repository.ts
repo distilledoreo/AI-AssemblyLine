@@ -1966,7 +1966,7 @@ export async function persistAssetState(asset: Asset) {
       firstAppearance: toPrismaJson(asset.firstAppearance),
       isUserEdited: asset.isUserEdited ?? false,
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function getSceneById(sceneId: string) {
@@ -2640,8 +2640,8 @@ export async function persistGeneratedFrameVersion(input: {
       annotations: toPrismaJson(input.version.annotations),
       createdAt: new Date(input.version.createdAt),
     },
-  }).catch(() => undefined);
-  await prisma.shot.update({ where: { id: input.shot.id }, data: { status: input.shot.status } }).catch(() => undefined);
+  });
+  await prisma.shot.update({ where: { id: input.shot.id }, data: { status: input.shot.status } });
   if (input.version.generationJobId) {
     await prisma.generationJob.update({
       where: { id: input.version.generationJobId },
@@ -2650,7 +2650,7 @@ export async function persistGeneratedFrameVersion(input: {
         outputPayload: toPrismaJson({ frameId: input.frame.id, frameVersionId: input.version.id }),
         completedAt: new Date(),
       },
-    }).catch(() => undefined);
+    });
   }
 }
 
@@ -2677,7 +2677,7 @@ export async function persistFrameVersionState(version: FrameVersion) {
     await prisma.frameVersion.updateMany({
       where: { frameId: version.frameId, status: "approved", id: { not: version.id } },
       data: { status: "superseded" },
-    }).catch(() => undefined);
+    });
   }
   await prisma.frameVersion.update({
     where: { id: version.id },
@@ -2686,7 +2686,7 @@ export async function persistFrameVersionState(version: FrameVersion) {
       annotations: toPrismaJson(version.annotations),
       isStale: version.isStale,
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistReviewNoteState(note: ReviewNote) {
@@ -2712,7 +2712,7 @@ export async function persistReviewNoteState(note: ReviewNote) {
       createdAt: new Date(note.createdAt),
       updatedAt: new Date(note.updatedAt),
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistGeneratedClipVersion(input: {

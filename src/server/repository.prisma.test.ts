@@ -1478,6 +1478,47 @@ describe("Prisma repository mode", () => {
     });
   });
 
+  it("rejects generated storyboard persistence when the frame-version write fails", async () => {
+    const repository = await import("@/server/repository");
+    const frame = {
+      id: "13131313-1313-4131-8131-131313131313",
+      shotId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      keyframeIndex: 0,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const version = {
+      id: "14141414-1414-4141-8141-141414141414",
+      frameId: frame.id,
+      versionNumber: 1,
+      prompt: "Wide frame of Anna in the room.",
+      filePath: "storage/projects/project/storyboards/frame.png",
+      thumbnailPath: "storage/projects/project/storyboards/frame-thumb.png",
+      status: "draft" as const,
+      isStale: false,
+      generationJobId: "99999999-9999-4999-8999-999999999999",
+      createdAt: timestamp.toISOString(),
+    };
+    const shot = {
+      id: frame.shotId,
+      sceneId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      shotNumber: 1,
+      action: "Anna waits.",
+      status: "storyboarded" as const,
+      isUserEdited: false,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    prismaMock.storyboardFrame.upsert.mockResolvedValue(frame);
+    prismaMock.frameVersion.create.mockRejectedValue(new Error("frame version write failed"));
+
+    await expect(repository.persistGeneratedFrameVersion({ frame, version, shot })).rejects.toThrow(
+      "frame version write failed",
+    );
+    expect(prismaMock.shot.update).not.toHaveBeenCalled();
+    expect(prismaMock.generationJob.update).not.toHaveBeenCalled();
+  });
+
   it("persists video clip writes through Prisma", async () => {
     const repository = await import("@/server/repository");
     const clip = {
