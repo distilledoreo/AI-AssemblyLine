@@ -21,6 +21,7 @@
     "smoke:runway": "tsx scripts/smoke-runway.ts",
     "smoke:providers": "tsx scripts/smoke-providers.ts",
     "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate --schema prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev",
     "verify:phase1": "vitest run && next build"
   },

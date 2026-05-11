@@ -163,6 +163,7 @@ function oauthPairCheck(name: string, env: Env, clientIdKeys: string[], clientSe
 
 export async function runProductionPreflight(env: Env = process.env) {
   const results = evaluateProductionPreflight(env);
+  results.push(checkPrismaSchema(env));
   results.push(await checkStorageRoot(env.STORAGE_ROOT));
   results.push(await checkTcpUrl("Postgres TCP", env.DATABASE_URL, ["postgres:", "postgresql:"]));
   results.push(await checkTcpUrl("Redis TCP", env.REDIS_URL, ["redis:", "rediss:"]));
@@ -179,6 +180,52 @@ function decodeBase64Length(value: string) {
   } catch {
     return 0;
   }
+}
+
+export function checkPrismaSchema(
+  env: Env,
+  runCommand: (
+    command: string,
+    args: string[],
+    options: { env: NodeJS.ProcessEnv; encoding: "utf8" },
+  ) => { status: number | null; error?: Error; stderr?: string; stdout?: string } = defaultRunCommand,
+): CheckResult {
+  const command = process.platform === "win32" ? "cmd.exe" : "npx";
+  const args =
+    process.platform === "win32"
+      ? ["/c", "npx.cmd", "prisma", "validate", "--schema", "prisma/schema.prisma"]
+      : ["prisma", "validate", "--schema", "prisma/schema.prisma"];
+  const databaseUrl = env.DATABASE_URL?.trim() || "postgresql://preflight:preflight@localhost:5432/preflight";
+  const result = runCommand(command, args, {
+    env: sanitizeProcessEnv({ ...process.env, ...env, DATABASE_URL: databaseUrl }),
+    encoding: "utf8",
+  });
+  const ok = result.status === 0;
+  return {
+    name: "Prisma schema",
+    ok,
+    detail: ok ? "schema valid" : commandFailureDetail(result, "schema validation failed"),
+  };
+}
+
+function sanitizeProcessEnv(env: Env): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined)) as NodeJS.ProcessEnv;
+}
+
+function defaultRunCommand(
+  command: string,
+  args: string[],
+  options: { env: NodeJS.ProcessEnv; encoding: "utf8" },
+) {
+  return spawnSync(command, args, options);
+}
+
+function commandFailureDetail(result: { error?: Error; stderr?: string; stdout?: string }, fallback: string) {
+  const output = `${result.stderr ?? ""}\n${result.stdout ?? ""}`
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+  return result.error?.message ?? output ?? fallback;
 }
 
 async function checkTcpUrl(name: string, value: string | undefined, allowedProtocols: string[]): Promise<CheckResult> {

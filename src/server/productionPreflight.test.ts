@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { DEVELOPMENT_ENCRYPTION_KEY, DEVELOPMENT_NEXTAUTH_SECRET } from "@/lib/config";
 import {
   checkStorageRoot,
+  checkPrismaSchema,
   evaluateProductionPreflight,
   loadProductionEnvFiles,
   runProductionPreflight,
@@ -248,6 +249,47 @@ describe("production preflight", () => {
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
+  });
+
+  it("validates the Prisma schema with the release environment", () => {
+    const calls: Array<{ command: string; args: string[]; env: NodeJS.ProcessEnv }> = [];
+    const result = checkPrismaSchema(
+      { DATABASE_URL: "postgresql://release:secret@db.example.com:5432/assemblyline" },
+      (command, args, options) => {
+        calls.push({ command, args, env: options.env });
+        return { status: 0, stderr: "", stdout: "Prisma schema loaded" };
+      },
+    );
+
+    expect(result).toEqual({ name: "Prisma schema", ok: true, detail: "schema valid" });
+    expect(calls[0].args.join(" ")).toContain("prisma validate --schema prisma/schema.prisma");
+    expect(calls[0].command).toMatch(/^(npx|cmd\.exe)$/);
+    expect(calls[0].env.DATABASE_URL).toBe("postgresql://release:secret@db.example.com:5432/assemblyline");
+  });
+
+  it("omits undefined values from the Prisma validation command environment", () => {
+    const calls: Array<{ env: NodeJS.ProcessEnv }> = [];
+    checkPrismaSchema({ DATABASE_URL: undefined, REDIS_URL: undefined }, (_command, _args, options) => {
+      calls.push({ env: options.env });
+      return { status: 0, stderr: "", stdout: "" };
+    });
+
+    expect(calls[0].env.DATABASE_URL).toBe("postgresql://preflight:preflight@localhost:5432/preflight");
+    expect(calls[0].env.REDIS_URL).toBeUndefined();
+  });
+
+  it("reports Prisma schema validation failures", () => {
+    const result = checkPrismaSchema({}, () => ({
+      status: 1,
+      stderr: "Prisma schema validation failed",
+      stdout: "",
+    }));
+
+    expect(result).toEqual({
+      name: "Prisma schema",
+      ok: false,
+      detail: "Prisma schema validation failed",
+    });
   });
 
   it("rejects non-Postgres and non-Redis dependency URLs before TCP checks", async () => {
