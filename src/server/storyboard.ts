@@ -171,14 +171,17 @@ export async function attachSketch(input: {
     throw new AppError("Unsupported sketch format. Use PNG, JPEG, WebP, or TIFF.", 400, "unsupported_sketch");
   }
   const store = getStore();
-  const shot = store.shots.find((candidate) => candidate.id === input.shotId);
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
+  const shot = graph.shots.find((candidate) => candidate.id === input.shotId);
   if (!shot) throw new NotFoundError("Shot not found.");
   const timestamp = nowIso();
-  let frame = store.storyboardFrames.find((candidate) => candidate.shotId === input.shotId && candidate.keyframeIndex === 0);
+  let frame =
+    graph.storyboardFrames.find((candidate) => candidate.shotId === input.shotId && candidate.keyframeIndex === 0) ??
+    store.storyboardFrames.find((candidate) => candidate.shotId === input.shotId && candidate.keyframeIndex === 0);
   if (!frame) {
     frame = { id: createId(), shotId: input.shotId, keyframeIndex: 0, createdAt: timestamp, updatedAt: timestamp };
-    store.storyboardFrames.push(frame);
   }
+  mirrorStoryboardFrameForLegacyState(frame);
   const dir = path.join(projectFolderPath(input.projectId, "storyboards"), input.shotId);
   await mkdir(dir, { recursive: true });
   const filePath = path.join(dir, `sketch-${input.fileName.replace(/[^a-z0-9._-]/gi, "_")}`);
@@ -186,7 +189,7 @@ export async function attachSketch(input: {
   frame.sketchFilePath = filePath;
   frame.updatedAt = timestamp;
   await persistStoryboardFrameState(frame);
-  return getScriptAnalysisGraph(input.projectId);
+  return getScriptAnalysisGraphForProject(input.projectId);
 }
 
 export async function addFrameComment(input: {

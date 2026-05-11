@@ -76,6 +76,23 @@ describe("storyboard workflow", () => {
     ).rejects.toMatchObject({ code: "unsupported_sketch" });
   });
 
+  it("attaches uploaded sketches to storyboard frames", async () => {
+    const { project, graph } = await readyProject();
+    const shot = graph.shots[0];
+
+    const updated = await attachSketch({
+      projectId: project.id,
+      shotId: shot.id,
+      fileName: "thumbnail.png",
+      mimeType: "image/png",
+      data: Buffer.from("sketch"),
+    });
+
+    expect(updated.storyboardFrames).toHaveLength(1);
+    expect(updated.storyboardFrames[0].shotId).toBe(shot.id);
+    expect(updated.storyboardFrames[0].sketchFilePath).toContain("thumbnail.png");
+  });
+
   it("composes prompts with conflict and truncation warnings", async () => {
     const { graph } = await readyProject();
     const prompt = composeStoryboardPrompt({
