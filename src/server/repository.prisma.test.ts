@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
+  $transaction: vi.fn(async (operations: Promise<unknown>[]) => Promise.all(operations)),
   user: {
     upsert: vi.fn(),
   },
@@ -373,6 +374,7 @@ function mockReadinessGraph() {
 describe("Prisma repository mode", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$transaction.mockImplementation(async (operations: Promise<unknown>[]) => Promise.all(operations));
     process.env.REPOSITORY_MODE = "prisma";
   });
 
@@ -509,9 +511,75 @@ describe("Prisma repository mode", () => {
     expect(await repository.getProjectRole(user.id, createdProject.id)).toBe("owner");
     expect((await repository.getProjectDashboard(createdProject.id)).jobs[0].id).toBe(job.id);
     expect(providerKey.maskedKey).toBe("sk-l...test");
+    const providerKeyTransaction = await Promise.all(prismaMock.$transaction.mock.calls[0][0]);
+    expect(providerKeyTransaction).toEqual([
+      expect.objectContaining({ count: 0 }),
+      expect.objectContaining({ id: "77777777-7777-4777-8777-777777777777" }),
+    ]);
     expect(await repository.decryptWorkspaceProviderKey(createdWorkspace.id, "openai")).toBe("sk-live-repository-test");
     expect(await repository.decryptProjectProviderKey(createdProject.id, "openai")).toBe("sk-live-repository-test");
     expect(await repository.listProviderKeys(createdWorkspace.id)).toHaveLength(1);
+  });
+
+  it("replaces Prisma provider keys atomically", async () => {
+    const repository = await import("@/server/repository");
+    const workspace = {
+      id: "22222222-2222-4222-8222-222222222222",
+      name: "Studio",
+      slug: "studio",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    prismaMock.workspace.findUnique.mockResolvedValue(workspace);
+    prismaMock.providerKey.deleteMany.mockResolvedValue({ count: 1 });
+    prismaMock.providerKey.create.mockImplementation(async ({ data }) => ({
+      id: "77777777-7777-4777-8777-777777777777",
+      ...data,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }));
+
+    await expect(
+      repository.saveProviderKey(workspace.id, {
+        providerSlug: "openai",
+        apiKey: "sk-live-repository-rotation",
+        label: "Rotated OpenAI",
+      }),
+    ).resolves.toMatchObject({ providerSlug: "openai", label: "Rotated OpenAI" });
+
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    await expect(Promise.all(prismaMock.$transaction.mock.calls[0][0])).resolves.toEqual([
+      expect.objectContaining({ count: 1 }),
+      expect.objectContaining({ id: "77777777-7777-4777-8777-777777777777" }),
+    ]);
+  });
+
+  it("surfaces provider-key replacement transaction failures", async () => {
+    const repository = await import("@/server/repository");
+    const workspace = {
+      id: "22222222-2222-4222-8222-222222222222",
+      name: "Studio",
+      slug: "studio",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    prismaMock.workspace.findUnique.mockResolvedValue(workspace);
+    prismaMock.providerKey.deleteMany.mockResolvedValue({ count: 1 });
+    prismaMock.providerKey.create.mockImplementation(async ({ data }) => ({
+      id: "77777777-7777-4777-8777-777777777777",
+      ...data,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }));
+    prismaMock.$transaction.mockRejectedValue(new Error("provider key transaction failed"));
+
+    await expect(
+      repository.saveProviderKey(workspace.id, {
+        providerSlug: "openai",
+        apiKey: "sk-live-repository-rotation",
+        label: "Rotated OpenAI",
+      }),
+    ).rejects.toThrow("provider key transaction failed");
   });
 
   it("surfaces project update write failures that are not Prisma not-found errors", async () => {

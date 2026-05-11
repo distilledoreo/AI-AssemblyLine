@@ -80,6 +80,7 @@ The rotation command loads `.env`, `.env.production`, `.env.local`, and `.env.pr
 - Provider API keys are **never** included in: API responses to the client, generation logs, prompt metadata, export bundles, error messages, or browser-accessible storage.
 - The decrypted key exists only in memory for the duration of a provider API call.
 - The `ProviderKey` table is excluded from all export queries.
+- Replacing a saved workspace provider key is an atomic database transaction, so a failed replacement does not delete the previously working credential.
 - Runtime generation falls back to server environment keys only when no workspace provider key is saved. Workspace provider-key database, lookup, or decryption failures are surfaced as runtime errors instead of silently using fallback credentials.
 
 ## Local development setup

@@ -3465,16 +3465,18 @@ export async function saveProviderKey(
       throw new NotFoundError("Workspace not found.");
     }
     const encrypted = encryptProviderKey(apiKey);
-    await prisma.providerKey.deleteMany({ where: { workspaceId, providerSlug } });
-    const providerKey = await prisma.providerKey.create({
-      data: {
-        workspaceId,
-        providerSlug,
-        encryptedKey: Buffer.from(encrypted.encryptedKey, "base64"),
-        keyNonce: Buffer.from(encrypted.keyNonce, "base64"),
-        label: input.label?.trim() || providerSlug,
-      },
-    });
+    const [, providerKey] = await prisma.$transaction([
+      prisma.providerKey.deleteMany({ where: { workspaceId, providerSlug } }),
+      prisma.providerKey.create({
+        data: {
+          workspaceId,
+          providerSlug,
+          encryptedKey: Buffer.from(encrypted.encryptedKey, "base64"),
+          keyNonce: Buffer.from(encrypted.keyNonce, "base64"),
+          label: input.label?.trim() || providerSlug,
+        },
+      }),
+    ]);
     return toSafeProviderKey(mapProviderKey(providerKey));
   }
 
