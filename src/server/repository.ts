@@ -2240,7 +2240,8 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
-  await prisma.script.createMany({
+  const operations: Prisma.PrismaPromise<unknown>[] = [];
+  operations.push(prisma.script.createMany({
     data: graph.scripts.map((script) => ({
       id: script.id,
       projectId: script.projectId,
@@ -2248,9 +2249,9 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       createdAt: new Date(script.createdAt),
     })),
     skipDuplicates: true,
-  });
+  }));
   if (graph.activeVersion) {
-    await prisma.scriptVersion.createMany({
+    operations.push(prisma.scriptVersion.createMany({
       data: [
         {
           id: graph.activeVersion.id,
@@ -2264,9 +2265,9 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
         },
       ],
       skipDuplicates: true,
-    });
+    }));
   }
-  await prisma.scene.createMany({
+  operations.push(prisma.scene.createMany({
     data: graph.scenes.map((scene) => ({
       id: scene.id,
       scriptVersionId: scene.scriptVersionId,
@@ -2283,8 +2284,8 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       updatedAt: new Date(scene.updatedAt),
     })),
     skipDuplicates: true,
-  });
-  await prisma.shot.createMany({
+  }));
+  operations.push(prisma.shot.createMany({
     data: graph.shots.map((shot) => ({
       id: shot.id,
       sceneId: shot.sceneId,
@@ -2301,8 +2302,8 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       updatedAt: new Date(shot.updatedAt),
     })),
     skipDuplicates: true,
-  });
-  await prisma.asset.createMany({
+  }));
+  operations.push(prisma.asset.createMany({
     data: graph.assets.map((asset) => ({
       id: asset.id,
       projectId: asset.projectId,
@@ -2319,14 +2320,14 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       updatedAt: new Date(asset.updatedAt),
     })),
     skipDuplicates: true,
-  });
-  await Promise.all(
-    graph.assetDetails.map((detail) => {
-      const asset = graph.assets.find((candidate) => candidate.id === detail.assetId);
-      return asset ? persistAssetDetailState(asset, detail) : undefined;
-    }),
-  );
-  await prisma.assetVersion.createMany({
+  }));
+  for (const detail of graph.assetDetails) {
+    const asset = graph.assets.find((candidate) => candidate.id === detail.assetId);
+    if (asset) {
+      operations.push(...prismaAssetDetailOperations(asset, detail));
+    }
+  }
+  operations.push(prisma.assetVersion.createMany({
     data: graph.assetVersions.map((version) => ({
       id: version.id,
       assetId: version.assetId,
@@ -2337,146 +2338,8 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       createdAt: new Date(version.createdAt),
     })),
     skipDuplicates: true,
-  });
-  await prisma.assetReference.createMany({
-    data: graph.assetReferences.map((reference) => ({
-      id: reference.id,
-      assetVersionId: reference.assetVersionId,
-      referenceType: reference.referenceType,
-      filePath: reference.filePath,
-      mimeType: reference.mimeType,
-      width: reference.width,
-      height: reference.height,
-      thumbnailPath: reference.thumbnailPath,
-      generationJobId: reference.generationJobId,
-      createdAt: new Date(reference.createdAt),
-    })),
-    skipDuplicates: true,
-  });
-  await prisma.sceneAssetReq.createMany({
-    data: graph.sceneAssetRequirements,
-    skipDuplicates: true,
-  });
-  await prisma.shotAssetReq.createMany({
-    data: graph.shotAssetRequirements,
-    skipDuplicates: true,
-  });
-  await prisma.storyboardFrame.createMany({
-    data: graph.storyboardFrames.map((frame) => ({
-      id: frame.id,
-      shotId: frame.shotId,
-      keyframeIndex: frame.keyframeIndex,
-      sketchFilePath: frame.sketchFilePath,
-      sketchWarning: frame.sketchWarning,
-      createdAt: new Date(frame.createdAt),
-      updatedAt: new Date(frame.updatedAt),
-    })),
-    skipDuplicates: true,
-  });
-  await prisma.frameVersion.createMany({
-    data: graph.frameVersions.map((version) => ({
-      id: version.id,
-      frameId: version.frameId,
-      versionNumber: version.versionNumber,
-      prompt: version.prompt,
-      filePath: version.filePath,
-      thumbnailPath: version.thumbnailPath,
-      status: version.status,
-      isStale: version.isStale,
-      generationJobId: version.generationJobId,
-      annotations: toPrismaJson(version.annotations),
-      createdAt: new Date(version.createdAt),
-    })),
-    skipDuplicates: true,
-  });
-  await prisma.videoClip.createMany({
-    data: graph.videoClips.map((clip) => ({
-      id: clip.id,
-      shotId: clip.shotId,
-      sceneId: clip.sceneId,
-      createdAt: new Date(clip.createdAt),
-      updatedAt: new Date(clip.updatedAt),
-    })),
-    skipDuplicates: true,
-  });
-  await prisma.clipVersion.createMany({
-    data: graph.clipVersions.map((version) => ({
-      id: version.id,
-      clipId: version.clipId,
-      versionNumber: version.versionNumber,
-      prompt: version.prompt,
-      filePath: version.filePath,
-      thumbnailPath: version.thumbnailPath,
-      durationMs: version.durationMs,
-      status: version.status,
-      isStale: version.isStale,
-      sourceFrameVersionIds: toPrismaJson(version.sourceFrameVersionIds) ?? [],
-      generationJobId: version.generationJobId,
-      createdAt: new Date(version.createdAt),
-    })),
-    skipDuplicates: true,
-  });
-  await prisma.reviewNote.createMany({
-    data: graph.reviewNotes.map((note) => ({
-      id: note.id,
-      projectId: note.projectId,
-      authorId: note.authorId,
-      targetType: note.targetType,
-      targetId: note.targetId,
-      parentNoteId: note.parentNoteId,
-      body: note.body,
-      markupFilePath: note.markupFilePath,
-      status: note.status,
-      createdAt: new Date(note.createdAt),
-      updatedAt: new Date(note.updatedAt),
-    })),
-    skipDuplicates: true,
-  });
-  await prisma.invitation.createMany({
-    data: graph.invitations.map((invitation) => ({
-      id: invitation.id,
-      workspaceId: invitation.workspaceId,
-      projectId: invitation.projectId,
-      email: invitation.email,
-      tokenHash: invitation.tokenHash,
-      scope: invitation.scope,
-      role: invitation.role,
-      status: invitation.status,
-      expiresAt: new Date(invitation.expiresAt),
-      invitedById: invitation.invitedById,
-      acceptedAt: invitation.acceptedAt ? new Date(invitation.acceptedAt) : undefined,
-      createdAt: new Date(invitation.createdAt),
-    })),
-    skipDuplicates: true,
-  });
-  await prisma.assignment.createMany({
-    data: graph.assignments.map((assignment) => ({
-      id: assignment.id,
-      projectId: assignment.projectId,
-      userId: assignment.userId,
-      targetType: assignment.targetType,
-      sceneId: assignment.sceneId,
-      shotId: assignment.shotId,
-      assetId: assignment.assetId,
-      status: assignment.status,
-      createdAt: new Date(assignment.createdAt),
-      updatedAt: new Date(assignment.updatedAt),
-    })),
-    skipDuplicates: true,
-  });
-  await prisma.activityEvent.createMany({
-    data: graph.activityEvents.map((event) => ({
-      id: event.id,
-      projectId: event.projectId,
-      actorId: event.actorId,
-      eventType: event.eventType,
-      message: event.message,
-      metadata: toPrismaJson(event.metadata),
-      createdAt: new Date(event.createdAt),
-    })),
-    skipDuplicates: true,
-  });
-  await prisma.generationJob.createMany({
+  }));
+  operations.push(prisma.generationJob.createMany({
     data: graph.jobs.map((job) => ({
       id: job.id,
       projectId: job.projectId,
@@ -2495,8 +2358,146 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       completedAt: job.completedAt ? new Date(job.completedAt) : undefined,
     })),
     skipDuplicates: true,
-  });
-  await prisma.jobEvent.createMany({
+  }));
+  operations.push(prisma.assetReference.createMany({
+    data: graph.assetReferences.map((reference) => ({
+      id: reference.id,
+      assetVersionId: reference.assetVersionId,
+      referenceType: reference.referenceType,
+      filePath: reference.filePath,
+      mimeType: reference.mimeType,
+      width: reference.width,
+      height: reference.height,
+      thumbnailPath: reference.thumbnailPath,
+      generationJobId: reference.generationJobId,
+      createdAt: new Date(reference.createdAt),
+    })),
+    skipDuplicates: true,
+  }));
+  operations.push(prisma.sceneAssetReq.createMany({
+    data: graph.sceneAssetRequirements,
+    skipDuplicates: true,
+  }));
+  operations.push(prisma.shotAssetReq.createMany({
+    data: graph.shotAssetRequirements,
+    skipDuplicates: true,
+  }));
+  operations.push(prisma.storyboardFrame.createMany({
+    data: graph.storyboardFrames.map((frame) => ({
+      id: frame.id,
+      shotId: frame.shotId,
+      keyframeIndex: frame.keyframeIndex,
+      sketchFilePath: frame.sketchFilePath,
+      sketchWarning: frame.sketchWarning,
+      createdAt: new Date(frame.createdAt),
+      updatedAt: new Date(frame.updatedAt),
+    })),
+    skipDuplicates: true,
+  }));
+  operations.push(prisma.frameVersion.createMany({
+    data: graph.frameVersions.map((version) => ({
+      id: version.id,
+      frameId: version.frameId,
+      versionNumber: version.versionNumber,
+      prompt: version.prompt,
+      filePath: version.filePath,
+      thumbnailPath: version.thumbnailPath,
+      status: version.status,
+      isStale: version.isStale,
+      generationJobId: version.generationJobId,
+      annotations: toPrismaJson(version.annotations),
+      createdAt: new Date(version.createdAt),
+    })),
+    skipDuplicates: true,
+  }));
+  operations.push(prisma.videoClip.createMany({
+    data: graph.videoClips.map((clip) => ({
+      id: clip.id,
+      shotId: clip.shotId,
+      sceneId: clip.sceneId,
+      createdAt: new Date(clip.createdAt),
+      updatedAt: new Date(clip.updatedAt),
+    })),
+    skipDuplicates: true,
+  }));
+  operations.push(prisma.clipVersion.createMany({
+    data: graph.clipVersions.map((version) => ({
+      id: version.id,
+      clipId: version.clipId,
+      versionNumber: version.versionNumber,
+      prompt: version.prompt,
+      filePath: version.filePath,
+      thumbnailPath: version.thumbnailPath,
+      durationMs: version.durationMs,
+      status: version.status,
+      isStale: version.isStale,
+      sourceFrameVersionIds: toPrismaJson(version.sourceFrameVersionIds) ?? [],
+      generationJobId: version.generationJobId,
+      createdAt: new Date(version.createdAt),
+    })),
+    skipDuplicates: true,
+  }));
+  operations.push(prisma.reviewNote.createMany({
+    data: graph.reviewNotes.map((note) => ({
+      id: note.id,
+      projectId: note.projectId,
+      authorId: note.authorId,
+      targetType: note.targetType,
+      targetId: note.targetId,
+      parentNoteId: note.parentNoteId,
+      body: note.body,
+      markupFilePath: note.markupFilePath,
+      status: note.status,
+      createdAt: new Date(note.createdAt),
+      updatedAt: new Date(note.updatedAt),
+    })),
+    skipDuplicates: true,
+  }));
+  operations.push(prisma.invitation.createMany({
+    data: graph.invitations.map((invitation) => ({
+      id: invitation.id,
+      workspaceId: invitation.workspaceId,
+      projectId: invitation.projectId,
+      email: invitation.email,
+      tokenHash: invitation.tokenHash,
+      scope: invitation.scope,
+      role: invitation.role,
+      status: invitation.status,
+      expiresAt: new Date(invitation.expiresAt),
+      invitedById: invitation.invitedById,
+      acceptedAt: invitation.acceptedAt ? new Date(invitation.acceptedAt) : undefined,
+      createdAt: new Date(invitation.createdAt),
+    })),
+    skipDuplicates: true,
+  }));
+  operations.push(prisma.assignment.createMany({
+    data: graph.assignments.map((assignment) => ({
+      id: assignment.id,
+      projectId: assignment.projectId,
+      userId: assignment.userId,
+      targetType: assignment.targetType,
+      sceneId: assignment.sceneId,
+      shotId: assignment.shotId,
+      assetId: assignment.assetId,
+      status: assignment.status,
+      createdAt: new Date(assignment.createdAt),
+      updatedAt: new Date(assignment.updatedAt),
+    })),
+    skipDuplicates: true,
+  }));
+  operations.push(prisma.activityEvent.createMany({
+    data: graph.activityEvents.map((event) => ({
+      id: event.id,
+      projectId: event.projectId,
+      actorId: event.actorId,
+      eventType: event.eventType,
+      message: event.message,
+      metadata: toPrismaJson(event.metadata),
+      createdAt: new Date(event.createdAt),
+    })),
+    skipDuplicates: true,
+  }));
+  operations.push(prisma.jobEvent.createMany({
     data: graph.events.map((event) => ({
       id: event.id,
       jobId: event.jobId,
@@ -2507,7 +2508,122 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       createdAt: new Date(event.createdAt),
     })),
     skipDuplicates: true,
-  });
+  }));
+  await prisma.$transaction(operations);
+}
+
+function prismaAssetDetailOperations(asset: Asset, detail: AssetDetail): Prisma.PrismaPromise<unknown>[] {
+  if (asset.type === "character") {
+    return [
+      prisma.characterDetail.upsert({
+        where: { assetId: asset.id },
+        update: {
+          role: detail.role ?? "supporting",
+          narrativeDescription: detail.narrativeDescription ?? "",
+          physicalDescription: detail.physicalDescription ?? "",
+          personalityNotes: detail.personalityNotes,
+          performanceNotes: detail.performanceNotes,
+          scaleReference: detail.scaleReference,
+        },
+        create: {
+          assetId: asset.id,
+          role: detail.role ?? "supporting",
+          narrativeDescription: detail.narrativeDescription ?? "",
+          physicalDescription: detail.physicalDescription ?? "",
+          personalityNotes: detail.personalityNotes,
+          performanceNotes: detail.performanceNotes,
+          scaleReference: detail.scaleReference,
+        },
+      }),
+    ];
+  }
+  if (asset.type === "wardrobe") {
+    return [
+      prisma.wardrobeDetail.upsert({
+        where: { assetId: asset.id },
+        update: {
+          outfitName: detail.outfitName ?? asset.canonicalName,
+          storyContext: detail.storyContext ?? "",
+          materialNotes: detail.materialNotes,
+          accessories: toPrismaJson(detail.accessories ?? []),
+          colorPalette: toPrismaJson(detail.colorPalette ?? []),
+        },
+        create: {
+          assetId: asset.id,
+          outfitName: detail.outfitName ?? asset.canonicalName,
+          storyContext: detail.storyContext ?? "",
+          materialNotes: detail.materialNotes,
+          accessories: toPrismaJson(detail.accessories ?? []) ?? [],
+          colorPalette: toPrismaJson(detail.colorPalette ?? []) ?? [],
+        },
+      }),
+    ];
+  }
+  if (asset.type === "location") {
+    return [
+      prisma.locationDetail.upsert({
+        where: { assetId: asset.id },
+        update: {
+          floorPlanNotes: detail.floorPlanNotes,
+          entranceExitNotes: detail.entranceExitNotes,
+          setDressing: detail.setDressing,
+          lightingStates: toPrismaJson(detail.lightingStates),
+          cameraSafeZones: detail.cameraSafeZones,
+        },
+        create: {
+          assetId: asset.id,
+          floorPlanNotes: detail.floorPlanNotes,
+          entranceExitNotes: detail.entranceExitNotes,
+          setDressing: detail.setDressing,
+          lightingStates: toPrismaJson(detail.lightingStates),
+          cameraSafeZones: detail.cameraSafeZones,
+        },
+      }),
+    ];
+  }
+  if (asset.type === "creature") {
+    return [
+      prisma.creatureDetail.upsert({
+        where: { assetId: asset.id },
+        update: {
+          speciesType: detail.speciesType ?? asset.canonicalName,
+          anatomyNotes: detail.anatomyNotes,
+          scaleReference: detail.scaleReference,
+          movementNotes: detail.movementNotes,
+          textureDetails: detail.textureDetails,
+        },
+        create: {
+          assetId: asset.id,
+          speciesType: detail.speciesType ?? asset.canonicalName,
+          anatomyNotes: detail.anatomyNotes,
+          scaleReference: detail.scaleReference,
+          movementNotes: detail.movementNotes,
+          textureDetails: detail.textureDetails,
+        },
+      }),
+    ];
+  }
+  if (asset.type === "prop") {
+    return [
+      prisma.propDetail.upsert({
+        where: { assetId: asset.id },
+        update: {
+          ownerOrScene: detail.ownerOrScene,
+          materialAndWear: detail.materialAndWear,
+          scaleReference: detail.scaleReference,
+          interactionNotes: detail.interactionNotes,
+        },
+        create: {
+          assetId: asset.id,
+          ownerOrScene: detail.ownerOrScene,
+          materialAndWear: detail.materialAndWear,
+          scaleReference: detail.scaleReference,
+          interactionNotes: detail.interactionNotes,
+        },
+      }),
+    ];
+  }
+  return [];
 }
 
 export async function persistAssetDetailState(asset: Asset, detail: AssetDetail) {

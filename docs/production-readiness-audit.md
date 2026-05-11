@@ -49,6 +49,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
+- Project bundle import graph persistence now batches restored Prisma records into a single transaction and restores historical generation jobs before dependent media/version rows, preventing late storyboard/video/review write failures from leaving partially imported production graphs.
 - Workspace provider-key replacement now runs the Prisma delete/create pair inside a single transaction, preventing a failed credential replacement from deleting the previously working production key.
 - Project storage path helpers now reject path separators and traversal characters before constructing media directories, keeping cleanup, thumbnail, export, and media-write paths under `STORAGE_ROOT/projects/{projectIdWithoutDashes}`.
 - Project operations cleanup actions now rebuild their operations payload after mutating storage, so operator-facing orphan and thumbnail lists reflect the state after cleanup instead of the stale pre-action snapshot.

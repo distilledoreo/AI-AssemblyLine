@@ -2680,6 +2680,10 @@ describe("Prisma repository mode", () => {
     expect(prismaMock.frameVersion.createMany).toHaveBeenCalledWith(expect.objectContaining({ data: [expect.objectContaining({ id: frameVersion.id })] }));
     expect(prismaMock.clipVersion.createMany).toHaveBeenCalledWith(expect.objectContaining({ data: [expect.objectContaining({ sourceFrameVersionIds: [frameVersion.id] })] }));
     expect(prismaMock.reviewNote.createMany).toHaveBeenCalledWith(expect.objectContaining({ data: [expect.objectContaining({ authorId: note.authorId })] }));
+    expect(prismaMock.generationJob.createMany.mock.invocationCallOrder[0]).toBeLessThan(
+      prismaMock.frameVersion.createMany.mock.invocationCallOrder[0],
+    );
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it("rejects imported project graph persistence when storyboard frame versions fail", async () => {
@@ -2762,7 +2766,7 @@ describe("Prisma repository mode", () => {
         events: [],
       }),
     ).rejects.toThrow("imported frame-version write failed");
-    expect(prismaMock.videoClip.createMany).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it("replays project events from Prisma after the last event id", async () => {
