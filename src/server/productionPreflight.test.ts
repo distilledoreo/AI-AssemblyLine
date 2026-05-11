@@ -196,6 +196,26 @@ describe("production preflight", () => {
     });
   });
 
+  it("requires production repository mode to be prisma or unset", () => {
+    const prisma = evaluateProductionPreflight({ ...validEnv, REPOSITORY_MODE: "prisma" }, () => true);
+    expect(prisma.find((result) => result.name === "REPOSITORY_MODE")).toMatchObject({
+      ok: true,
+      detail: "prisma",
+    });
+
+    const defaultsToPrisma = evaluateProductionPreflight({ ...validEnv, REPOSITORY_MODE: "" }, () => true);
+    expect(defaultsToPrisma.find((result) => result.name === "REPOSITORY_MODE")).toMatchObject({
+      ok: true,
+      detail: "unset; production defaults to prisma",
+    });
+
+    const memory = evaluateProductionPreflight({ ...validEnv, REPOSITORY_MODE: "memory" }, () => true);
+    expect(memory.find((result) => result.name === "REPOSITORY_MODE")).toMatchObject({
+      ok: false,
+      detail: "must be unset or prisma for production",
+    });
+  });
+
   it("requires NEXTAUTH_URL to be an absolute https URL outside localhost", () => {
     const https = evaluateProductionPreflight(validEnv, () => true);
     expect(https.find((result) => result.name === "NEXTAUTH_URL format")).toMatchObject({

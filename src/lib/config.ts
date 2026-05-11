@@ -22,6 +22,18 @@ const configSchema = z.object({
       message: "must not use the development fallback encryption key",
     }),
   STORAGE_ROOT: z.string().min(1).default("./storage"),
+  QUEUE_MODE: z
+    .enum(["inline", "redis"])
+    .optional()
+    .refine((value) => process.env.NODE_ENV !== "production" || value !== "inline", {
+      message: "must be unset or redis in production",
+    }),
+  REPOSITORY_MODE: z
+    .enum(["memory", "prisma"])
+    .optional()
+    .refine((value) => process.env.NODE_ENV !== "production" || value !== "memory", {
+      message: "must be unset or prisma in production",
+    }),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
   PORT: z.coerce.number().int().positive().default(3000),
 });

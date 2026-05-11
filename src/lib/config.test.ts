@@ -69,4 +69,31 @@ describe("runtime config", () => {
 
     expect(getConfig().NEXTAUTH_URL).toBe("http://localhost:3000");
   });
+
+  it("rejects inline queues in production runtime config", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    for (const [key, value] of Object.entries({ ...validEnv, QUEUE_MODE: "inline" })) {
+      vi.stubEnv(key, value);
+    }
+
+    expect(() => getConfig()).toThrow(/QUEUE_MODE/);
+  });
+
+  it("rejects explicit memory repository mode in production runtime config", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    for (const [key, value] of Object.entries({ ...validEnv, REPOSITORY_MODE: "memory" })) {
+      vi.stubEnv(key, value);
+    }
+
+    expect(() => getConfig()).toThrow(/REPOSITORY_MODE/);
+  });
+
+  it("accepts redis queue and prisma repository modes in production runtime config", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    for (const [key, value] of Object.entries({ ...validEnv, QUEUE_MODE: "redis", REPOSITORY_MODE: "prisma" })) {
+      vi.stubEnv(key, value);
+    }
+
+    expect(getConfig()).toMatchObject({ QUEUE_MODE: "redis", REPOSITORY_MODE: "prisma" });
+  });
 });

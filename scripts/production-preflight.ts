@@ -88,6 +88,18 @@ export function evaluateProductionPreflight(
           : "must be unset or redis for production",
   });
 
+  const repositoryMode = env.REPOSITORY_MODE?.trim().toLowerCase() ?? "";
+  results.push({
+    name: "REPOSITORY_MODE",
+    ok: repositoryMode === "" || repositoryMode === "prisma",
+    detail:
+      repositoryMode === ""
+        ? "unset; production defaults to prisma"
+        : repositoryMode === "prisma"
+          ? "prisma"
+          : "must be unset or prisma for production",
+  });
+
   const openAiKey = env.OPENAI_API_KEY?.trim() ?? "";
   results.push({
     name: "OPENAI_API_KEY",
