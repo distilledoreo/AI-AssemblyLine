@@ -36,7 +36,7 @@ describe("media inspection", () => {
     const clipPath = path.join(tempDir, "clip.mp4");
     await writeFile(clipPath, Buffer.from("fake-video"));
     spawnSyncMock.mockImplementation((command: string) =>
-      command === "ffprobe"
+      command.toLowerCase().includes("ffprobe")
         ? {
             status: 0,
             stdout: JSON.stringify({
@@ -105,9 +105,9 @@ describe("media inspection", () => {
       fileSizeBytes: 14,
     });
 
-    expect(spawnSyncMock).toHaveBeenCalledWith("ffmpeg", ["-version"], expect.any(Object));
+    expect(spawnSyncMock).toHaveBeenCalledWith(expect.stringMatching(/ffmpeg(?:\.exe)?$/), ["-version"], expect.any(Object));
     expect(spawnSyncMock).toHaveBeenCalledWith(
-      "ffmpeg",
+      expect.stringMatching(/ffmpeg(?:\.exe)?$/),
       ["-y", "-ss", "2", "-i", clipPath, "-frames:v", "1", thumbPath],
       expect.any(Object),
     );

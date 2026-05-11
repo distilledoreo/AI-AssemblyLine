@@ -6,6 +6,7 @@ import path from "node:path";
 import { loadStandardEnvFiles, type ScriptEnv } from "./env-files";
 import { DEVELOPMENT_ENCRYPTION_KEY, DEVELOPMENT_NEXTAUTH_SECRET } from "../src/lib/config";
 import { isLiveProviderApiKey } from "../src/providers/providerKeySafety";
+import { mediaBinarySourceDetail, resolveMediaBinary, type MediaBinaryName } from "../src/server/mediaBinaries";
 
 type Env = ScriptEnv;
 type CheckResult = {
@@ -139,12 +140,13 @@ export function evaluateProductionPreflight(
     "GITHUB_SECRET",
   ]));
 
-  for (const command of ["ffmpeg", "ffprobe"]) {
-    const exists = commandExists(command);
+  for (const name of ["ffmpeg", "ffprobe"] satisfies MediaBinaryName[]) {
+    const binary = resolveMediaBinary(name, env);
+    const exists = commandExists(binary.command);
     results.push({
-      name: command,
+      name,
       ok: exists,
-      detail: exists ? "available on PATH" : "not found on PATH",
+      detail: exists ? `available via ${mediaBinarySourceDetail(binary)}` : `not found via ${mediaBinarySourceDetail(binary)}`,
     });
   }
 

@@ -6,7 +6,7 @@ AI AssemblyLine uses FFmpeg for clip assembly, format conversion, thumbnail gene
 
 FFmpeg runs as a **child process** spawned from Node.js BullMQ workers. The app does not use FFmpeg WASM (too slow for video operations) or Docker containers (adds deployment complexity for MVP).
 
-**Prerequisite:** FFmpeg must be installed on the host system and available on `PATH`. The app checks for FFmpeg availability on startup and logs a clear error if it is missing.
+**Binary resolution:** Operators may set `FFMPEG_PATH` and `FFPROBE_PATH` to absolute host-managed binary paths. When those variables are unset, the app uses the bundled `ffmpeg-static` and `ffprobe-static` binaries, then falls back to `ffmpeg`/`ffprobe` on `PATH` only if a bundled binary is unavailable. The app checks availability and reports the source in media diagnostics and production preflight output.
 
 ## Supported operations
 
@@ -36,7 +36,7 @@ FFmpeg runs as a **child process** spawned from Node.js BullMQ workers. The app 
 - **Input:** Video file path.
 - **Output:** Duration (ms), resolution, codec, frame rate, file size.
 - **Use:** Populates `ClipVersion.durationMs` and metadata fields. Used by the UI to display clip details.
-- **Implementation status:** `inspectClip` validates the file, records file size, and reads duration/resolution/codec through `ffprobe` when it is available on `PATH`. If `ffprobe` is unavailable, the app returns placeholder metadata with an explicit FFmpeg availability diagnostic so local mock workflows continue to run.
+- **Implementation status:** `inspectClip` validates the file, records file size, and reads duration/resolution/codec through the resolved `ffprobe` binary. If `ffprobe` is unavailable, the app returns placeholder metadata with an explicit FFmpeg availability diagnostic so local mock workflows continue to run.
 
 ### Scene reel assembly
 
@@ -70,7 +70,7 @@ Each job:
 
 | Error | Behavior |
 |-------|----------|
-| FFmpeg not found on PATH | Job fails immediately with `fatal` error class. Dashboard shows setup instructions |
+| FFmpeg unavailable through `FFMPEG_PATH`, bundled binary, or PATH fallback | Job fails immediately with `fatal` error class. Dashboard shows setup instructions |
 | Input file missing | Job fails with `fatal`. Logged as orphan reference |
 | FFmpeg process exits non-zero | Job fails with `retriable`. Stderr output saved to GenerationJob.errorMessage |
 | Output file is zero bytes | Job fails with `retriable`. Likely indicates a corrupted input |

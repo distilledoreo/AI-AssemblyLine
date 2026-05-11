@@ -4,12 +4,23 @@ import path from "node:path";
 import { AppError, NotFoundError } from "@/server/errors";
 import { addJobEvent, completeGenerationJob, markGenerationJobRunning } from "@/server/repository";
 import type { GenerationJobType } from "@/server/types";
+import { mediaBinarySourceDetail, resolveMediaBinary, type MediaBinaryName } from "@/server/mediaBinaries";
 
 export function checkFfmpegAvailability() {
-  const result = spawnSync("ffmpeg", ["-version"], { encoding: "utf8" });
+  return checkMediaToolAvailability("ffmpeg");
+}
+
+export function checkMediaToolAvailability(name: MediaBinaryName) {
+  const binary = resolveMediaBinary(name);
+  const result = spawnSync(binary.command, ["-version"], { encoding: "utf8" });
+  const available = result.status === 0;
   return {
-    available: result.status === 0,
-    message: result.status === 0 ? "ffmpeg available" : "ffmpeg not found on PATH; using placeholder metadata.",
+    available,
+    command: binary.command,
+    source: binary.source,
+    message: available
+      ? `${name} available via ${mediaBinarySourceDetail(binary)}`
+      : `${name} not found via ${mediaBinarySourceDetail(binary)}; using placeholder metadata.`,
   };
 }
 
@@ -91,8 +102,9 @@ export async function processMediaUtilityJob(input: {
 async function generateThumbnail(sourceFilePath: string, outputFilePath: string, seekSeconds = 1) {
   assertFfmpegAvailable();
   await mkdir(path.dirname(outputFilePath), { recursive: true });
+  const ffmpeg = resolveMediaBinary("ffmpeg");
   const result = spawnSync(
-    "ffmpeg",
+    ffmpeg.command,
     [
       "-y",
       "-ss",
@@ -120,7 +132,8 @@ async function generateThumbnail(sourceFilePath: string, outputFilePath: string,
 async function convertMedia(sourceFilePath: string, outputFilePath: string) {
   assertFfmpegAvailable();
   await mkdir(path.dirname(outputFilePath), { recursive: true });
-  const result = spawnSync("ffmpeg", ["-y", "-i", sourceFilePath, outputFilePath], { encoding: "utf8" });
+  const ffmpeg = resolveMediaBinary("ffmpeg");
+  const result = spawnSync(ffmpeg.command, ["-y", "-i", sourceFilePath, outputFilePath], { encoding: "utf8" });
   if (result.status !== 0) {
     throw new AppError(`Media conversion failed: ${result.stderr || result.stdout || "ffmpeg exited with an error."}`, 500, "media_convert_failed");
   }
@@ -148,8 +161,9 @@ function assertFfmpegAvailable() {
 }
 
 function probeClip(filePath: string) {
+  const ffprobe = resolveMediaBinary("ffprobe");
   const result = spawnSync(
-    "ffprobe",
+    ffprobe.command,
     [
       "-v",
       "error",
