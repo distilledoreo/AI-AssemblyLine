@@ -3104,9 +3104,14 @@ function isPrismaRecordNotFound(error: unknown) {
 
 export async function deleteProject(projectId: string) {
   if (isPrismaRepositoryEnabled()) {
-    await prisma.project.delete({ where: { id: projectId } }).catch(() => {
+    try {
+      await prisma.project.delete({ where: { id: projectId } });
+    } catch (error) {
+      if (!isPrismaRecordNotFound(error)) {
+        throw error;
+      }
       throw new NotFoundError("Project not found.");
-    });
+    }
     return;
   }
   const store = getStore();

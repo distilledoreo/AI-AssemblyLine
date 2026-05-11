@@ -527,6 +527,24 @@ describe("Prisma repository mode", () => {
     ).rejects.toMatchObject({ code: "not_found" });
   });
 
+  it("surfaces project delete write failures that are not Prisma not-found errors", async () => {
+    const repository = await import("@/server/repository");
+    prismaMock.project.delete.mockRejectedValue(new Error("project delete write failed"));
+
+    await expect(repository.deleteProject("33333333-3333-4333-8333-333333333333")).rejects.toThrow(
+      "project delete write failed",
+    );
+  });
+
+  it("maps Prisma not-found project deletes to the repository not-found error", async () => {
+    const repository = await import("@/server/repository");
+    prismaMock.project.delete.mockRejectedValue({ code: "P2025" });
+
+    await expect(repository.deleteProject("33333333-3333-4333-8333-333333333333")).rejects.toMatchObject({
+      code: "not_found",
+    });
+  });
+
   it("mirrors generation jobs and job events into Prisma in production repository mode", async () => {
     prismaMock.generationJob.create.mockResolvedValue({});
     prismaMock.generationJob.update.mockResolvedValue({});
