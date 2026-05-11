@@ -663,7 +663,7 @@ export function ProjectDashboardClient({
                 className="button secondary"
                 key={scene.id}
                 type="button"
-                onClick={() => videoAction({ action: "generate", mode: "scene", sceneId: scene.id, providerSlug: "kling" })}
+                onClick={() => videoAction({ action: "generate", mode: "scene", sceneId: scene.id, providerSlug: "runway" })}
               >
                 <Film size={15} aria-hidden="true" />
                 Generate scene {scene.sceneNumber}
