@@ -62,6 +62,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Redis workers now register the `media` queue, and `thumbnail`/`media_convert` jobs invoke FFmpeg-backed processors that emit progress and completion events. Real local media utility verification is still blocked until `ffmpeg` and `ffprobe` are installed.
 - Storage usage scans now treat missing folders as empty but surface permission/read errors instead of reporting zero usage for an unreadable project tree.
 - Asset reference and storyboard sketch uploads now reject zero-byte files with `empty_media` before creating versions, frames, or media files.
+- Asset reference uploads now persist uploaded asset versions and references only after the media file write succeeds, preventing orphaned AssetVersion records when storage fails mid-upload.
 - Redis worker startup now awaits repeatable Runway provider-poll job registration and rejects startup if BullMQ cannot schedule it.
 - Redis workers now persist failed GenerationJob state and a final project event when a processor throws, while still rethrowing to BullMQ so queue retries and dead-letter handling remain active.
 - Worker failures now persist retry counts from BullMQ attempts, and project operations metrics report total retries, retried job count, and retries by job type.

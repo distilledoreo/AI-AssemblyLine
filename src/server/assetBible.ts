@@ -86,7 +86,7 @@ export async function uploadAssetReference(input: {
   }
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const asset = await resolveProjectAsset(input.projectId, input.assetId, graph);
-  const version = await createAssetVersion(input.projectId, input.assetId, { description: `Uploaded reference: ${input.filename}` });
+  const version = buildAssetVersion(asset, graph.assetVersions, { description: `Uploaded reference: ${input.filename}` });
   const dir = storagePath(projectFolderPath(input.projectId, "assets"), input.assetId);
   await mkdir(dir, { recursive: true });
   const safeName = input.filename.replace(/[^a-z0-9._-]/gi, "_") || "reference.png";

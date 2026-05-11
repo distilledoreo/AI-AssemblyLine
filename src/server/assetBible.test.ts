@@ -1,3 +1,4 @@
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   createProjectForWorkspace,
@@ -16,6 +17,7 @@ import {
   upsertAssetDetail,
 } from "@/server/assetBible";
 import { uploadScriptForProject } from "@/server/scriptAnalysis";
+import { projectFolderPath, storagePath } from "@/server/storage";
 
 const scriptText = `INT. COFFEE SHOP - MORNING
 ANNA
@@ -99,6 +101,34 @@ describe("asset bible lifecycle", () => {
     const split = await splitAsset(asset.projectId, asset.id, { canonicalName: "Duplicate Location" });
     const merged = await mergeAssets(asset.projectId, split.id, asset.id);
     expect(merged.aliases).toContain("Duplicate Location");
+  });
+
+  it("does not persist asset versions when reference upload storage fails", async () => {
+    const graph = await analyzedProject();
+    const asset = graph.assets[0];
+    const assetRoot = projectFolderPath(asset.projectId, "assets");
+    const blockedAssetDir = storagePath(assetRoot, asset.id);
+    await mkdir(assetRoot, { recursive: true });
+    await writeFile(blockedAssetDir, "not a directory");
+
+    try {
+      await expect(
+        uploadAssetReference({
+          projectId: asset.projectId,
+          assetId: asset.id,
+          filename: "reference.png",
+          data: Buffer.from("image"),
+          mimeType: "image/png",
+          referenceType: "front",
+        }),
+      ).rejects.toThrow();
+      const updated = getScriptAnalysisGraph(asset.projectId);
+      expect(updated.assetVersions).toHaveLength(0);
+      expect(updated.assetReferences).toHaveLength(0);
+      expect(updated.assets.find((candidate) => candidate.id === asset.id)?.status).toBe("missing");
+    } finally {
+      await rm(blockedAssetDir, { force: true });
+    }
   });
 
   it("rejects cross-project asset detail, status, split, and merge mutations", async () => {
