@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { AppError, toErrorResponse } from "@/server/errors";
 
@@ -11,6 +11,9 @@ vi.mock("@/server/observability", () => ({
 describe("error responses", () => {
   beforeEach(() => {
     captureErrorMock.mockClear();
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("does not report expected application errors", async () => {
@@ -29,6 +32,21 @@ describe("error responses", () => {
 
     await expect(response.json()).resolves.toEqual({
       error: { code: "internal_error", message: "database exploded" },
+    });
+    expect(response.status).toBe(500);
+    expect(captureErrorMock).toHaveBeenCalledWith(error, {
+      route: "/api/projects",
+      source: "toErrorResponse",
+    });
+  });
+
+  it("redacts unexpected error messages in production responses", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const error = new Error("database password leaked in stack");
+    const response = toErrorResponse(error, { route: "/api/projects" });
+
+    await expect(response.json()).resolves.toEqual({
+      error: { code: "internal_error", message: "Unexpected server error." },
     });
     expect(response.status).toBe(500);
     expect(captureErrorMock).toHaveBeenCalledWith(error, {

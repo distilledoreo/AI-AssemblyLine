@@ -33,6 +33,13 @@ function isJsonParseSyntaxError(error: unknown) {
   return error instanceof SyntaxError && /\bJSON\b/i.test(error.message);
 }
 
+function internalErrorMessage(error: unknown) {
+  if (process.env.NODE_ENV === "production") {
+    return "Unexpected server error.";
+  }
+  return error instanceof Error ? error.message : "Unexpected error.";
+}
+
 export function toErrorResponse(error: unknown, context: Record<string, unknown> = {}) {
   if (error instanceof AppError) {
     return Response.json(
@@ -79,7 +86,7 @@ export function toErrorResponse(error: unknown, context: Record<string, unknown>
     {
       error: {
         code: "internal_error",
-        message: error instanceof Error ? error.message : "Unexpected error.",
+        message: internalErrorMessage(error),
       },
     },
     { status: 500 },
