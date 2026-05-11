@@ -1,5 +1,7 @@
 import IORedis from "ioredis";
 import { getConfig } from "@/lib/config";
+import type { LiveProviderSlug } from "@/providers/liveProviderCatalog";
+import { LIVE_PROVIDER_SLUGS } from "@/providers/liveProviderCatalog";
 import { prisma } from "@/server/prisma";
 
 export type DependencyHealth = {
@@ -13,6 +15,7 @@ export type AppHealthSnapshot = {
   status: "ok" | "degraded";
   database: DependencyHealth & { provider: "postgresql" };
   redis: DependencyHealth;
+  providerEnv: Record<LiveProviderSlug, { configured: boolean; envVar: string }>;
   storageRoot: string;
 };
 
@@ -27,8 +30,24 @@ export async function getAppHealthSnapshot(): Promise<AppHealthSnapshot> {
     status: database.reachable && redis.reachable ? "ok" : "degraded",
     database: { provider: "postgresql", ...database },
     redis,
+    providerEnv: checkProviderEnv(),
     storageRoot: config.STORAGE_ROOT,
   };
+}
+
+function checkProviderEnv(): AppHealthSnapshot["providerEnv"] {
+  const envByProvider: Record<LiveProviderSlug, string> = {
+    openai: "OPENAI_API_KEY",
+    stability: "STABILITY_API_KEY",
+    runway: "RUNWAYML_API_SECRET",
+  };
+  return Object.fromEntries(
+    LIVE_PROVIDER_SLUGS.map((provider) => {
+      const envVar = envByProvider[provider];
+      const value = process.env[envVar]?.trim();
+      return [provider, { envVar, configured: Boolean(value && value !== "mock") }];
+    }),
+  ) as AppHealthSnapshot["providerEnv"];
 }
 
 async function checkDatabase(configured: boolean): Promise<DependencyHealth> {

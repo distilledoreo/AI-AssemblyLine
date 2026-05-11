@@ -74,7 +74,7 @@ npm run build
 
 For browser verification, start the dev server and exercise the relevant dashboard workflow directly.
 
-For production-style dependency verification, call `GET /api/health` after Postgres and Redis are configured. The endpoint returns `200` only when both dependencies are reachable; a `503` response identifies the failing dependency. In production, raw dependency exception text is redacted unless `HEALTH_VERBOSE_ERRORS=1` is set for a private diagnostic run.
+For production-style dependency verification, call `GET /api/health` after Postgres and Redis are configured. The endpoint returns `200` only when both dependencies are reachable; a `503` response identifies the failing dependency. The response also includes non-secret OpenAI, Stability, and Runway server fallback key readiness under `providerEnv`. In production, raw dependency exception text is redacted unless `HEALTH_VERBOSE_ERRORS=1` is set for a private diagnostic run.
 
 Run `npm run preflight:production` before release. It verifies required production environment variables, secret/key lengths, real non-mock OpenAI, Stability, and Runway credentials, FFmpeg/ffprobe availability, and TCP reachability for Postgres and Redis.
 

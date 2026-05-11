@@ -27,6 +27,9 @@ describe("health checks", () => {
     delete process.env.NEXTAUTH_SECRET;
     delete process.env.ENCRYPTION_KEY;
     delete process.env.HEALTH_VERBOSE_ERRORS;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.STABILITY_API_KEY;
+    delete process.env.RUNWAYML_API_SECRET;
     vi.unstubAllEnvs();
     resetConfigForTests();
   });
@@ -37,6 +40,9 @@ describe("health checks", () => {
     process.env.NEXTAUTH_URL = "http://localhost:3000";
     process.env.NEXTAUTH_SECRET = "test-secret-with-at-least-32-chars";
     process.env.ENCRYPTION_KEY = "base64-test-key-with-at-least-32-chars";
+    process.env.OPENAI_API_KEY = "sk-live-health";
+    process.env.STABILITY_API_KEY = "sk-stability-health";
+    process.env.RUNWAYML_API_SECRET = "key_runway_health";
     resetConfigForTests();
 
     prismaMock.$queryRaw.mockResolvedValue([{ "?column?": 1 }]);
@@ -48,6 +54,11 @@ describe("health checks", () => {
       status: "ok",
       database: { configured: true, reachable: true, provider: "postgresql" },
       redis: { configured: true, reachable: true },
+      providerEnv: {
+        openai: { configured: true, envVar: "OPENAI_API_KEY" },
+        stability: { configured: true, envVar: "STABILITY_API_KEY" },
+        runway: { configured: true, envVar: "RUNWAYML_API_SECRET" },
+      },
     });
     expect(prismaMock.$queryRaw).toHaveBeenCalled();
     expect(RedisConstructorMock).toHaveBeenCalledWith(
@@ -71,6 +82,11 @@ describe("health checks", () => {
     expect(snapshot.status).toBe("degraded");
     expect(snapshot.database).toMatchObject({ configured: true, reachable: false, error: "database down" });
     expect(snapshot.redis).toMatchObject({ configured: true, reachable: false, error: "redis down" });
+    expect(snapshot.providerEnv).toMatchObject({
+      openai: { configured: false },
+      stability: { configured: false },
+      runway: { configured: false },
+    });
   });
 
   it("redacts dependency exception details in production health responses", async () => {
