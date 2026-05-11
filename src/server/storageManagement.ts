@@ -17,9 +17,16 @@ async function walkFiles(root: string): Promise<string[]> {
       }),
     );
     return nested.flat();
-  } catch {
-    return [];
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
   }
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return Boolean(error && typeof error === "object" && "code" in error);
 }
 
 async function referencedFiles(projectId: string) {

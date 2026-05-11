@@ -54,7 +54,7 @@ These adapters use the shared provider contracts and deterministic mock factory 
 
 ## Observability and storage management
 
-The app reports structured JSON logs through `pino`, tracks whether `SENTRY_DSN` is configured, summarizes jobs by type/status/retry attempts, surfaces queue health with recent failed BullMQ job summaries, scans project storage for orphan files, and clears generated thumbnail cache files.
+The app reports structured JSON logs through `pino`, tracks whether `SENTRY_DSN` is configured, summarizes jobs by type/status/retry attempts, surfaces queue health with recent failed BullMQ job summaries, scans project storage for orphan files, and clears generated thumbnail cache files. Missing storage directories are treated as empty; storage permission or read failures are surfaced instead of being reported as empty usage.
 
 ## Verification
 
