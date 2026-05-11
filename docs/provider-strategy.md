@@ -221,6 +221,8 @@ Runtime video generation resolves Runway credentials from the project workspace'
 
 Live Runway output is submitted to `POST https://api.dev.runwayml.com/v1/image_to_video` with `promptText`, `model`, `ratio`, `duration`, bearer-token authorization, and `X-Runway-Version: 2024-11-06`. Text-to-video mode omits `promptImage`, matching Runway's documented API guide. The initial worker transition stores the returned Runway task ID and marks the AssemblyLine job `provider_submitted`. The Runway result processor polls `GET /v1/tasks/{id}`, downloads the completed ephemeral output URL, stores the media in project storage, inspects it, creates the ClipVersion, and marks the job `complete`. In Redis queue mode, a repeatable video-queue `provider_poll` job invokes that processor for submitted/polling Runway video jobs every 15 seconds.
 
+Video generation treats a provider response without video bytes or an async provider job ID as `provider_output_missing`; it fails the GenerationJob rather than writing placeholder media.
+
 Mock-backed placeholder adapters for providers that do not yet have live HTTP clients, including Kling, Seedance, Pika, Luma, and ElevenLabs, are development/test-only. In production, attempting generation through one of these placeholder adapters fails with `provider_not_configured` until a real provider client and credentials are configured.
 
 ## Model selector behavior

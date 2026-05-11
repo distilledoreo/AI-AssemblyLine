@@ -111,6 +111,22 @@ export async function processVideoClipJob(input: {
     });
     return getScriptAnalysisGraphForProject(input.projectId);
   }
+  if (!result.video?.data?.length) {
+    const message = "Video provider did not return video bytes or an async provider job id.";
+    await completeGenerationJob(job.id, {
+      status: "failed",
+      errorMessage: message,
+      errorClass: "fatal",
+    });
+    await addJobEvent({
+      jobId: job.id,
+      projectId: input.projectId,
+      eventType: "status_change",
+      message,
+      progressPct: 100,
+    });
+    throw new AppError(message, 502, "provider_output_missing");
+  }
   return persistVideoClipBytes({
     projectId: input.projectId,
     mode: input.mode,
@@ -120,8 +136,8 @@ export async function processVideoClipJob(input: {
     job,
     prompt,
     sourceFrameVersionIds: frameVersions.map((frame) => frame.id),
-    data: result.video?.data ?? Buffer.from("mock-video"),
-    mimeType: result.video?.mimeType ?? "video/mp4",
+    data: result.video.data,
+    mimeType: result.video.mimeType,
   });
 }
 

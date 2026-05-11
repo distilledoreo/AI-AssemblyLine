@@ -34,6 +34,7 @@ describe("video workflow", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("generates shot and scene clips from approved storyboard frames and approves clips", async () => {
@@ -108,6 +109,33 @@ describe("video workflow", () => {
         headers: expect.objectContaining({ Authorization: "Bearer key_runway_live" }),
       }),
     );
+  });
+
+  it("fails video generation instead of writing mock bytes when a provider returns no output", async () => {
+    const { project, graph } = await projectWithApprovedFrame();
+    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    vi.spyOn(RunwayAdapter.prototype, "generateVideo").mockResolvedValue({ isAsync: false });
+
+    await expect(
+      generateVideoClip({
+        projectId: project.id,
+        mode: "shot",
+        shotId: graph.shots[0].id,
+        providerSlug: "runway",
+      }),
+    ).rejects.toMatchObject({
+      code: "provider_output_missing",
+    });
+
+    const failedGraph = getScriptAnalysisGraph(project.id);
+    expect(failedGraph.videoClips).toHaveLength(0);
+    expect(failedGraph.clipVersions).toHaveLength(0);
+    expect(failedGraph.jobs.at(-1)).toMatchObject({
+      type: "video_clip",
+      status: "failed",
+      errorClass: "fatal",
+      errorMessage: "Video provider did not return video bytes or an async provider job id.",
+    });
   });
 
   it("downloads completed Runway task output into a clip version", async () => {
