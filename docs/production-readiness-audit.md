@@ -31,6 +31,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 | Multi-page workflow UI | Dedicated routes now exist for overview, script, Asset Bible, storyboard, and video workflows. E2E checks storyboard and video route filtering. | Passing for local workflow |
 | Storyboard drawing library | Fabric.js is installed and the storyboard page exposes a canvas with draw/select/rectangle/text/clear/save controls. E2E saves rectangle markup through the storyboard API. | Passing for local workflow |
 | OAuth for app sign-in, OpenAI/ChatGPT, and Google AI Pro | Google/GitHub OAuth sign-in buttons now render on `/signin` when provider credentials are configured. Official OpenAI docs support OAuth for GPT Actions where ChatGPT authenticates to this app's API, not as a general way for this app to spend a user's ChatGPT subscription quota. Google Vertex AI supports Google Cloud authentication such as Application Default Credentials for production; Google sign-in and Google AI Pro subscriptions are not treated as model API quota. | App OAuth implemented; provider-quota boundaries documented |
+| OAuth production preflight | `npm run preflight:production` accepts omitted optional Google/GitHub OAuth providers but fails when only a client ID or only a client secret is configured, preventing half-configured OAuth sign-in from reaching production. `productionPreflight.test.ts` covers both omitted and partial OAuth configuration. | Passing |
 | Production runtime verification | Postgres and Redis are not currently reachable on local default ports. | Blocked |
 
 ## Latest verification
@@ -51,7 +52,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Mock-backed placeholder providers now fail with `provider_not_configured` in production instead of silently returning fake Runway, Kling, Seedance, Pika, Luma, or ElevenLabs outputs.
 - Direct OpenAI adapter mock-mode calls now fail with `provider_not_configured` in production, covering callers that bypass project credential resolution.
 - Runway video generation now has a live task-submission path when a workspace Runway key or `RUNWAYML_API_SECRET` is configured, plus a result processor that polls completed tasks and downloads output media. Redis workers now register a repeatable video provider poll job that automatically invokes that processor for submitted/polling Runway jobs.
-- `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
+- `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
 - `npm test`: passing, 32 files and 109 tests.
 - `npm run lint`: passing.

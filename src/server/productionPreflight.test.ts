@@ -10,6 +10,8 @@ const validEnv = {
   OPENAI_API_KEY: "sk-live-test",
   STABILITY_API_KEY: "sk-stability-live-test",
   RUNWAYML_API_SECRET: "key_runway_live",
+  AUTH_GOOGLE_ID: "google-client",
+  AUTH_GOOGLE_SECRET: "google-secret",
 };
 
 describe("production preflight", () => {
@@ -47,5 +49,19 @@ describe("production preflight", () => {
         "ffprobe",
       ]),
     );
+  });
+
+  it("allows omitted OAuth providers but rejects partial OAuth configuration", () => {
+    const omitted = evaluateProductionPreflight({ ...validEnv, AUTH_GOOGLE_ID: "", AUTH_GOOGLE_SECRET: "" }, () => true);
+    expect(omitted.find((result) => result.name === "Google OAuth")).toMatchObject({
+      ok: true,
+      detail: "not configured",
+    });
+
+    const partial = evaluateProductionPreflight({ ...validEnv, AUTH_GOOGLE_SECRET: "" }, () => true);
+    expect(partial.find((result) => result.name === "Google OAuth")).toMatchObject({
+      ok: false,
+      detail: "client id and secret must be configured together",
+    });
   });
 });

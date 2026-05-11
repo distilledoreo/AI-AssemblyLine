@@ -61,6 +61,17 @@ export function evaluateProductionPreflight(
     detail: runwayKey && runwayKey !== "mock" ? "configured for live video submission" : "missing or mock",
   });
 
+  results.push(oauthPairCheck("Google OAuth", env, ["AUTH_GOOGLE_ID", "GOOGLE_CLIENT_ID", "GOOGLE_ID"], [
+    "AUTH_GOOGLE_SECRET",
+    "GOOGLE_CLIENT_SECRET",
+    "GOOGLE_SECRET",
+  ]));
+  results.push(oauthPairCheck("GitHub OAuth", env, ["AUTH_GITHUB_ID", "GITHUB_CLIENT_ID", "GITHUB_ID"], [
+    "AUTH_GITHUB_SECRET",
+    "GITHUB_CLIENT_SECRET",
+    "GITHUB_SECRET",
+  ]));
+
   for (const command of ["ffmpeg", "ffprobe"]) {
     const exists = commandExists(command);
     results.push({
@@ -71,6 +82,18 @@ export function evaluateProductionPreflight(
   }
 
   return results;
+}
+
+function oauthPairCheck(name: string, env: Env, clientIdKeys: string[], clientSecretKeys: string[]): CheckResult {
+  const hasClientId = clientIdKeys.some((key) => Boolean(env[key]?.trim()));
+  const hasClientSecret = clientSecretKeys.some((key) => Boolean(env[key]?.trim()));
+  const configured = hasClientId && hasClientSecret;
+  const omitted = !hasClientId && !hasClientSecret;
+  return {
+    name,
+    ok: configured || omitted,
+    detail: configured ? "configured" : omitted ? "not configured" : "client id and secret must be configured together",
+  };
 }
 
 export async function runProductionPreflight(env: Env = process.env) {
