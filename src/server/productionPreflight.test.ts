@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { DEVELOPMENT_ENCRYPTION_KEY, DEVELOPMENT_NEXTAUTH_SECRET } from "@/lib/config";
 import {
   checkStorageRoot,
+  checkDependencyAudit,
   checkPrismaSchema,
   checkPrismaMigrations,
   evaluateProductionPreflight,
@@ -252,6 +253,36 @@ describe("production preflight", () => {
     }
   });
 
+  it("runs the dependency security audit as a release gate", () => {
+    const calls: Array<{ command: string; args: string[] }> = [];
+    const result = checkDependencyAudit((command, args) => {
+      calls.push({ command, args });
+      return { status: 0, stderr: "", stdout: "found 0 vulnerabilities" };
+    });
+
+    expect(result).toEqual({
+      name: "Dependency audit",
+      ok: true,
+      detail: "no moderate or higher vulnerabilities",
+    });
+    expect(calls[0].args.join(" ")).toContain("audit --audit-level=moderate");
+    expect(calls[0].command).toMatch(/^(npm|cmd\.exe)$/);
+  });
+
+  it("reports dependency audit failures", () => {
+    const result = checkDependencyAudit(() => ({
+      status: 1,
+      stderr: "2 vulnerabilities (1 moderate, 1 high)",
+      stdout: "",
+    }));
+
+    expect(result).toEqual({
+      name: "Dependency audit",
+      ok: false,
+      detail: "2 vulnerabilities (1 moderate, 1 high)",
+    });
+  });
+
   it("validates the Prisma schema with the release environment", () => {
     const calls: Array<{ command: string; args: string[]; env: NodeJS.ProcessEnv }> = [];
     const result = checkPrismaSchema(
@@ -354,6 +385,10 @@ describe("production preflight", () => {
         DATABASE_URL: "mysql://localhost:3306/assemblyline",
         REDIS_URL: "http://localhost:6379",
         STORAGE_ROOT: tempRoot,
+      }, {
+        dependencyAudit: () => ({ name: "Dependency audit", ok: true, detail: "no moderate or higher vulnerabilities" }),
+        prismaSchema: () => ({ name: "Prisma schema", ok: true, detail: "schema valid" }),
+        prismaMigrations: async () => ({ name: "Prisma migrations", ok: true, detail: "1 migration(s) present" }),
       });
 
       expect(results.find((result) => result.name === "Postgres TCP")).toMatchObject({

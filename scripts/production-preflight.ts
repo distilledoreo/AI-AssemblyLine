@@ -13,6 +13,11 @@ type CheckResult = {
   ok: boolean;
   detail: string;
 };
+type ProductionPreflightChecks = {
+  dependencyAudit?: () => CheckResult;
+  prismaSchema?: (env: Env) => CheckResult;
+  prismaMigrations?: () => Promise<CheckResult>;
+};
 
 const requiredEnv = ["DATABASE_URL", "REDIS_URL", "NEXTAUTH_URL", "NEXTAUTH_SECRET", "ENCRYPTION_KEY"] as const;
 
@@ -161,10 +166,11 @@ function oauthPairCheck(name: string, env: Env, clientIdKeys: string[], clientSe
   };
 }
 
-export async function runProductionPreflight(env: Env = process.env) {
+export async function runProductionPreflight(env: Env = process.env, checks: ProductionPreflightChecks = {}) {
   const results = evaluateProductionPreflight(env);
-  results.push(checkPrismaSchema(env));
-  results.push(await checkPrismaMigrations());
+  results.push((checks.dependencyAudit ?? checkDependencyAudit)());
+  results.push((checks.prismaSchema ?? checkPrismaSchema)(env));
+  results.push(await (checks.prismaMigrations ?? checkPrismaMigrations)());
   results.push(await checkStorageRoot(env.STORAGE_ROOT));
   results.push(await checkTcpUrl("Postgres TCP", env.DATABASE_URL, ["postgres:", "postgresql:"]));
   results.push(await checkTcpUrl("Redis TCP", env.REDIS_URL, ["redis:", "rediss:"]));
@@ -209,6 +215,24 @@ export function checkPrismaSchema(
   };
 }
 
+export function checkDependencyAudit(
+  runCommand: (
+    command: string,
+    args: string[],
+    options: { encoding: "utf8" },
+  ) => { status: number | null; error?: Error; stderr?: string; stdout?: string } = defaultRunAuditCommand,
+): CheckResult {
+  const command = process.platform === "win32" ? "cmd.exe" : "npm";
+  const args = process.platform === "win32" ? ["/c", "npm.cmd", "audit", "--audit-level=moderate"] : ["audit", "--audit-level=moderate"];
+  const result = runCommand(command, args, { encoding: "utf8" });
+  const ok = result.status === 0;
+  return {
+    name: "Dependency audit",
+    ok,
+    detail: ok ? "no moderate or higher vulnerabilities" : commandFailureDetail(result, "dependency audit failed"),
+  };
+}
+
 function sanitizeProcessEnv(env: Env): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined)) as NodeJS.ProcessEnv;
 }
@@ -218,6 +242,10 @@ function defaultRunCommand(
   args: string[],
   options: { env: NodeJS.ProcessEnv; encoding: "utf8" },
 ) {
+  return spawnSync(command, args, options);
+}
+
+function defaultRunAuditCommand(command: string, args: string[], options: { encoding: "utf8" }) {
   return spawnSync(command, args, options);
 }
 
