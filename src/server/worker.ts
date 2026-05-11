@@ -2,6 +2,7 @@ import type { Job } from "bullmq";
 import { createGenerationWorker, isRedisQueueEnabled, scheduleProviderPollJob } from "@/server/queue";
 import { processAssetReferenceJob } from "@/server/assetBible";
 import { processExportProjectBundleJob, processImportProjectBundleJob } from "@/server/exportImport";
+import { processMediaUtilityJob } from "@/server/media";
 import { processScriptAnalysisJob } from "@/server/scriptAnalysis";
 import { processStoryboardFrameJob } from "@/server/storyboard";
 import { processSubmittedVideoProviderJobs, processVideoClipJob } from "@/server/video";
@@ -18,6 +19,11 @@ type WorkerJobData = {
   sceneId?: string;
   userId?: string;
   manifestPath?: string;
+  sourceFilePath?: string;
+  filePath?: string;
+  outputFilePath?: string;
+  outputPath?: string;
+  seekSeconds?: number;
 };
 
 async function processAnalysisJob(job: Job<WorkerJobData>) {
@@ -106,6 +112,25 @@ async function processProjectJob(job: Job<WorkerJobData>) {
   throw new Error(`Unsupported project job type: ${job.name}`);
 }
 
+async function processMediaJob(job: Job<WorkerJobData>) {
+  if (job.name !== "thumbnail" && job.name !== "media_convert") {
+    throw new Error(`Unsupported media job type: ${job.name}`);
+  }
+  const sourceFilePath = job.data.sourceFilePath ?? job.data.filePath;
+  const outputFilePath = job.data.outputFilePath ?? job.data.outputPath;
+  if (!job.data.projectId || !sourceFilePath) {
+    throw new Error("Media utility jobs require projectId and sourceFilePath.");
+  }
+  return processMediaUtilityJob({
+    jobId: String(job.id),
+    projectId: job.data.projectId,
+    type: job.name,
+    sourceFilePath,
+    outputFilePath,
+    seekSeconds: job.data.seekSeconds,
+  });
+}
+
 export function startGenerationWorkers() {
   if (!isRedisQueueEnabled()) {
     return { started: false, workers: [] };
@@ -114,6 +139,7 @@ export function startGenerationWorkers() {
     createGenerationWorker("analysis", processAnalysisJob),
     createGenerationWorker("image", processImageJob),
     createGenerationWorker("video", processVideoJob),
+    createGenerationWorker("media", processMediaJob),
     createGenerationWorker("project", processProjectJob),
   ].filter(Boolean);
   void scheduleProviderPollJob("video", Number(process.env.PROVIDER_POLL_INTERVAL_MS) || 15000);
