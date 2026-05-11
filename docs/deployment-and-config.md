@@ -80,6 +80,10 @@ If `ENCRYPTION_KEY` needs to be rotated:
 
 The rotation command loads `.env`, `.env.production`, `.env.local`, and `.env.production.local` with shell variables taking priority. It requires both keys to decode to exactly 32 bytes and fails if the old and new key values are identical. Run it from a trusted operator shell; it prints only record counts and never prints decrypted provider keys.
 
+### Prisma repository smoke
+
+Run `npm run smoke:prisma-repository` after migrations when validating a production-like Postgres environment. The command forces `REPOSITORY_MODE=prisma`, uses inline queue submission to keep the check focused on persistence, creates real repository records for sign-in, workspace/project setup, encrypted provider keys, generation jobs, and project events, verifies the data through repository reads, and deletes the smoke records afterward. It requires `DATABASE_URL`, `ENCRYPTION_KEY`, and `STORAGE_ROOT`; it does not call any external provider API.
+
 ### Security rules
 
 - Provider API keys are **never** included in: API responses to the client, generation logs, prompt metadata, export bundles, error messages, or browser-accessible storage.

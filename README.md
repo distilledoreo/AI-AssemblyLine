@@ -60,7 +60,7 @@ Phase 7 export/import and polish implementation is underway. The repository now 
 
 The [implementation roadmap](docs/implementation-roadmap.md) remains the build order across seven phases. Each phase must be implemented, documented, tested, run, verified, committed, and pushed before the next phase begins.
 
-GitHub Actions runs the non-secret verification gates on pull requests and pushes to `main`: dependency installation, Prisma generation and schema validation, dependency audit, Vitest, lint, production build, and Playwright E2E. The manual **Live Provider Smoke** workflow runs `npm run smoke:providers` with `OPENAI_API_KEY`, `STABILITY_API_KEY`, `RUNWAYML_API_SECRET`, and `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY` from GitHub secrets. Production preflight still requires real deployment secrets and external services.
+GitHub Actions runs the non-secret verification gates on pull requests and pushes to `main`: dependency installation, Prisma generation and schema validation, dependency audit, Vitest, lint, production build, Playwright E2E, production infrastructure preflight, a real Postgres-backed Prisma repository smoke, and Redis queue/pub-sub smoke. The manual **Live Provider Smoke** workflow runs `npm run smoke:providers` with `OPENAI_API_KEY`, `STABILITY_API_KEY`, `RUNWAYML_API_SECRET`, and `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY` from GitHub secrets. Production preflight still requires real deployment secrets and external services.
 
 ## Local development
 
@@ -78,5 +78,7 @@ Open `http://localhost:3000/signin`, sign in with any valid email and a password
 The `services:up` script requires Docker Compose and starts the local Postgres and Redis services defined in `compose.yaml`. If Docker is unavailable, install or start equivalent Postgres and Redis services yourself and point `DATABASE_URL` and `REDIS_URL` at them.
 
 For Redis-backed script analysis in a production-like setup, set `QUEUE_MODE=redis`, start the web app with `npm run dev` or `npm run build && npm start`, and run `npm run worker` in a separate process. In the default local `.env.example`, `QUEUE_MODE=inline` keeps jobs synchronous so the app can be exercised without a Redis worker.
+
+To validate the real Prisma repository layer against a migrated Postgres database, run `npm run smoke:prisma-repository`. It requires `DATABASE_URL`, `ENCRYPTION_KEY`, and `STORAGE_ROOT`, exercises auth/session, workspace/project, encrypted provider-key, job, and event persistence, and does not call provider APIs.
 
 Google and GitHub sign-in appear on `/signin` when the corresponding `AUTH_GOOGLE_*` or `AUTH_GITHUB_*` variables are configured. Live provider verification uses `npm run smoke:openai`, `npm run smoke:stability`, `npm run smoke:runway`, `npm run smoke:google-veo`, or `npm run smoke:providers` with the matching provider keys set.

@@ -22,6 +22,7 @@
     "smoke:runway": "tsx scripts/smoke-runway.ts",
     "smoke:google-veo": "tsx scripts/smoke-google-veo.ts",
     "smoke:providers": "tsx scripts/smoke-providers.ts",
+    "smoke:prisma-repository": "tsx scripts/smoke-prisma-repository.ts",
     "smoke:redis-queue": "tsx scripts/smoke-redis-queue.ts",
     "rotate-keys": "tsx scripts/rotate-provider-keys.ts",
     "prisma:generate": "prisma generate",
