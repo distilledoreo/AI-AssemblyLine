@@ -2224,9 +2224,14 @@ describe("Prisma repository mode", () => {
         setDressing: "Warm practical lamps.",
       }),
     });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction).toHaveBeenCalledWith([
+      expect.any(Promise),
+      expect.any(Promise),
+    ]);
   });
 
-  it("rejects typed Asset Bible detail persistence when the Prisma detail write fails", async () => {
+  it("rejects typed Asset Bible detail persistence when the asset/detail transaction fails", async () => {
     const repository = await import("@/server/repository");
     const asset = {
       id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
@@ -2247,9 +2252,15 @@ describe("Prisma repository mode", () => {
     };
 
     prismaMock.asset.update.mockResolvedValue(asset);
-    prismaMock.propDetail.upsert.mockRejectedValue(new Error("prop detail write failed"));
+    prismaMock.propDetail.upsert.mockResolvedValue(detail);
+    prismaMock.$transaction.mockRejectedValueOnce(new Error("asset detail transaction failed"));
 
-    await expect(repository.persistAssetDetailState(asset, detail)).rejects.toThrow("prop detail write failed");
+    await expect(repository.persistAssetDetailState(asset, detail)).rejects.toThrow("asset detail transaction failed");
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction).toHaveBeenCalledWith([
+      expect.any(Promise),
+      expect.any(Promise),
+    ]);
   });
 
   it("persists project style updates through Prisma", async () => {

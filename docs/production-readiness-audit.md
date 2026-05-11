@@ -170,6 +170,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Script-version analysis status writes now return Prisma-updated records in Prisma mode while only syncing the local mirror as a development compatibility shadow.
 - Project deletes now distinguish Prisma not-found records from real write failures, surfacing production database errors instead of misreporting every delete failure as `not_found`.
 - Asset Bible reference saves now commit each asset version and attached asset reference in one Prisma transaction, preventing orphaned version/reference persistence if either production write fails.
+- Typed Asset Bible detail saves now commit the base asset update and matching type-specific detail upsert in one Prisma transaction, preventing canonical asset metadata from drifting away from its continuity detail record.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
 - `npm test`: passing, 36 files and 176 tests.

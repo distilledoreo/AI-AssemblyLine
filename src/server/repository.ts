@@ -2016,6 +2016,15 @@ export async function persistGeneratedScriptAnalysis(input: {
 }
 
 export async function persistAssetState(asset: Asset) {
+  syncAssetMirror(asset);
+
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
+  await prisma.asset.update(prismaAssetUpdateArgs(asset));
+}
+
+function syncAssetMirror(asset: Asset) {
   const store = getStore();
   const existing = store.assets.find((candidate) => candidate.id === asset.id);
   if (existing) {
@@ -2023,11 +2032,10 @@ export async function persistAssetState(asset: Asset) {
   } else {
     store.assets.push(asset);
   }
+}
 
-  if (!isPrismaRepositoryEnabled()) {
-    return;
-  }
-  await prisma.asset.update({
+function prismaAssetUpdateArgs(asset: Asset): Prisma.AssetUpdateArgs {
+  return {
     where: { id: asset.id },
     data: {
       canonicalName: asset.canonicalName,
@@ -2040,7 +2048,7 @@ export async function persistAssetState(asset: Asset) {
       firstAppearance: toPrismaJson(asset.firstAppearance),
       isUserEdited: asset.isUserEdited ?? false,
     },
-  });
+  };
 }
 
 export async function getSceneById(sceneId: string) {
@@ -2719,107 +2727,12 @@ export async function persistAssetDetailState(asset: Asset, detail: AssetDetail)
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
-  await persistAssetState(asset);
-  if (asset.type === "character") {
-    await prisma.characterDetail.upsert({
-      where: { assetId: asset.id },
-      update: {
-        role: detail.role ?? "supporting",
-        narrativeDescription: detail.narrativeDescription ?? "",
-        physicalDescription: detail.physicalDescription ?? "",
-        personalityNotes: detail.personalityNotes,
-        performanceNotes: detail.performanceNotes,
-        scaleReference: detail.scaleReference,
-      },
-      create: {
-        assetId: asset.id,
-        role: detail.role ?? "supporting",
-        narrativeDescription: detail.narrativeDescription ?? "",
-        physicalDescription: detail.physicalDescription ?? "",
-        personalityNotes: detail.personalityNotes,
-        performanceNotes: detail.performanceNotes,
-        scaleReference: detail.scaleReference,
-      },
-    });
-  }
-  if (asset.type === "wardrobe") {
-    await prisma.wardrobeDetail.upsert({
-      where: { assetId: asset.id },
-      update: {
-        outfitName: detail.outfitName ?? asset.canonicalName,
-        storyContext: detail.storyContext ?? "",
-        materialNotes: detail.materialNotes,
-        accessories: toPrismaJson(detail.accessories ?? []),
-        colorPalette: toPrismaJson(detail.colorPalette ?? []),
-      },
-      create: {
-        assetId: asset.id,
-        outfitName: detail.outfitName ?? asset.canonicalName,
-        storyContext: detail.storyContext ?? "",
-        materialNotes: detail.materialNotes,
-        accessories: toPrismaJson(detail.accessories ?? []) ?? [],
-        colorPalette: toPrismaJson(detail.colorPalette ?? []) ?? [],
-      },
-    });
-  }
-  if (asset.type === "location") {
-    await prisma.locationDetail.upsert({
-      where: { assetId: asset.id },
-      update: {
-        floorPlanNotes: detail.floorPlanNotes,
-        entranceExitNotes: detail.entranceExitNotes,
-        setDressing: detail.setDressing,
-        lightingStates: toPrismaJson(detail.lightingStates),
-        cameraSafeZones: detail.cameraSafeZones,
-      },
-      create: {
-        assetId: asset.id,
-        floorPlanNotes: detail.floorPlanNotes,
-        entranceExitNotes: detail.entranceExitNotes,
-        setDressing: detail.setDressing,
-        lightingStates: toPrismaJson(detail.lightingStates),
-        cameraSafeZones: detail.cameraSafeZones,
-      },
-    });
-  }
-  if (asset.type === "creature") {
-    await prisma.creatureDetail.upsert({
-      where: { assetId: asset.id },
-      update: {
-        speciesType: detail.speciesType ?? asset.canonicalName,
-        anatomyNotes: detail.anatomyNotes,
-        scaleReference: detail.scaleReference,
-        movementNotes: detail.movementNotes,
-        textureDetails: detail.textureDetails,
-      },
-      create: {
-        assetId: asset.id,
-        speciesType: detail.speciesType ?? asset.canonicalName,
-        anatomyNotes: detail.anatomyNotes,
-        scaleReference: detail.scaleReference,
-        movementNotes: detail.movementNotes,
-        textureDetails: detail.textureDetails,
-      },
-    });
-  }
-  if (asset.type === "prop") {
-    await prisma.propDetail.upsert({
-      where: { assetId: asset.id },
-      update: {
-        ownerOrScene: detail.ownerOrScene,
-        materialAndWear: detail.materialAndWear,
-        scaleReference: detail.scaleReference,
-        interactionNotes: detail.interactionNotes,
-      },
-      create: {
-        assetId: asset.id,
-        ownerOrScene: detail.ownerOrScene,
-        materialAndWear: detail.materialAndWear,
-        scaleReference: detail.scaleReference,
-        interactionNotes: detail.interactionNotes,
-      },
-    });
-  }
+  syncAssetMirror(asset);
+  const operations: Prisma.PrismaPromise<unknown>[] = [
+    prisma.asset.update(prismaAssetUpdateArgs(asset)),
+    ...prismaAssetDetailOperations(asset, detail),
+  ];
+  await prisma.$transaction(operations);
 }
 
 export async function persistProjectStyleState(style: ProjectStyle) {
