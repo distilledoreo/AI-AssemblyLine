@@ -17,6 +17,7 @@
     "services:logs": "docker compose logs -f postgres redis",
     "preflight:production": "tsx scripts/production-preflight.ts",
     "smoke:openai": "tsx scripts/smoke-openai.ts",
+    "smoke:stability": "tsx scripts/smoke-stability.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "verify:phase1": "vitest run && next build"

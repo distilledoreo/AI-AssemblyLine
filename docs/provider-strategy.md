@@ -206,6 +206,8 @@ Runtime Asset Bible reference generation resolves Stability credentials from the
 
 Live Stability image output is sent to `POST https://api.stability.ai/v2beta/stable-image/generate/core` for `stable-image-core` or `/ultra` for `stable-image-ultra` using multipart form data, bearer-token authorization, and `Accept: image/*`. Provider HTTP failures are mapped into the common retry classes: `rate_limit`, `timeout`, `retriable`, and `fatal`.
 
+Run `npm run smoke:stability` with `STABILITY_API_KEY` set to verify live Stability connectivity before a production release. The smoke command requests one small Stable Image Core image by default; set `STABILITY_SMOKE_MODEL` to test another supported Stability image model.
+
 Mock-backed placeholder adapters for providers that do not yet have live HTTP clients, including Runway, Kling, Seedance, Pika, Luma, and ElevenLabs, are development/test-only. In production, attempting generation through one of these placeholder adapters fails with `provider_not_configured` until a real provider client and credentials are configured.
 
 ## Model selector behavior

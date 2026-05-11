@@ -33,7 +33,9 @@ All configuration is driven by environment variables loaded from `.env` files (v
 | `LOG_LEVEL` | Logging verbosity | `info` |
 | `SENTRY_DSN` | Sentry error tracking DSN | None (disabled) |
 | `OPENAI_API_KEY` | Optional server fallback OpenAI Platform key when a workspace OpenAI key is not saved. Required by `preflight:production` for live smoke verification. | None |
-| `STABILITY_API_KEY` | Optional server fallback Stability AI key when a workspace Stability key is not saved. Enables live Stable Image Core/Ultra image generation. | None |
+| `OPENAI_SMOKE_MODEL` | Optional model override for `npm run smoke:openai`. | `gpt-4.1-mini` |
+| `STABILITY_API_KEY` | Optional server fallback Stability AI key when a workspace Stability key is not saved. Enables live Stable Image Core/Ultra image generation and `npm run smoke:stability`. | None |
+| `STABILITY_SMOKE_MODEL` | Optional model override for `npm run smoke:stability`. | `stable-image-core` |
 
 ### OAuth sign-in variables
 
@@ -115,6 +117,8 @@ npm run dev
 The checked-in `compose.yaml` starts PostgreSQL 16 on `localhost:5432` and Redis 7 on `localhost:6379`, matching `.env.example`. Stop those services with `npm run services:down`; inspect logs with `npm run services:logs`.
 
 Run `npm run preflight:production` before release. The preflight checks required production environment variables, `NEXTAUTH_SECRET` length, decoded `ENCRYPTION_KEY` length, a real non-mock `OPENAI_API_KEY` for live smoke testing, FFmpeg/ffprobe availability, and TCP reachability for the configured Postgres and Redis URLs.
+
+Run `npm run smoke:openai` and `npm run smoke:stability` with real provider keys before enabling those providers in production. These commands make small live API calls and print only non-secret result metadata.
 
 To exercise BullMQ locally, set `QUEUE_MODE=redis`, make sure Redis is reachable at `REDIS_URL`, and run the worker in a second terminal:
 
