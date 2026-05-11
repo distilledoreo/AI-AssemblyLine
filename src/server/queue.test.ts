@@ -282,6 +282,53 @@ describe("queue and SSE foundation", () => {
     expect(redisInstances[0].publish).toHaveBeenCalledWith("project:project-1:events", JSON.stringify(event));
   });
 
+  it("uses Redis pub/sub instead of in-process listeners when Redis mode is enabled", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("QUEUE_MODE", "redis");
+    vi.stubEnv("REDIS_URL", "redis://events.test:6379");
+    resetConfigForTests();
+
+    const { emitProjectEvent, subscribeToProjectEvents } = await importQueueModule();
+    const listener = vi.fn();
+    const unsubscribe = subscribeToProjectEvents("project-1", listener);
+
+    const event = await emitProjectEvent({
+      projectId: "project-1",
+      jobId: "job-1",
+      eventType: "progress",
+      message: "Working",
+      progressPct: 20,
+    });
+
+    expect(redisInstances[1].publish).toHaveBeenCalledWith("project:project-1:events", JSON.stringify(event));
+    expect(listener).not.toHaveBeenCalled();
+
+    unsubscribe();
+  });
+
+  it("keeps local in-process event delivery for inline queue mode", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("QUEUE_MODE", "inline");
+    resetConfigForTests();
+
+    const { emitProjectEvent, subscribeToProjectEvents } = await importQueueModule();
+    const listener = vi.fn();
+    const unsubscribe = subscribeToProjectEvents("project-1", listener);
+
+    await emitProjectEvent({
+      projectId: "project-1",
+      jobId: "job-1",
+      eventType: "progress",
+      message: "Working",
+      progressPct: 20,
+    });
+
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project-1", eventType: "progress" }));
+    expect(RedisConstructorMock).not.toHaveBeenCalled();
+
+    unsubscribe();
+  });
+
   it("surfaces Redis publish failures for project events", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("QUEUE_MODE", "redis");

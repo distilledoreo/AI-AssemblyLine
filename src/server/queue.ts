@@ -118,8 +118,12 @@ export async function emitProjectEvent(event: Omit<JobEvent, "id" | "createdAt">
     id: event.id ?? createId(),
     createdAt: event.createdAt ?? nowIso(),
   };
-  listeners.get(fullEvent.projectId)?.forEach((listener) => listener(fullEvent));
-  await getRedisPublisher()?.publish(projectEventChannel(fullEvent.projectId), JSON.stringify(fullEvent));
+  const publisher = getRedisPublisher();
+  if (publisher) {
+    await publisher.publish(projectEventChannel(fullEvent.projectId), JSON.stringify(fullEvent));
+  } else {
+    listeners.get(fullEvent.projectId)?.forEach((listener) => listener(fullEvent));
+  }
   return fullEvent;
 }
 
