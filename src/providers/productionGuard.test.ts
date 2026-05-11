@@ -29,6 +29,7 @@ describe("mock-backed provider production guard", () => {
 
   it("rejects mock-backed image and video providers in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("STABILITY_API_KEY", "");
 
     await expect(new StabilityAdapter().generateImage(prompt, { modelId: "stable-image-core", width: 1024, height: 1024 })).rejects.toMatchObject({
       code: "provider_not_configured",

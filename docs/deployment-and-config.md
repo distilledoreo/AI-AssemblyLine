@@ -32,6 +32,8 @@ All configuration is driven by environment variables loaded from `.env` files (v
 | `SESSION_MAX_AGE_DAYS` | Session expiry | `30` |
 | `LOG_LEVEL` | Logging verbosity | `info` |
 | `SENTRY_DSN` | Sentry error tracking DSN | None (disabled) |
+| `OPENAI_API_KEY` | Optional server fallback OpenAI Platform key when a workspace OpenAI key is not saved. Required by `preflight:production` for live smoke verification. | None |
+| `STABILITY_API_KEY` | Optional server fallback Stability AI key when a workspace Stability key is not saved. Enables live Stable Image Core/Ultra image generation. | None |
 
 ### OAuth sign-in variables
 
@@ -128,8 +130,8 @@ In development:
 - `QUEUE_MODE=inline` runs script analysis synchronously without Redis so the local workflow remains usable on a bare machine.
 - `QUEUE_MODE=redis` submits script analysis jobs to BullMQ. Run `npm run worker` as a separate process to consume queued jobs.
 - Redis can be a local instance or Docker container.
-- Provider adapters default to mock mode in local development and tests if no API keys are configured, returning placeholder outputs so the full workflow can be tested without spend. Production generation requires an encrypted workspace provider key or `OPENAI_API_KEY`; missing or literal `mock` OpenAI credentials fail with a provider-key configuration error instead of producing mock outputs.
-- Mock-backed placeholder providers for Stability, Runway, Kling, Seedance, Pika, Luma, and ElevenLabs are development/test-only. Production calls fail with `provider_not_configured` until a live provider client and credentials are configured for that provider.
+- Provider adapters default to mock mode in local development and tests if no API keys are configured, returning placeholder outputs so the full workflow can be tested without spend. Production OpenAI generation requires an encrypted workspace OpenAI key or `OPENAI_API_KEY`; production Stability image generation requires an encrypted workspace Stability key or `STABILITY_API_KEY`. Missing or literal `mock` production credentials fail with a provider-key configuration error instead of producing mock outputs.
+- Mock-backed placeholder providers for Runway, Kling, Seedance, Pika, Luma, and ElevenLabs are development/test-only. Production calls fail with `provider_not_configured` until a live provider client and credentials are configured for that provider.
 - File storage uses `./storage` relative to the project root.
 - Phase 1 exposes a local credentials session path so the foundation UI can be exercised before a Postgres instance is available; production deployments should use the configured database-backed Auth.js sessions.
 

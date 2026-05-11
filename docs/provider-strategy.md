@@ -195,7 +195,18 @@ The OpenAI adapter itself also blocks direct mock-mode usage when `NODE_ENV=prod
 
 Script analysis uses the OpenAI text adapter for its scene, shot, and asset passes whenever real credentials are resolved. The deterministic parser remains only for local development and tests that run without provider credentials.
 
-Mock-backed placeholder adapters for providers that do not yet have live HTTP clients, including Stability, Runway, Kling, Seedance, Pika, Luma, and ElevenLabs, are development/test-only. In production, attempting generation through one of these placeholder adapters fails with `provider_not_configured` until a real provider client and credentials are configured.
+## Stability live mode
+
+The Stability adapter has two modes:
+
+- `mock` or missing key: deterministic local image bytes for development and automated tests only.
+- real API key: live Stable Image Core or Stable Image Ultra calls.
+
+Runtime Asset Bible reference generation resolves Stability credentials from the project workspace's encrypted `stability` provider key first. If no workspace key is configured, it falls back to `STABILITY_API_KEY`. Production image generation fails with `provider_key_missing` when no real Stability key is available.
+
+Live Stability image output is sent to `POST https://api.stability.ai/v2beta/stable-image/generate/core` for `stable-image-core` or `/ultra` for `stable-image-ultra` using multipart form data, bearer-token authorization, and `Accept: image/*`. Provider HTTP failures are mapped into the common retry classes: `rate_limit`, `timeout`, `retriable`, and `fatal`.
+
+Mock-backed placeholder adapters for providers that do not yet have live HTTP clients, including Runway, Kling, Seedance, Pika, Luma, and ElevenLabs, are development/test-only. In production, attempting generation through one of these placeholder adapters fails with `provider_not_configured` until a real provider client and credentials are configured.
 
 ## Model selector behavior
 

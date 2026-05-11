@@ -21,7 +21,7 @@ import {
   refreshPrismaReadiness,
 } from "@/server/repository";
 import { isRedisQueueEnabled } from "@/server/queue";
-import { resolveOpenAiApiKeyForProject } from "@/server/providerKeys";
+import { resolveOpenAiApiKeyForProject, resolveStabilityApiKeyForProject } from "@/server/providerKeys";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
 import { markFramesStaleForAsset } from "@/server/storyboard";
@@ -126,7 +126,10 @@ export async function generateAssetReference(input: {
 }) {
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const asset = await resolveProjectAsset(input.projectId, input.assetId, graph);
-  const adapter = input.providerSlug === "stability" ? new StabilityAdapter() : new OpenAIAdapter(await resolveOpenAiApiKeyForProject(input.projectId));
+  const adapter =
+    input.providerSlug === "stability"
+      ? new StabilityAdapter(await resolveStabilityApiKeyForProject(input.projectId))
+      : new OpenAIAdapter(await resolveOpenAiApiKeyForProject(input.projectId));
   const job = createGenerationJob({
     projectId: input.projectId,
     type: "asset_reference",
@@ -159,7 +162,10 @@ export async function processAssetReferenceJob(input: {
   if (!job) {
     throw new NotFoundError("Generation job not found.");
   }
-  const adapter = input.providerSlug === "stability" ? new StabilityAdapter() : new OpenAIAdapter(await resolveOpenAiApiKeyForProject(input.projectId));
+  const adapter =
+    input.providerSlug === "stability"
+      ? new StabilityAdapter(await resolveStabilityApiKeyForProject(input.projectId))
+      : new OpenAIAdapter(await resolveOpenAiApiKeyForProject(input.projectId));
   addJobEvent({
     jobId: job.id,
     projectId: input.projectId,

@@ -12,3 +12,15 @@ export async function resolveOpenAiApiKeyForProject(projectId: string) {
   }
   return "mock";
 }
+
+export async function resolveStabilityApiKeyForProject(projectId: string) {
+  const workspaceKey = await decryptProjectProviderKey(projectId, "stability").catch(() => undefined);
+  const key = workspaceKey || process.env.STABILITY_API_KEY;
+  if (key && (key !== "mock" || process.env.NODE_ENV !== "production")) {
+    return key;
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new AppError("Stability API key is required for production image generation.", 500, "provider_key_missing");
+  }
+  return "mock";
+}
