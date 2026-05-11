@@ -1431,11 +1431,17 @@ describe("Prisma repository mode", () => {
 
     prismaMock.invitation.findUnique.mockResolvedValue({ ...invitation, expiresAt: timestamp, acceptedAt: timestamp, createdAt: timestamp });
     prismaMock.invitation.upsert.mockResolvedValue(invitation);
+    prismaMock.projectMember.findUnique.mockResolvedValue({ ...member, joinedAt: timestamp });
     prismaMock.projectMember.upsert.mockResolvedValue(member);
     prismaMock.assignment.upsert.mockResolvedValue(assignment);
     prismaMock.activityEvent.create.mockResolvedValue(activity);
 
     await expect(repository.findInvitationByTokenHash("hashed-token")).resolves.toMatchObject({ id: invitation.id });
+    await expect(repository.getProjectMemberForUser(member.projectId, member.userId)).resolves.toMatchObject({
+      id: member.id,
+      role: "artist",
+      joinedAt: timestamp.toISOString(),
+    });
     await repository.persistInvitationState(invitation);
     await repository.persistProjectMemberState(member);
     await repository.persistAssignmentState(assignment);

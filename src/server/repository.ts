@@ -199,6 +199,22 @@ function mapProject(project: {
   };
 }
 
+function mapProjectMember(member: {
+  id: string;
+  projectId: string;
+  userId: string;
+  role: ProjectRole;
+  joinedAt: Date | string;
+}): ProjectMember {
+  return {
+    id: member.id,
+    projectId: member.projectId,
+    userId: member.userId,
+    role: member.role,
+    joinedAt: iso(member.joinedAt),
+  };
+}
+
 function mapProjectStyle(style: {
   id: string;
   projectId: string;
@@ -1213,6 +1229,18 @@ export async function getProjectRole(userId: string, projectId: string) {
   return getStore().projectMembers.find(
     (member) => member.userId === userId && member.projectId === projectId,
   )?.role;
+}
+
+export async function getProjectMemberForUser(projectId: string, userId: string) {
+  const local = getStore().projectMembers.find((member) => member.projectId === projectId && member.userId === userId);
+  if (local) {
+    return local;
+  }
+  if (!isPrismaRepositoryEnabled()) {
+    return undefined;
+  }
+  const member = await prisma.projectMember.findUnique({ where: { projectId_userId: { projectId, userId } } }).catch(() => undefined);
+  return member ? mapProjectMember(member) : undefined;
 }
 
 export async function getProjectDashboard(projectId: string) {

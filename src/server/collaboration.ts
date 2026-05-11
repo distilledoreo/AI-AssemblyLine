@@ -3,6 +3,7 @@ import { AppError, NotFoundError } from "@/server/errors";
 import { createId, nowIso } from "@/server/ids";
 import {
   findInvitationByTokenHash,
+  getProjectMemberForUser,
   getStore,
   persistActivityEventState,
   persistAssignmentState,
@@ -62,7 +63,7 @@ export async function acceptInvitation(token: string, userId: string) {
     store.invitations.push(invitation);
   }
   await persistInvitationState(invitation);
-  if (invitation.projectId && !store.projectMembers.some((member) => member.projectId === invitation.projectId && member.userId === userId)) {
+  if (invitation.projectId && !(await getProjectMemberForUser(invitation.projectId, userId))) {
     const member: ProjectMember = {
       id: createId(),
       projectId: invitation.projectId,
@@ -106,11 +107,14 @@ export async function assignProjectTarget(input: {
 
 export async function addProjectMember(input: { projectId: string; userId: string; role: ProjectRole; actorId?: string }) {
   const store = getStore();
-  const existing = store.projectMembers.find((member) => member.projectId === input.projectId && member.userId === input.userId);
+  const existing = await getProjectMemberForUser(input.projectId, input.userId);
   let member: ProjectMember;
   if (existing) {
     existing.role = input.role;
     member = existing;
+    if (!store.projectMembers.some((candidate) => candidate.id === existing.id)) {
+      store.projectMembers.push(existing);
+    }
   } else {
     member = { id: createId(), projectId: input.projectId, userId: input.userId, role: input.role, joinedAt: nowIso() };
     store.projectMembers.push(member);
