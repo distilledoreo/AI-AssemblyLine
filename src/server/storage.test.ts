@@ -1,10 +1,12 @@
 import { stat } from "node:fs/promises";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ensureProjectStorage,
   projectFolderPath,
   projectStorageFolders,
   projectStoragePath,
+  storagePath,
 } from "@/server/storage";
 
 describe("local filesystem storage", () => {
@@ -16,5 +18,11 @@ describe("local filesystem storage", () => {
     for (const folder of projectStorageFolders) {
       expect((await stat(projectFolderPath(projectId, folder))).isDirectory()).toBe(true);
     }
+  });
+
+  it("joins runtime storage paths without requiring path.join in media writers", () => {
+    expect(storagePath("storage/projects/project-a/", "assets", "asset-1", "1-reference.png")).toBe(
+      ["storage/projects/project-a", "assets", "asset-1", "1-reference.png"].join(path.sep),
+    );
   });
 });

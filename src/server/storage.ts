@@ -42,6 +42,6 @@ export async function ensureStorageRoot() {
   return getStorageRoot();
 }
 
-function storagePath(root: string, ...segments: string[]) {
+export function storagePath(root: string, ...segments: string[]) {
   return [root.replace(/[\\/]$/, ""), ...segments].join(path.sep);
 }

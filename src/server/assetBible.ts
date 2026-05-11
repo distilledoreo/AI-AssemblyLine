@@ -1,5 +1,4 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { OpenAIAdapter } from "@/providers/openai";
 import { StabilityAdapter } from "@/providers/stability";
 import { AppError, NotFoundError } from "@/server/errors";
@@ -23,7 +22,7 @@ import {
 import { isRedisQueueEnabled } from "@/server/queue";
 import { resolveOpenAiApiKeyForProject, resolveStabilityApiKeyForProject } from "@/server/providerKeys";
 import { createId, nowIso } from "@/server/ids";
-import { projectFolderPath } from "@/server/storage";
+import { projectFolderPath, storagePath } from "@/server/storage";
 import { markFramesStaleForAsset } from "@/server/storyboard";
 import type {
   Asset,
@@ -88,10 +87,10 @@ export async function uploadAssetReference(input: {
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const asset = await resolveProjectAsset(input.projectId, input.assetId, graph);
   const version = await createAssetVersion(input.assetId, { description: `Uploaded reference: ${input.filename}` });
-  const dir = path.join(projectFolderPath(input.projectId, "assets"), input.assetId);
+  const dir = storagePath(projectFolderPath(input.projectId, "assets"), input.assetId);
   await mkdir(dir, { recursive: true });
   const safeName = input.filename.replace(/[^a-z0-9._-]/gi, "_") || "reference.png";
-  const filePath = path.join(dir, `${version.versionNumber}-${safeName}`);
+  const filePath = storagePath(dir, `${version.versionNumber}-${safeName}`);
   await writeFile(filePath, input.data);
   const reference: AssetReference = {
     id: createId(),
@@ -176,9 +175,9 @@ export async function processAssetReferenceJob(input: {
     graph.assetVersions,
     { description: `Generated ${input.providerSlug} reference sheet.` },
   );
-  const dir = path.join(projectFolderPath(input.projectId, "assets"), asset.id);
+  const dir = storagePath(projectFolderPath(input.projectId, "assets"), asset.id);
   await mkdir(dir, { recursive: true });
-  const filePath = path.join(dir, `${version.versionNumber}-${input.providerSlug}-reference.png`);
+  const filePath = storagePath(dir, `${version.versionNumber}-${input.providerSlug}-reference.png`);
   await writeFile(filePath, result.images[0].data);
   const reference: AssetReference = {
     id: createId(),

@@ -3170,7 +3170,7 @@ export async function addExportBundle(bundle: ExportBundle) {
         createdById: bundle.createdById,
         createdAt: new Date(bundle.createdAt),
       },
-    }).catch(() => undefined);
+    });
   }
   return bundle;
 }

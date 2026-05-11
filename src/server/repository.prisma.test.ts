@@ -1777,6 +1777,23 @@ describe("Prisma repository mode", () => {
     });
   });
 
+  it("rejects export bundle persistence when the Prisma write fails", async () => {
+    const repository = await import("@/server/repository");
+    const bundle = {
+      id: "23232323-2323-4232-8232-232323232323",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      bundleVersion: 1,
+      manifestPath: "storage/projects/project/exports/project.assemblyline-bundle.json",
+      mediaFileCount: 3,
+      metadataRecordCount: 24,
+      createdById: "11111111-1111-4111-8111-111111111111",
+      createdAt: timestamp.toISOString(),
+    };
+    prismaMock.exportBundle.create.mockRejectedValue(new Error("export bundle write failed"));
+
+    await expect(repository.addExportBundle(bundle)).rejects.toThrow("export bundle write failed");
+  });
+
   it("persists imported project graph records through Prisma", async () => {
     const repository = await import("@/server/repository");
     const projectId = "33333333-3333-4333-8333-333333333333";
