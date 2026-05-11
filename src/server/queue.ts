@@ -149,6 +149,24 @@ export function createGenerationWorker(queueName: keyof typeof queueTopology, pr
   });
 }
 
+export async function scheduleProviderPollJob(queueName: keyof typeof queueTopology, intervalMs = 15000) {
+  const queue = getBullQueue(queueName);
+  if (!queue) {
+    return { scheduled: false, queueName };
+  }
+  await queue.add(
+    "provider_poll",
+    { queueName },
+    {
+      jobId: `${queueName}-provider-poll`,
+      repeat: { every: intervalMs },
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 100 },
+    },
+  );
+  return { scheduled: true, queueName: queue.name };
+}
+
 export function formatSseEvent(event: JobEvent) {
   return [
     `id: ${event.id}`,

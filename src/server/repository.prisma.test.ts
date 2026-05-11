@@ -442,6 +442,40 @@ describe("Prisma repository mode", () => {
     });
   });
 
+  it("lists submitted provider jobs through Prisma for poll workers", async () => {
+    const submitted = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      type: "video_clip" as const,
+      providerSlug: "runway",
+      modelId: "gen4.5",
+      status: "provider_submitted" as const,
+      inputPayload: { mode: "shot" },
+      outputPayload: { providerJobId: "task-1" },
+      errorMessage: null,
+      errorClass: null,
+      retryCount: 0,
+      providerJobId: "task-1",
+      createdAt: timestamp,
+      startedAt: timestamp,
+      completedAt: null,
+    };
+    prismaMock.generationJob.findMany.mockResolvedValue([submitted]);
+
+    const repository = await import("@/server/repository");
+    await expect(repository.listSubmittedProviderJobs({ type: "video_clip", providerSlug: "runway" })).resolves.toMatchObject([
+      { id: submitted.id, providerJobId: "task-1", status: "provider_submitted" },
+    ]);
+    expect(prismaMock.generationJob.findMany).toHaveBeenCalledWith({
+      where: {
+        status: { in: ["provider_submitted", "polling"] },
+        type: "video_clip",
+        providerSlug: "runway",
+      },
+      orderBy: { createdAt: "asc" },
+    });
+  });
+
   it("loads script versions from Prisma for out-of-process analysis workers", async () => {
     const version = {
       id: "88888888-8888-4888-8888-888888888888",

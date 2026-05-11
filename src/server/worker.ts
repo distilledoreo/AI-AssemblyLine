@@ -1,10 +1,10 @@
 import type { Job } from "bullmq";
-import { createGenerationWorker, isRedisQueueEnabled } from "@/server/queue";
+import { createGenerationWorker, isRedisQueueEnabled, scheduleProviderPollJob } from "@/server/queue";
 import { processAssetReferenceJob } from "@/server/assetBible";
 import { processExportProjectBundleJob, processImportProjectBundleJob } from "@/server/exportImport";
 import { processScriptAnalysisJob } from "@/server/scriptAnalysis";
 import { processStoryboardFrameJob } from "@/server/storyboard";
-import { processVideoClipJob } from "@/server/video";
+import { processSubmittedVideoProviderJobs, processVideoClipJob } from "@/server/video";
 
 type WorkerJobData = {
   projectId?: string;
@@ -62,6 +62,9 @@ async function processImageJob(job: Job<WorkerJobData>) {
 }
 
 async function processVideoJob(job: Job<WorkerJobData & { providerSlug?: "runway" | "kling" }>) {
+  if (job.name === "provider_poll") {
+    return processSubmittedVideoProviderJobs();
+  }
   if (job.name !== "video_clip") {
     throw new Error(`Unsupported video job type: ${job.name}`);
   }
@@ -113,6 +116,7 @@ export function startGenerationWorkers() {
     createGenerationWorker("video", processVideoJob),
     createGenerationWorker("project", processProjectJob),
   ].filter(Boolean);
+  void scheduleProviderPollJob("video", Number(process.env.PROVIDER_POLL_INTERVAL_MS) || 15000);
   return { started: workers.length > 0, workers };
 }
 

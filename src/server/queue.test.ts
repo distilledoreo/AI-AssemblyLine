@@ -127,6 +127,27 @@ describe("queue and SSE foundation", () => {
     );
   });
 
+  it("schedules repeatable provider polling jobs on Redis-backed queues", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("QUEUE_MODE", "redis");
+    vi.stubEnv("REDIS_URL", "redis://queue.test:6379");
+    resetConfigForTests();
+
+    const { scheduleProviderPollJob } = await importQueueModule();
+    const result = await scheduleProviderPollJob("video", 15000);
+
+    expect(result).toMatchObject({ scheduled: true, queueName: "assemblyline-video" });
+    expect(QueueConstructorMock).toHaveBeenCalledWith("assemblyline-video", expect.any(Object));
+    expect(queueInstances[0].add).toHaveBeenCalledWith(
+      "provider_poll",
+      { queueName: "video" },
+      expect.objectContaining({
+        jobId: "video-provider-poll",
+        repeat: { every: 15000 },
+      }),
+    );
+  });
+
   it("publishes project events to the documented Redis pub/sub channel", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("QUEUE_MODE", "redis");

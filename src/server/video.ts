@@ -12,6 +12,7 @@ import {
   getStore,
   getVideoClipForScene,
   getVideoClipForShot,
+  listSubmittedProviderJobs,
   markGenerationJobProviderSubmitted,
   markGenerationJobRunning,
   persistClipVersionState,
@@ -185,6 +186,21 @@ export async function processVideoProviderResult(input: {
     data: Buffer.from(await output.arrayBuffer()),
     mimeType: output.headers.get("content-type")?.split(";")[0] || "video/mp4",
   });
+}
+
+export async function processSubmittedVideoProviderJobs(input: { fetchImpl?: typeof fetch } = {}) {
+  const jobs = await listSubmittedProviderJobs({ type: "video_clip", providerSlug: "runway" });
+  const results = [];
+  for (const job of jobs) {
+    results.push(
+      await processVideoProviderResult({
+        projectId: job.projectId,
+        jobId: job.id,
+        fetchImpl: input.fetchImpl,
+      }),
+    );
+  }
+  return { processed: jobs.length, results };
 }
 
 async function persistVideoClipBytes(input: {

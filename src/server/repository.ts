@@ -2897,6 +2897,32 @@ export async function getGenerationJob(jobId: string) {
   return job ? mapJob(job) : undefined;
 }
 
+export async function listSubmittedProviderJobs(input: {
+  type?: GenerationJob["type"];
+  providerSlug?: string;
+} = {}) {
+  const statuses: GenerationJob["status"][] = ["provider_submitted", "polling"];
+  if (isPrismaRepositoryEnabled()) {
+    const jobs = await prisma.generationJob.findMany({
+      where: {
+        status: { in: statuses },
+        ...(input.type ? { type: input.type } : {}),
+        ...(input.providerSlug ? { providerSlug: input.providerSlug } : {}),
+      },
+      orderBy: { createdAt: "asc" },
+    }).catch(() => undefined);
+    if (jobs) {
+      return jobs.map(mapJob);
+    }
+  }
+  return getStore().generationJobs.filter(
+    (job) =>
+      statuses.includes(job.status) &&
+      (!input.type || job.type === input.type) &&
+      (!input.providerSlug || job.providerSlug === input.providerSlug),
+  );
+}
+
 export async function markGenerationJobRunning(jobId: string, status: GenerationJob["status"] = "running") {
   const startedAt = nowIso();
   const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
