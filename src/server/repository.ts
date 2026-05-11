@@ -2275,7 +2275,7 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       updatedAt: new Date(scene.updatedAt),
     })),
     skipDuplicates: true,
-  }).catch(() => undefined);
+  });
   await prisma.shot.createMany({
     data: graph.shots.map((shot) => ({
       id: shot.id,
@@ -2293,7 +2293,7 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       updatedAt: new Date(shot.updatedAt),
     })),
     skipDuplicates: true,
-  }).catch(() => undefined);
+  });
   await prisma.asset.createMany({
     data: graph.assets.map((asset) => ({
       id: asset.id,
@@ -2311,7 +2311,7 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       updatedAt: new Date(asset.updatedAt),
     })),
     skipDuplicates: true,
-  }).catch(() => undefined);
+  });
   await Promise.all(
     graph.assetDetails.map((detail) => {
       const asset = graph.assets.find((candidate) => candidate.id === detail.assetId);
@@ -2329,7 +2329,7 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       createdAt: new Date(version.createdAt),
     })),
     skipDuplicates: true,
-  }).catch(() => undefined);
+  });
   await prisma.assetReference.createMany({
     data: graph.assetReferences.map((reference) => ({
       id: reference.id,
@@ -2344,11 +2344,11 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       createdAt: new Date(reference.createdAt),
     })),
     skipDuplicates: true,
-  }).catch(() => undefined);
+  });
   await prisma.sceneAssetReq.createMany({
     data: graph.sceneAssetRequirements,
     skipDuplicates: true,
-  }).catch(() => undefined);
+  });
   await prisma.shotAssetReq.createMany({
     data: graph.shotAssetRequirements,
     skipDuplicates: true,
@@ -2423,7 +2423,7 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       updatedAt: new Date(note.updatedAt),
     })),
     skipDuplicates: true,
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistAssetDetailState(asset: Asset, detail: AssetDetail) {
@@ -2859,7 +2859,7 @@ export async function persistInvitationState(invitation: Invitation) {
       acceptedAt: invitation.acceptedAt ? new Date(invitation.acceptedAt) : null,
       createdAt: new Date(invitation.createdAt),
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistProjectMemberState(member: ProjectMember) {
@@ -2883,7 +2883,7 @@ export async function persistProjectMemberState(member: ProjectMember) {
       role: member.role,
       joinedAt: new Date(member.joinedAt),
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistAssignmentState(assignment: Assignment) {
@@ -2921,7 +2921,7 @@ export async function persistAssignmentState(assignment: Assignment) {
       createdAt: new Date(assignment.createdAt),
       updatedAt: new Date(assignment.updatedAt),
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistActivityEventState(event: ActivityEvent) {
@@ -2942,7 +2942,7 @@ export async function persistActivityEventState(event: ActivityEvent) {
       metadata: toPrismaJson(event.metadata),
       createdAt: new Date(event.createdAt),
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistAssetVersionState(version: AssetVersion) {

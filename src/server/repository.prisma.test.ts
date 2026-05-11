@@ -1697,6 +1697,23 @@ describe("Prisma repository mode", () => {
     });
   });
 
+  it("rejects collaboration persistence when an assignment write fails", async () => {
+    const repository = await import("@/server/repository");
+    const assignment = {
+      id: "19191919-1919-4191-8191-191919191919",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      userId: "22222222-2222-4222-8222-222222222222",
+      targetType: "shot" as const,
+      shotId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      status: "open" as const,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    prismaMock.assignment.upsert.mockRejectedValue(new Error("assignment write failed"));
+
+    await expect(repository.persistAssignmentState(assignment)).rejects.toThrow("assignment write failed");
+  });
+
   it("persists and lists export bundle records through Prisma", async () => {
     const repository = await import("@/server/repository");
     const bundle = {
