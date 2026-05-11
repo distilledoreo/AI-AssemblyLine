@@ -1,5 +1,6 @@
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 import { AppError } from "@/server/errors";
 import { createId, nowIso, slugify } from "@/server/ids";
 import {
@@ -35,6 +36,45 @@ import type {
 } from "@/server/types";
 
 export const BUNDLE_VERSION = 1;
+
+const importRecordSchema = z.object({ id: z.string() }).passthrough();
+const importGraphSchema = z.object({
+  scripts: z.array(importRecordSchema),
+  activeVersion: importRecordSchema.optional(),
+  scenes: z.array(importRecordSchema.extend({ scriptVersionId: z.string() })),
+  shots: z.array(importRecordSchema.extend({ sceneId: z.string() })),
+  assets: z.array(importRecordSchema),
+  assetDetails: z.array(z.object({ assetId: z.string() }).passthrough()),
+  assetVersions: z.array(importRecordSchema.extend({ assetId: z.string() })),
+  assetReferences: z.array(importRecordSchema.extend({ assetVersionId: z.string() })),
+  storyboardFrames: z.array(importRecordSchema.extend({ shotId: z.string() })),
+  frameVersions: z.array(importRecordSchema.extend({ frameId: z.string() })),
+  reviewNotes: z.array(importRecordSchema.extend({ targetId: z.string() })),
+  videoClips: z.array(importRecordSchema.extend({ shotId: z.string().optional(), sceneId: z.string().optional() })),
+  clipVersions: z.array(importRecordSchema.extend({ clipId: z.string() })),
+  invitations: z.array(z.unknown()).default([]),
+  assignments: z.array(z.unknown()).default([]),
+  activityEvents: z.array(z.unknown()).default([]),
+  sceneAssetRequirements: z.array(importRecordSchema.extend({ sceneId: z.string(), assetId: z.string() })),
+  shotAssetRequirements: z.array(importRecordSchema.extend({ shotId: z.string(), assetId: z.string() })),
+  jobs: z.array(z.unknown()).default([]),
+  events: z.array(z.unknown()).default([]),
+});
+const importManifestSchema = z.object({
+  bundleVersion: z.number(),
+  exportedAt: z.string(),
+  project: z.object({
+    title: z.string().min(1),
+    targetFormat: z.string(),
+    aspectRatio: z.string(),
+    estimatedRuntime: z.number().optional(),
+    rightsPolicy: z.unknown(),
+  }).passthrough(),
+  style: z.unknown().optional(),
+  graph: importGraphSchema,
+  media: z.array(z.unknown()).default([]),
+  importInstructions: z.array(z.string()).default([]),
+});
 
 type ExportManifest = {
   bundleVersion: number;
@@ -177,7 +217,7 @@ export async function processImportProjectBundleJob(input: { userId: string; man
   let manifest: ExportManifest;
   try {
     const raw = await readFile(manifestPath, "utf8");
-    manifest = JSON.parse(raw) as ExportManifest;
+    manifest = importManifestSchema.parse(JSON.parse(raw)) as ExportManifest;
   } catch {
     throw new AppError("Import bundle could not be read. Choose a valid AI AssemblyLine bundle manifest.", 400, "invalid_import_bundle");
   }

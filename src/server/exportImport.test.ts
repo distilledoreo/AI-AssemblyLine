@@ -101,6 +101,29 @@ describe("phase 7 export, import, operations, and adapters", () => {
     });
   });
 
+  it("rejects malformed bundle manifests before importing records", async () => {
+    const { user } = await signInWithCredentials({ email: "malformed-import@example.com", password: "assemblyline" });
+    const bundleDir = projectFolderPath("malformed-project", "exports");
+    await mkdir(bundleDir, { recursive: true });
+    const malformedPath = path.join(bundleDir, "malformed.assemblyline-bundle.json");
+    await writeFile(
+      malformedPath,
+      JSON.stringify({
+        bundleVersion: 1,
+        exportedAt: new Date().toISOString(),
+        project: { title: "Malformed" },
+        graph: { scripts: [] },
+        media: [],
+        importInstructions: [],
+      }),
+    );
+
+    await expect(importProjectBundle({ userId: user.id, manifestPath: malformedPath })).rejects.toMatchObject({
+      code: "invalid_import_bundle",
+      status: 400,
+    });
+  });
+
   it("rejects import manifests outside storage or with the wrong extension", async () => {
     const { user } = await signInWithCredentials({ email: "unsafe-import@example.com", password: "assemblyline" });
 

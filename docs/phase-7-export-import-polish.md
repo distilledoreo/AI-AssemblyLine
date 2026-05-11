@@ -41,6 +41,7 @@ Provider API keys are excluded from the manifest and must be reconfigured in the
 
 Export and import require the `export_project` permission. Storage cleanup requires project settings permission.
 Import paths must resolve under the configured storage root and end with `.assemblyline-bundle.json`; paths outside storage or non-bundle extensions are rejected before any file read.
+Readable bundle manifests are validated for the required project metadata and graph collections before import records are created; malformed manifests return `invalid_import_bundle`.
 
 ## Remaining adapters
 
