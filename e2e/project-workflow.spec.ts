@@ -6,6 +6,7 @@ test("creator can run the core project workflow and export a bundle", async ({ p
   await page.getByRole("textbox", { name: "Password" }).fill("assemblyline");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByLabel("API key")).toHaveValue("");
 
   const projectId = await page.evaluate(async () => {
     async function api(path: string, options: RequestInit = {}) {

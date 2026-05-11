@@ -24,7 +24,7 @@ export function DashboardClient({
   const [workspaceName, setWorkspaceName] = useState("Studio Workspace");
   const [projectTitle, setProjectTitle] = useState("Untitled Short Film");
   const [providerSlug, setProviderSlug] = useState("openai");
-  const [providerKey, setProviderKey] = useState("mock-openai-key");
+  const [providerKey, setProviderKey] = useState("");
   const [providerKeys, setProviderKeys] = useState<SafeProviderKey[]>([]);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -84,6 +84,10 @@ export function DashboardClient({
     setError("");
     if (!selectedWorkspaceId) {
       setError("Create or select a workspace first.");
+      return;
+    }
+    if (providerKey.trim().length < 3) {
+      setError("Enter a real provider API key before saving.");
       return;
     }
     const response = await fetch("/api/provider-keys", {
@@ -210,6 +214,9 @@ export function DashboardClient({
               <label htmlFor="provider-key">API key</label>
               <input
                 id="provider-key"
+                type="password"
+                autoComplete="off"
+                placeholder="Paste a provider API key"
                 value={providerKey}
                 onChange={(event) => setProviderKey(event.target.value)}
               />

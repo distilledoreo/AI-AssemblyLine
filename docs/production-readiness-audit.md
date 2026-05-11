@@ -38,6 +38,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Storyboard frame re-approval now persists stale state to dependent video clip versions through the repository when upstream approved frames are superseded.
 - Video generation now locates existing shot/scene clips through repository helpers before creating a new clip version, so clip reuse in Prisma mode does not depend on local video clip state.
 - Export/import jobs now await repository job completion updates, and import returns the restored graph through the repository read path after persistence.
+- The dashboard provider-key form now starts empty, uses password entry, and blocks blank/mock-prefilled saves so production setup requires an intentional provider key entry.
 - `npm test`: passing, 25 files and 73 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.

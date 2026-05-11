@@ -27,7 +27,7 @@ The local MVP can run with default development values. Production-style deployme
 - `STORAGE_ROOT`
 - `SENTRY_DSN` when error tracking should be enabled
 
-Provider keys are entered in the app settings and encrypted server-side. They are never written to exports.
+Provider keys are entered in the app settings and encrypted server-side. The dashboard does not prefill mock keys; paste a real provider API key for production verification. Provider keys are never written to exports.
 
 ## OpenAI provider
 
