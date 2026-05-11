@@ -15,7 +15,7 @@ The local development pipeline uses a deterministic analyzer that follows the th
 
 ## Runtime endpoints
 
-- `POST /api/projects/{projectId}/scripts` accepts JSON script text or multipart file upload, creates a `ScriptVersion`, stores the file under project uploads, runs analysis, and returns the analysis graph.
+- `POST /api/projects/{projectId}/scripts` accepts JSON script text or multipart file upload, creates a `ScriptVersion`, stores the file under project uploads, runs analysis, and returns the analysis graph. Multipart uploads that omit the file part fail with `missing_upload_file`.
 - `PATCH /api/projects/{projectId}/scripts` re-runs analysis for the active script version and preserves user-edited scene records.
 - `GET /api/projects/{projectId}/analysis` returns scripts, active version, scenes, shots, assets, requirement links, jobs, and events.
 - `PATCH /api/projects/{projectId}/scenes/{sceneId}` updates editable scene metadata.

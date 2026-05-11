@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { toErrorResponse } from "@/server/errors";
+import { AppError, toErrorResponse } from "@/server/errors";
 import { getProjectRole } from "@/server/repository";
 import { assertProjectPermission } from "@/server/rbac";
 import { requireCurrentUser } from "@/server/session";
@@ -20,7 +20,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
       const form = await request.formData();
       const file = form.get("file");
       if (!(file instanceof File)) {
-        throw new Error("Upload requires a script file.");
+        throw new AppError("Script upload requires a file.", 400, "missing_upload_file");
       }
       const graph = await uploadScriptForProject({
         projectId,

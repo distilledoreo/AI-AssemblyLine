@@ -64,6 +64,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Asset reference and storyboard sketch uploads now reject zero-byte files with `empty_media` before creating versions, frames, or media files.
 - Asset reference uploads now persist uploaded asset versions and references only after the media file write succeeds, preventing orphaned AssetVersion records when storage fails mid-upload.
 - Asset reference and storyboard sketch multipart routes now return `missing_upload_file` client errors when the file part is absent instead of surfacing plain unexpected server errors.
+- Script multipart uploads now return `missing_upload_file` client errors when the file part is absent instead of surfacing plain unexpected server errors.
 - Asset reference and storyboard sketch multipart routes now validate required target IDs at the route boundary, returning `missing_upload_target` for absent or malformed `assetId`/`shotId` before service calls.
 - Zod request-validation failures now return `400 validation_error` with issue paths and are not captured as unexpected route errors.
 - Malformed JSON request bodies now return `400 invalid_json` and are not captured as unexpected route errors.
