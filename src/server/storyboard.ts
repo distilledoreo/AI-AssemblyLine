@@ -5,7 +5,6 @@ import { AppError, NotFoundError } from "@/server/errors";
 import {
   completeGenerationJob,
   createGenerationJob,
-  decryptProjectProviderKey,
   getFrameVersionById,
   getProjectDashboard,
   getScriptAnalysisGraphForProject,
@@ -18,14 +17,11 @@ import {
   persistStoryboardFrameState,
 } from "@/server/repository";
 import { isRedisQueueEnabled } from "@/server/queue";
+import { resolveOpenAiApiKeyForProject } from "@/server/providerKeys";
 import { composeStoryboardPrompt } from "@/server/promptEngine";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
 import type { ClipVersion, FrameVersion, ReviewNote, StoryboardFrame } from "@/server/types";
-
-async function openAiApiKeyForProject(projectId: string) {
-  return decryptProjectProviderKey(projectId, "openai").catch(() => process.env.OPENAI_API_KEY || "mock");
-}
 
 export async function generateStoryboardFrame(input: {
   projectId: string;
@@ -104,7 +100,7 @@ export async function processStoryboardFrameJob(input: {
     assets: graph.assets.filter((asset) => requiredAssetIds.has(asset.id)),
     userDirection: input.userDirection,
   });
-  const result = await new OpenAIAdapter(await openAiApiKeyForProject(input.projectId)).generateImage(prompt, {
+  const result = await new OpenAIAdapter(await resolveOpenAiApiKeyForProject(input.projectId)).generateImage(prompt, {
     modelId: "gpt-image-1",
     width: 1024,
     height: 576,

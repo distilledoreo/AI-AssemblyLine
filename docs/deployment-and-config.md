@@ -126,7 +126,7 @@ In development:
 - `QUEUE_MODE=inline` runs script analysis synchronously without Redis so the local workflow remains usable on a bare machine.
 - `QUEUE_MODE=redis` submits script analysis jobs to BullMQ. Run `npm run worker` as a separate process to consume queued jobs.
 - Redis can be a local instance or Docker container.
-- Provider adapters default to mock mode if no API keys are configured, returning placeholder outputs so the full workflow can be tested without spend.
+- Provider adapters default to mock mode in local development and tests if no API keys are configured, returning placeholder outputs so the full workflow can be tested without spend. Production generation requires an encrypted workspace provider key or `OPENAI_API_KEY`; missing OpenAI credentials fail with a provider-key configuration error instead of producing mock outputs.
 - File storage uses `./storage` relative to the project root.
 - Phase 1 exposes a local credentials session path so the foundation UI can be exercised before a Postgres instance is available; production deployments should use the configured database-backed Auth.js sessions.
 
