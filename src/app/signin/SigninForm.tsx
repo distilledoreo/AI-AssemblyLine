@@ -2,9 +2,11 @@
 
 import { FormEvent, useState } from "react";
 import { LogIn } from "lucide-react";
+import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { ConfiguredOAuthProvider } from "@/auth";
 
-export function SigninForm() {
+export function SigninForm({ oauthProviders = [] }: { oauthProviders?: ConfiguredOAuthProvider[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("creator@example.com");
@@ -30,6 +32,8 @@ export function SigninForm() {
     router.push(searchParams.get("next") ?? "/dashboard");
     router.refresh();
   }
+
+  const callbackUrl = searchParams.get("next") ?? "/dashboard";
 
   return (
     <form className="panel signin-panel form" onSubmit={submit}>
@@ -62,6 +66,21 @@ export function SigninForm() {
         <LogIn size={17} aria-hidden="true" />
         Sign in
       </button>
+      {oauthProviders.length > 0 ? (
+        <div className="button-row" aria-label="OAuth sign in options">
+          {oauthProviders.map((provider) => (
+            <button
+              className="button secondary"
+              type="button"
+              key={provider.id}
+              onClick={() => void signIn(provider.id, { callbackUrl })}
+            >
+              <LogIn size={17} aria-hidden="true" />
+              Continue with {provider.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </form>
   );
 }

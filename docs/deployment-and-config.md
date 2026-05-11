@@ -33,6 +33,15 @@ All configuration is driven by environment variables loaded from `.env` files (v
 | `LOG_LEVEL` | Logging verbosity | `info` |
 | `SENTRY_DSN` | Sentry error tracking DSN | None (disabled) |
 
+### OAuth sign-in variables
+
+Google and GitHub sign-in are optional. Configure both a client ID and client secret to show the provider on `/signin`.
+
+| Provider | Client ID variables | Client secret variables |
+|----------|---------------------|-------------------------|
+| Google | `AUTH_GOOGLE_ID`, `GOOGLE_CLIENT_ID`, `GOOGLE_ID` | `AUTH_GOOGLE_SECRET`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_SECRET` |
+| GitHub | `AUTH_GITHUB_ID`, `GITHUB_CLIENT_ID`, `GITHUB_ID` | `AUTH_GITHUB_SECRET`, `GITHUB_CLIENT_SECRET`, `GITHUB_SECRET` |
+
 ## API key encryption
 
 Provider API keys entered by users are encrypted before storage and decrypted only server-side when making provider API calls.

@@ -6,23 +6,65 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/server/prisma";
 import { signInWithCredentials } from "@/server/repository";
 
-const oauthProviders = [
-  process.env.GITHUB_ID && process.env.GITHUB_SECRET
+export type ConfiguredOAuthProvider = {
+  id: "github" | "google";
+  name: string;
+};
+
+type OAuthProviderConfig = ConfiguredOAuthProvider & {
+  clientId: string;
+  clientSecret: string;
+};
+
+export function getConfiguredOAuthProviders(env: NodeJS.ProcessEnv = process.env): OAuthProviderConfig[] {
+  return [
+    oauthProviderConfig("github", "GitHub", env, ["AUTH_GITHUB_ID", "GITHUB_CLIENT_ID", "GITHUB_ID"], [
+      "AUTH_GITHUB_SECRET",
+      "GITHUB_CLIENT_SECRET",
+      "GITHUB_SECRET",
+    ]),
+    oauthProviderConfig("google", "Google", env, ["AUTH_GOOGLE_ID", "GOOGLE_CLIENT_ID", "GOOGLE_ID"], [
+      "AUTH_GOOGLE_SECRET",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_SECRET",
+    ]),
+  ].filter(isDefined);
+}
+
+export function getConfiguredOAuthProviderSummaries(env: NodeJS.ProcessEnv = process.env): ConfiguredOAuthProvider[] {
+  return getConfiguredOAuthProviders(env).map(({ id, name }) => ({ id, name }));
+}
+
+const oauthProviders = getConfiguredOAuthProviders().map((provider) =>
+  provider.id === "github"
     ? GitHub({
-        clientId: process.env.GITHUB_ID,
-        clientSecret: process.env.GITHUB_SECRET,
+        clientId: provider.clientId,
+        clientSecret: provider.clientSecret,
       })
-    : undefined,
-  process.env.GOOGLE_ID && process.env.GOOGLE_SECRET
-    ? Google({
-        clientId: process.env.GOOGLE_ID,
-        clientSecret: process.env.GOOGLE_SECRET,
+    : Google({
+        clientId: provider.clientId,
+        clientSecret: provider.clientSecret,
       })
-    : undefined,
-].filter(isDefined);
+);
 
 function isDefined<T>(value: T | undefined): value is T {
   return Boolean(value);
+}
+
+function oauthProviderConfig(
+  id: ConfiguredOAuthProvider["id"],
+  name: string,
+  env: NodeJS.ProcessEnv,
+  clientIdKeys: string[],
+  clientSecretKeys: string[],
+): OAuthProviderConfig | undefined {
+  const clientId = firstEnv(env, clientIdKeys);
+  const clientSecret = firstEnv(env, clientSecretKeys);
+  return clientId && clientSecret ? { id, name, clientId, clientSecret } : undefined;
+}
+
+function firstEnv(env: NodeJS.ProcessEnv, keys: string[]) {
+  return keys.map((key) => env[key]?.trim()).find((value): value is string => Boolean(value));
 }
 
 export const authOptions: NextAuthOptions = {

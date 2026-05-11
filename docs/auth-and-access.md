@@ -11,6 +11,15 @@ The MVP should use **NextAuth.js** (Auth.js v5) with the following providers:
 
 NextAuth handles session tokens, CSRF protection, and callback URLs. Sessions should use **database-backed sessions** (not JWTs) so that sessions can be revoked server-side when roles change or users are removed.
 
+Google and GitHub sign-in buttons are shown on `/signin` only when the matching provider credentials are configured. The app accepts Auth.js-style names and common provider aliases:
+
+| Provider | Client ID variables | Client secret variables |
+|----------|---------------------|-------------------------|
+| Google | `AUTH_GOOGLE_ID`, `GOOGLE_CLIENT_ID`, `GOOGLE_ID` | `AUTH_GOOGLE_SECRET`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_SECRET` |
+| GitHub | `AUTH_GITHUB_ID`, `GITHUB_CLIENT_ID`, `GITHUB_ID` | `AUTH_GITHUB_SECRET`, `GITHUB_CLIENT_SECRET`, `GITHUB_SECRET` |
+
+This OAuth sign-in is for authenticating users into AI AssemblyLine. It is separate from provider API credentials used for model calls.
+
 ## Session model
 
 - Sessions are stored in Postgres via the Prisma adapter for NextAuth.
@@ -88,3 +97,9 @@ Permissions are enforced at the **API route layer** using middleware, not only i
 ## Single-user mode
 
 For single creators, the workspace and project are auto-created on first login. The user is `owner` at both levels. Team UI is hidden but the data model remains the same so team mode can be enabled later without migration.
+
+## ChatGPT and Google AI OAuth boundaries
+
+OpenAI [GPT Actions authentication](https://platform.openai.com/docs/actions/authentication) supports OAuth when ChatGPT users need to authenticate to **this app's API** from a custom GPT action. That is not a general mechanism for AI AssemblyLine to spend a user's ChatGPT subscription quota for OpenAI API calls. OpenAI generation inside this app still uses server-side provider credentials, either the encrypted workspace OpenAI key or `OPENAI_API_KEY`.
+
+For Google model calls, production [Vertex AI authentication](https://cloud.google.com/vertex-ai/docs/authentication) uses Google Cloud authentication such as Application Default Credentials or service-account credentials. Google AI Studio/Gemini API keys and Google account sign-in are separate from a user's Google AI Pro subscription; the app should not imply that signing in with Google grants model API quota.

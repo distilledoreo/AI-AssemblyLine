@@ -24,12 +24,12 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 | Playwright E2E tests | `e2e/project-workflow.spec.ts` covers sign-in, project creation, script analysis, asset approval, storyboard frame approval, video generation, and export bundle UI. | Passing for current local workflow |
 | Multi-page workflow UI | Dedicated routes now exist for overview, script, Asset Bible, storyboard, and video workflows. E2E checks storyboard and video route filtering. | Passing for local workflow |
 | Storyboard drawing library | Fabric.js is installed and the storyboard page exposes a canvas with draw/select/rectangle/text/clear/save controls. E2E saves rectangle markup through the storyboard API. | Passing for local workflow |
-| OAuth for OpenAI/ChatGPT and Google AI Pro | Official OpenAI docs support OAuth for GPT Actions where ChatGPT authenticates to this app's API, not as a general way for this app to spend a user's ChatGPT subscription quota. Google Vertex AI supports API keys and Application Default Credentials for production; AI Studio API keys are not supported in Vertex AI. | Feasibility documented |
+| OAuth for app sign-in, OpenAI/ChatGPT, and Google AI Pro | Google/GitHub OAuth sign-in buttons now render on `/signin` when provider credentials are configured. Official OpenAI docs support OAuth for GPT Actions where ChatGPT authenticates to this app's API, not as a general way for this app to spend a user's ChatGPT subscription quota. Google Vertex AI supports Google Cloud authentication such as Application Default Credentials for production; Google sign-in and Google AI Pro subscriptions are not treated as model API quota. | App OAuth implemented; provider-quota boundaries documented |
 | Production runtime verification | Postgres and Redis are not currently reachable on local default ports. | Blocked |
 
 ## Latest verification
 
-- `npm test`: passing, 23 files and 69 tests.
+- `npm test`: passing, 24 files and 71 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
