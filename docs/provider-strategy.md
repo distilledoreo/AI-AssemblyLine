@@ -217,16 +217,22 @@ Successful Stability responses must include non-empty image bytes. Empty image b
 
 Run `npm run smoke:stability` with `STABILITY_API_KEY` set to verify live Stability connectivity before a production release. The smoke command requests one small Stable Image Core image by default; set `STABILITY_SMOKE_MODEL` to test another supported Stability image model.
 
-## Runway live mode
+## Runway and Google AI Veo live mode
 
-The Runway adapter has two modes:
+The live video adapters have two modes:
 
 - `mock` or missing key: deterministic local video bytes for development and automated tests only.
-- real API key: live Runway task submission.
+- real API key: live async video task or operation submission.
 
 Runtime video generation resolves Runway credentials from the project workspace's encrypted `runway` provider key first. If no workspace key is configured, it falls back to `RUNWAYML_API_SECRET`. Production video generation fails with `provider_key_missing` when no real Runway key is available.
 
-Live Runway output is submitted to `POST https://api.dev.runwayml.com/v1/image_to_video` with `promptText`, `model`, `ratio`, `duration`, bearer-token authorization, and `X-Runway-Version: 2024-11-06`. Text-to-video mode omits `promptImage`, matching Runway's documented API guide. The initial worker transition requires the returned Runway task ID, stores it, and marks the AssemblyLine job `provider_submitted`; a successful provider response without a task ID is treated as a fatal malformed-provider response. The Runway result processor polls `GET /v1/tasks/{id}`, downloads the completed ephemeral output URL, rejects empty download bodies as `provider_output_missing`, stores non-empty media in project storage, inspects it, creates the ClipVersion, and marks the job `complete`. In Redis queue mode, a repeatable video-queue `provider_poll` job invokes that processor for submitted/polling Runway video jobs every 15 seconds. Fatal poll failures are persisted on the underlying video GenerationJob with a final project event because the repeatable scheduler job does not carry the original GenerationJob ID. Retriable poll failures such as rate limits, timeouts, and provider `5xx` responses leave the video job in `polling` for the next scheduled poll.
+Runtime Google AI / Veo generation resolves the project workspace's encrypted `google-ai` provider key first. If no workspace key is configured, it falls back to `GEMINI_API_KEY` and then `GOOGLE_AI_API_KEY`. Production Veo generation fails with `provider_key_missing` when no real Google AI key is available.
+
+Live Runway output is submitted to `POST https://api.dev.runwayml.com/v1/image_to_video` with `promptText`, `model`, `ratio`, `duration`, bearer-token authorization, and `X-Runway-Version: 2024-11-06`. Text-to-video mode omits `promptImage`, matching Runway's documented API guide. The initial worker transition requires the returned Runway task ID, stores it, and marks the AssemblyLine job `provider_submitted`; a successful provider response without a task ID is treated as a fatal malformed-provider response.
+
+Live Google AI / Veo output is submitted to the Gemini API `models/{model}:predictLongRunning` endpoint with the composed prompt, aspect ratio, duration, and `x-goog-api-key` authorization. The initial worker transition requires the returned operation name, stores it, and marks the AssemblyLine job `provider_submitted`; a successful provider response without an operation name is treated as a fatal malformed-provider response.
+
+The shared live-video result processor polls the provider task or operation, downloads the completed output URL, rejects empty download bodies as `provider_output_missing`, stores non-empty media in project storage, inspects it, creates the ClipVersion, and marks the job `complete`. Google AI output downloads include the required `x-goog-api-key` header. In Redis queue mode, a repeatable video-queue `provider_poll` job invokes that processor for submitted/polling Runway and Google AI / Veo video jobs every 15 seconds. Fatal poll failures are persisted on the underlying video GenerationJob with a final project event because the repeatable scheduler job does not carry the original GenerationJob ID. Retriable poll failures such as rate limits, timeouts, and provider `5xx` responses leave the video job in `polling` for the next scheduled poll.
 
 Video generation treats a provider response without video bytes or an async provider job ID as `provider_output_missing`; it fails the GenerationJob rather than writing placeholder media.
 

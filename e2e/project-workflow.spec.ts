@@ -13,6 +13,7 @@ test("creator can run the core project workflow and export a bundle", async ({ p
   await expect(providerSelect).toContainText("OpenAI");
   await expect(providerSelect).toContainText("Stability");
   await expect(providerSelect).toContainText("Runway");
+  await expect(providerSelect).toContainText("Google AI Veo");
   await expect(providerSelect).not.toContainText("Replicate");
 
   const projectId = await page.evaluate(async () => {
