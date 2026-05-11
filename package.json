@@ -16,6 +16,7 @@
     "services:down": "docker compose down",
     "services:logs": "docker compose logs -f postgres redis",
     "preflight:production": "tsx scripts/production-preflight.ts",
+    "release:readiness": "tsx scripts/release-readiness.ts",
     "security:audit": "npm audit --audit-level=moderate",
     "smoke:openai": "tsx scripts/smoke-openai.ts",
     "smoke:stability": "tsx scripts/smoke-stability.ts",

@@ -80,6 +80,8 @@ The workflow also includes a production infrastructure preflight job with real G
 
 Live provider API verification is available as the manual GitHub Actions workflow `.github/workflows/live-provider-smoke.yml`. It is intentionally `workflow_dispatch` only, sources provider credentials from repository secrets, and runs `npm run smoke:providers`. The normal pull-request and `main` workflows remain keyless and never call provider APIs.
 
+Release readiness can be checked with `npm run release:readiness`. The command is intentionally operator-run rather than a normal CI gate: it checks local provider credential shape and uses `gh secret list` to confirm the repository has the secret names required by the manual live-provider workflow. Unit coverage verifies the local credential checks, GitHub secret-name parsing, missing-secret reporting, and repository slug resolution.
+
 ## What to test per phase
 
 | Phase               | Test focus                                                                                       |

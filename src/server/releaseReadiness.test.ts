@@ -1,0 +1,62 @@
+import { describe, expect, it } from "vitest";
+import {
+  evaluateGithubProviderSecrets,
+  evaluateLocalProviderCredentials,
+  parseGithubSecretList,
+  resolveGithubRepository,
+} from "../../scripts/release-readiness";
+
+describe("release readiness", () => {
+  it("requires live local provider credentials for the manual smoke suite", () => {
+    const results = evaluateLocalProviderCredentials({
+      OPENAI_API_KEY: "mock",
+      STABILITY_API_KEY: "sk-stability-prod-smoke-abc123",
+      RUNWAYML_API_SECRET: "rw-prod-runway-smoke-abc123",
+      GOOGLE_AI_API_KEY: "google-ai-prod-veo-smoke-abc123",
+    });
+
+    expect(results.find((result) => result.name === "local OPENAI_API_KEY")).toMatchObject({
+      ok: false,
+      detail: "missing, mock, or placeholder",
+    });
+    expect(results.find((result) => result.name === "local GEMINI_API_KEY or GOOGLE_AI_API_KEY")).toMatchObject({
+      ok: true,
+    });
+  });
+
+  it("checks GitHub provider secrets by name without reading secret values", () => {
+    const names = parseGithubSecretList(
+      [
+        "OPENAI_API_KEY         2026-05-11T00:00:00Z",
+        "STABILITY_API_KEY      2026-05-11T00:00:00Z",
+        "RUNWAYML_API_SECRET    2026-05-11T00:00:00Z",
+        "GOOGLE_AI_API_KEY      2026-05-11T00:00:00Z",
+      ].join("\n"),
+    );
+    const results = evaluateGithubProviderSecrets(names);
+
+    expect(results.every((result) => result.ok)).toBe(true);
+  });
+
+  it("reports missing GitHub provider secrets including either Google AI key name", () => {
+    const results = evaluateGithubProviderSecrets(new Set(["OPENAI_API_KEY"]));
+
+    expect(results.filter((result) => !result.ok).map((result) => result.name)).toEqual(
+      expect.arrayContaining([
+        "GitHub secret STABILITY_API_KEY",
+        "GitHub secret RUNWAYML_API_SECRET",
+        "GitHub secret GEMINI_API_KEY or GOOGLE_AI_API_KEY",
+      ]),
+    );
+  });
+
+  it("resolves GitHub repository slugs from env or origin remotes", () => {
+    expect(resolveGithubRepository({ GITHUB_REPOSITORY: "owner/repo" })).toBe("owner/repo");
+    expect(resolveGithubRepository({}, "https://github.com/distilledoreo/AI-AssemblyLine.git")).toBe(
+      "distilledoreo/AI-AssemblyLine",
+    );
+    expect(resolveGithubRepository({}, "git@github.com:distilledoreo/AI-AssemblyLine.git")).toBe(
+      "distilledoreo/AI-AssemblyLine",
+    );
+  });
+});
