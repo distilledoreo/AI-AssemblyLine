@@ -1970,108 +1970,83 @@ export async function persistAssetState(asset: Asset) {
 }
 
 export async function getSceneById(sceneId: string) {
-  const local = getStore().scenes.find((candidate) => candidate.id === sceneId);
-  if (local) {
-    return local;
+  if (isPrismaRepositoryEnabled()) {
+    const scene = await prisma.scene.findUnique({ where: { id: sceneId } });
+    return scene ? mapScene(scene) : undefined;
   }
-  if (!isPrismaRepositoryEnabled()) {
-    return undefined;
-  }
-  const scene = await prisma.scene.findUnique({ where: { id: sceneId } });
-  return scene ? mapScene(scene) : undefined;
+  return getStore().scenes.find((candidate) => candidate.id === sceneId);
 }
 
 export async function getScriptVersionById(scriptVersionId: string) {
-  const local = getStore().scriptVersions.find((candidate) => candidate.id === scriptVersionId);
-  if (local) {
-    return local;
+  if (isPrismaRepositoryEnabled()) {
+    const version = await prisma.scriptVersion.findUnique({ where: { id: scriptVersionId } });
+    return version ? mapScriptVersion(version) : undefined;
   }
-  if (!isPrismaRepositoryEnabled()) {
-    return undefined;
-  }
-  const version = await prisma.scriptVersion.findUnique({ where: { id: scriptVersionId } });
-  return version ? mapScriptVersion(version) : undefined;
+  return getStore().scriptVersions.find((candidate) => candidate.id === scriptVersionId);
 }
 
 export async function getShotById(shotId: string) {
-  const local = getStore().shots.find((candidate) => candidate.id === shotId);
-  if (local) {
-    return local;
+  if (isPrismaRepositoryEnabled()) {
+    const shot = await prisma.shot.findUnique({ where: { id: shotId } });
+    return shot ? mapShot(shot) : undefined;
   }
-  if (!isPrismaRepositoryEnabled()) {
-    return undefined;
-  }
-  const shot = await prisma.shot.findUnique({ where: { id: shotId } });
-  return shot ? mapShot(shot) : undefined;
+  return getStore().shots.find((candidate) => candidate.id === shotId);
 }
 
 export async function getAssetById(assetId: string) {
-  const local = getStore().assets.find((candidate) => candidate.id === assetId);
-  if (local) {
-    return local;
+  if (isPrismaRepositoryEnabled()) {
+    const asset = await prisma.asset.findUnique({ where: { id: assetId } });
+    return asset ? mapAsset(asset) : undefined;
   }
-  if (!isPrismaRepositoryEnabled()) {
-    return undefined;
-  }
-  const asset = await prisma.asset.findUnique({ where: { id: assetId } });
-  return asset ? mapAsset(asset) : undefined;
+  return getStore().assets.find((candidate) => candidate.id === assetId);
 }
 
 export async function getFrameVersionById(frameVersionId: string) {
-  const local = getStore().frameVersions.find((candidate) => candidate.id === frameVersionId);
-  if (local) {
-    return local;
+  if (isPrismaRepositoryEnabled()) {
+    const version = await prisma.frameVersion.findUnique({ where: { id: frameVersionId } });
+    return version ? mapFrameVersion(version) : undefined;
   }
-  if (!isPrismaRepositoryEnabled()) {
-    return undefined;
-  }
-  const version = await prisma.frameVersion.findUnique({ where: { id: frameVersionId } });
-  return version ? mapFrameVersion(version) : undefined;
+  return getStore().frameVersions.find((candidate) => candidate.id === frameVersionId);
 }
 
 export async function getClipVersionById(clipVersionId: string) {
-  const local = getStore().clipVersions.find((candidate) => candidate.id === clipVersionId);
-  if (!isPrismaRepositoryEnabled()) {
-    return local;
+  if (isPrismaRepositoryEnabled()) {
+    const version = await prisma.clipVersion.findUnique({ where: { id: clipVersionId } });
+    return version ? mapClipVersion(version) : undefined;
   }
-  const version = await prisma.clipVersion.findUnique({ where: { id: clipVersionId } });
-  return version ? mapClipVersion(version) : local;
+  return getStore().clipVersions.find((candidate) => candidate.id === clipVersionId);
 }
 
 export async function getVideoClipForShot(shotId: string) {
-  const local = getStore().videoClips.find((candidate) => candidate.shotId === shotId);
-  if (!isPrismaRepositoryEnabled()) {
-    return local;
+  if (isPrismaRepositoryEnabled()) {
+    const clip = await prisma.videoClip.findFirst({ where: { shotId } });
+    return clip ? mapVideoClip(clip) : undefined;
   }
-  const clip = await prisma.videoClip.findFirst({ where: { shotId } });
-  return clip ? mapVideoClip(clip) : local;
+  return getStore().videoClips.find((candidate) => candidate.shotId === shotId);
 }
 
 export async function getVideoClipForScene(sceneId: string) {
-  const local = getStore().videoClips.find((candidate) => candidate.sceneId === sceneId);
-  if (!isPrismaRepositoryEnabled()) {
-    return local;
+  if (isPrismaRepositoryEnabled()) {
+    const clip = await prisma.videoClip.findFirst({ where: { sceneId } });
+    return clip ? mapVideoClip(clip) : undefined;
   }
-  const clip = await prisma.videoClip.findFirst({ where: { sceneId } });
-  return clip ? mapVideoClip(clip) : local;
+  return getStore().videoClips.find((candidate) => candidate.sceneId === sceneId);
 }
 
 export async function getSceneAssetRequirementBySceneAndAsset(sceneId: string, assetId: string) {
-  const local = getStore().sceneAssetRequirements.find((candidate) => candidate.sceneId === sceneId && candidate.assetId === assetId);
-  if (!isPrismaRepositoryEnabled()) {
-    return local;
+  if (isPrismaRepositoryEnabled()) {
+    const requirement = await prisma.sceneAssetReq.findFirst({ where: { sceneId, assetId } });
+    return requirement ? mapSceneAssetRequirement(requirement) : undefined;
   }
-  const requirement = await prisma.sceneAssetReq.findFirst({ where: { sceneId, assetId } });
-  return requirement ? mapSceneAssetRequirement(requirement) : local;
+  return getStore().sceneAssetRequirements.find((candidate) => candidate.sceneId === sceneId && candidate.assetId === assetId);
 }
 
 export async function getSceneAssetRequirementById(requirementId: string) {
-  const local = getStore().sceneAssetRequirements.find((candidate) => candidate.id === requirementId);
-  if (!isPrismaRepositoryEnabled()) {
-    return local;
+  if (isPrismaRepositoryEnabled()) {
+    const requirement = await prisma.sceneAssetReq.findUnique({ where: { id: requirementId } });
+    return requirement ? mapSceneAssetRequirement(requirement) : undefined;
   }
-  const requirement = await prisma.sceneAssetReq.findUnique({ where: { id: requirementId } });
-  return requirement ? mapSceneAssetRequirement(requirement) : local;
+  return getStore().sceneAssetRequirements.find((candidate) => candidate.id === requirementId);
 }
 
 export async function persistSceneState(scene: Scene) {

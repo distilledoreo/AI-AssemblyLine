@@ -823,6 +823,83 @@ describe("Prisma repository mode", () => {
     await expect(run(repository)).rejects.toThrow("repository read failed");
   });
 
+  it("prefers Prisma records over stale local mirrors for foundational lookups", async () => {
+    const repository = await import("@/server/repository");
+    repository.resetStoreForTests();
+    const store = repository.getStore();
+    store.scenes.push({
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      scriptVersionId: "88888888-8888-4888-8888-888888888888",
+      sceneNumber: 1,
+      heading: "INT. STALE ROOM - DAY",
+      summary: "Stale local scene.",
+      scriptStartLine: 1,
+      scriptEndLine: 2,
+      status: "blocked",
+      isUserEdited: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    store.clipVersions.push({
+      id: "17171717-1717-4171-8171-171717171717",
+      clipId: "16161616-1616-4161-8161-161616161616",
+      versionNumber: 1,
+      prompt: "Stale local clip.",
+      filePath: "storage/stale.mp4",
+      durationMs: 1000,
+      status: "draft",
+      isStale: false,
+      sourceFrameVersionIds: [],
+      createdAt: timestamp,
+    });
+    store.sceneAssetRequirements.push({
+      id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      sceneId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      assetId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      isOptional: false,
+      detectedBy: "ai",
+      createdAt: timestamp,
+    });
+
+    prismaMock.scene.findUnique.mockResolvedValue({
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      scriptVersionId: "88888888-8888-4888-8888-888888888888",
+      sceneNumber: 1,
+      heading: "INT. DATABASE ROOM - DAY",
+      summary: "Fresh database scene.",
+      scriptStartLine: 1,
+      scriptEndLine: 2,
+      locationHint: null,
+      status: "ready",
+      isUserEdited: true,
+      warnings: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    prismaMock.clipVersion.findUnique.mockResolvedValue(null);
+    prismaMock.sceneAssetReq.findFirst.mockResolvedValue({
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      sceneId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      assetId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      isOptional: true,
+      detectedBy: "user",
+      createdAt: timestamp,
+    });
+
+    await expect(repository.getSceneById("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")).resolves.toMatchObject({
+      heading: "INT. DATABASE ROOM - DAY",
+      summary: "Fresh database scene.",
+      status: "ready",
+    });
+    await expect(repository.getClipVersionById("17171717-1717-4171-8171-171717171717")).resolves.toBeUndefined();
+    await expect(
+      repository.getSceneAssetRequirementBySceneAndAsset(
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      ),
+    ).resolves.toMatchObject({ id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", detectedBy: "user", isOptional: true });
+  });
+
   it("loads script versions from Prisma for out-of-process analysis workers", async () => {
     const version = {
       id: "88888888-8888-4888-8888-888888888888",
