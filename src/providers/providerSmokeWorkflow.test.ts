@@ -14,6 +14,16 @@ describe("live provider smoke workflow", () => {
     expect(workflow).toContain("npm run smoke:providers");
   });
 
+  it("runs release readiness before provider calls and can read current-commit workflow status", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(workflow).toContain("actions: read");
+    expect(workflow).toContain("GH_TOKEN: ${{ github.token }}");
+    expect(workflow).toContain("RELEASE_READINESS_GITHUB_SECRETS_MODE: env");
+    expect(workflow.indexOf("npm run release:readiness")).toBeGreaterThan(-1);
+    expect(workflow.indexOf("npm run release:readiness")).toBeLessThan(workflow.indexOf("npm run smoke:providers"));
+  });
+
   it("sources every live provider credential from GitHub secrets", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
