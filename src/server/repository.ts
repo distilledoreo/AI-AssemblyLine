@@ -1233,15 +1233,11 @@ export async function getProjectRole(userId: string, projectId: string) {
 }
 
 export async function getProjectMemberForUser(projectId: string, userId: string) {
-  const local = getStore().projectMembers.find((member) => member.projectId === projectId && member.userId === userId);
-  if (local) {
-    return local;
+  if (isPrismaRepositoryEnabled()) {
+    const member = await prisma.projectMember.findUnique({ where: { projectId_userId: { projectId, userId } } });
+    return member ? mapProjectMember(member) : undefined;
   }
-  if (!isPrismaRepositoryEnabled()) {
-    return undefined;
-  }
-  const member = await prisma.projectMember.findUnique({ where: { projectId_userId: { projectId, userId } } });
-  return member ? mapProjectMember(member) : undefined;
+  return getStore().projectMembers.find((member) => member.projectId === projectId && member.userId === userId);
 }
 
 export async function getProjectDashboard(projectId: string) {
@@ -2788,9 +2784,7 @@ export async function persistClipVersionState(version: ClipVersion) {
 export async function findInvitationByTokenHash(tokenHash: string) {
   if (isPrismaRepositoryEnabled()) {
     const invitation = await prisma.invitation.findUnique({ where: { tokenHash } });
-    if (invitation) {
-      return mapInvitation(invitation);
-    }
+    return invitation ? mapInvitation(invitation) : undefined;
   }
   return getStore().invitations.find((candidate) => candidate.tokenHash === tokenHash);
 }
@@ -3254,15 +3248,11 @@ export async function markGenerationJobProviderSubmitted(
 }
 
 export async function getGenerationJob(jobId: string) {
-  const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
-  if (local) {
-    return local;
+  if (isPrismaRepositoryEnabled()) {
+    const job = await prisma.generationJob.findUnique({ where: { id: jobId } });
+    return job ? mapJob(job) : undefined;
   }
-  if (!isPrismaRepositoryEnabled()) {
-    return undefined;
-  }
-  const job = await prisma.generationJob.findUnique({ where: { id: jobId } });
-  return job ? mapJob(job) : undefined;
+  return getStore().generationJobs.find((candidate) => candidate.id === jobId);
 }
 
 export async function listSubmittedProviderJobs(input: {

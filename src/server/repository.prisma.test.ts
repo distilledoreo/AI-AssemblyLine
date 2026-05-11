@@ -860,6 +860,35 @@ describe("Prisma repository mode", () => {
       detectedBy: "ai",
       createdAt: timestamp,
     });
+    store.projectMembers.push({
+      id: "member-stale",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      userId: "11111111-1111-4111-8111-111111111111",
+      role: "owner",
+      joinedAt: timestamp,
+    });
+    store.invitations.push({
+      id: "invitation-stale",
+      workspaceId: "22222222-2222-4222-8222-222222222222",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      email: "artist@example.com",
+      tokenHash: "stale-token",
+      scope: "project",
+      role: "artist",
+      status: "pending",
+      expiresAt: timestamp,
+      invitedById: "11111111-1111-4111-8111-111111111111",
+      createdAt: timestamp,
+    });
+    store.generationJobs.push({
+      id: "job-stale",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      type: "video_clip",
+      status: "complete",
+      inputPayload: {},
+      retryCount: 0,
+      createdAt: timestamp,
+    });
 
     prismaMock.scene.findUnique.mockResolvedValue({
       id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -877,6 +906,25 @@ describe("Prisma repository mode", () => {
       updatedAt: timestamp,
     });
     prismaMock.clipVersion.findUnique.mockResolvedValue(null);
+    prismaMock.projectMember.findUnique.mockResolvedValue(null);
+    prismaMock.invitation.findUnique.mockResolvedValue(null);
+    prismaMock.generationJob.findUnique.mockResolvedValue({
+      id: "job-stale",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      type: "video_clip",
+      providerSlug: "runway",
+      modelId: "gen4.5",
+      status: "running",
+      inputPayload: {},
+      outputPayload: null,
+      errorMessage: null,
+      errorClass: null,
+      retryCount: 1,
+      providerJobId: null,
+      createdAt: timestamp,
+      startedAt: timestamp,
+      completedAt: null,
+    });
     prismaMock.sceneAssetReq.findFirst.mockResolvedValue({
       id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
       sceneId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -892,6 +940,14 @@ describe("Prisma repository mode", () => {
       status: "ready",
     });
     await expect(repository.getClipVersionById("17171717-1717-4171-8171-171717171717")).resolves.toBeUndefined();
+    await expect(
+      repository.getProjectMemberForUser(
+        "33333333-3333-4333-8333-333333333333",
+        "11111111-1111-4111-8111-111111111111",
+      ),
+    ).resolves.toBeUndefined();
+    await expect(repository.findInvitationByTokenHash("stale-token")).resolves.toBeUndefined();
+    await expect(repository.getGenerationJob("job-stale")).resolves.toMatchObject({ status: "running", retryCount: 1 });
     await expect(
       repository.getSceneAssetRequirementBySceneAndAsset(
         "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
