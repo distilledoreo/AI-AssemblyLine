@@ -1,3 +1,4 @@
+import { ZodError } from "zod";
 import { captureError } from "@/server/observability";
 
 export class AppError extends Error {
@@ -38,6 +39,22 @@ export function toErrorResponse(error: unknown, context: Record<string, unknown>
         },
       },
       { status: error.status },
+    );
+  }
+
+  if (error instanceof ZodError) {
+    return Response.json(
+      {
+        error: {
+          code: "validation_error",
+          message: "Request validation failed.",
+          issues: error.issues.map((issue) => ({
+            path: issue.path.join("."),
+            message: issue.message,
+          })),
+        },
+      },
+      { status: 400 },
     );
   }
 
