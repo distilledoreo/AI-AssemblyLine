@@ -94,8 +94,24 @@ describe("phase 7 export, import, operations, and adapters", () => {
   it("rejects unreadable import manifests with a user-facing error", async () => {
     const { user } = await signInWithCredentials({ email: "bad-import@example.com", password: "assemblyline" });
 
-    await expect(importProjectBundle({ userId: user.id, manifestPath: "C:/does-not-exist/phase7.json" })).rejects.toMatchObject({
+    const missingBundlePath = path.join(projectFolderPath("missing-project", "exports"), "missing.assemblyline-bundle.json");
+    await expect(importProjectBundle({ userId: user.id, manifestPath: missingBundlePath })).rejects.toMatchObject({
       code: "invalid_import_bundle",
+      status: 400,
+    });
+  });
+
+  it("rejects import manifests outside storage or with the wrong extension", async () => {
+    const { user } = await signInWithCredentials({ email: "unsafe-import@example.com", password: "assemblyline" });
+
+    await expect(importProjectBundle({ userId: user.id, manifestPath: "C:/Windows/win.ini" })).rejects.toMatchObject({
+      code: "invalid_import_bundle_path",
+      status: 400,
+    });
+    await expect(
+      importProjectBundle({ userId: user.id, manifestPath: path.join(projectFolderPath("unsafe-project", "exports"), "bundle.json") }),
+    ).rejects.toMatchObject({
+      code: "invalid_import_bundle_path",
       status: 400,
     });
   });

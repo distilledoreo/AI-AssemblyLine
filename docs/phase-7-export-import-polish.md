@@ -40,6 +40,7 @@ Provider API keys are excluded from the manifest and must be reconfigured in the
 - `{ "action": "clear_thumbnails" }`
 
 Export and import require the `export_project` permission. Storage cleanup requires project settings permission.
+Import paths must resolve under the configured storage root and end with `.assemblyline-bundle.json`; paths outside storage or non-bundle extensions are rejected before any file read.
 
 ## Remaining adapters
 

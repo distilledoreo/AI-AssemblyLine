@@ -16,7 +16,7 @@ import {
   persistImportedProjectGraph,
 } from "@/server/repository";
 import { isRedisQueueEnabled } from "@/server/queue";
-import { ensureProjectStorage, projectFolderPath } from "@/server/storage";
+import { ensureProjectStorage, getStorageRoot, projectFolderPath } from "@/server/storage";
 import type {
   Asset,
   AssetReference,
@@ -142,7 +142,21 @@ function mapId(map: Map<string, string>, id: string | undefined) {
   return id ? map.get(id) ?? id : undefined;
 }
 
+function resolveImportManifestPath(manifestPath: string) {
+  const resolvedPath = path.resolve(manifestPath);
+  const storageRoot = getStorageRoot();
+  const relativePath = path.relative(storageRoot, resolvedPath);
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    throw new AppError("Import bundle must be a stored AI AssemblyLine bundle manifest.", 400, "invalid_import_bundle_path");
+  }
+  if (!resolvedPath.endsWith(".assemblyline-bundle.json")) {
+    throw new AppError("Import bundle must use the .assemblyline-bundle.json manifest format.", 400, "invalid_import_bundle_path");
+  }
+  return resolvedPath;
+}
+
 export async function importProjectBundle(input: { userId: string; manifestPath: string; projectId?: string }) {
+  const manifestPath = resolveImportManifestPath(input.manifestPath);
   if (isRedisQueueEnabled()) {
     const projectId = input.projectId;
     if (!projectId) {
@@ -151,17 +165,18 @@ export async function importProjectBundle(input: { userId: string; manifestPath:
     const job = await createGenerationJob({
       projectId,
       type: "import",
-      inputPayload: { userId: input.userId, manifestPath: input.manifestPath, projectId },
+      inputPayload: { userId: input.userId, manifestPath, projectId },
     });
     return { job };
   }
-  return processImportProjectBundleJob(input);
+  return processImportProjectBundleJob({ ...input, manifestPath });
 }
 
 export async function processImportProjectBundleJob(input: { userId: string; manifestPath: string; projectId?: string; jobId?: string }) {
+  const manifestPath = resolveImportManifestPath(input.manifestPath);
   let manifest: ExportManifest;
   try {
-    const raw = await readFile(input.manifestPath, "utf8");
+    const raw = await readFile(manifestPath, "utf8");
     manifest = JSON.parse(raw) as ExportManifest;
   } catch {
     throw new AppError("Import bundle could not be read. Choose a valid AI AssemblyLine bundle manifest.", 400, "invalid_import_bundle");
@@ -182,9 +197,9 @@ export async function processImportProjectBundleJob(input: { userId: string; man
   const job = input.jobId
     ? await markGenerationJobRunning(input.jobId)
     : await createGenerationJob({
-        projectId: project.id,
-        type: "import",
-        inputPayload: { sourceBundleVersion: manifest.bundleVersion, manifestPath: input.manifestPath },
+      projectId: project.id,
+      type: "import",
+      inputPayload: { sourceBundleVersion: manifest.bundleVersion, manifestPath },
       });
   if (!job) {
     throw new AppError("Import job not found.", 404, "not_found");
