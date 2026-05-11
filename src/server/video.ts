@@ -322,8 +322,15 @@ async function persistVideoClipBytes(input: {
 }
 
 export async function updateClipVersion(input: { projectId: string; clipVersionId: string; status: ClipVersion["status"] }) {
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
+  const belongsToProject = graph.clipVersions.some((candidate) => candidate.id === input.clipVersionId);
+  if (!belongsToProject) {
+    throw new NotFoundError("Clip version not found.");
+  }
   const version = await getClipVersionById(input.clipVersionId);
-  if (!version) throw new NotFoundError("Clip version not found.");
+  if (!version) {
+    throw new NotFoundError("Clip version not found.");
+  }
   version.status = input.status;
   await persistClipVersionState(version);
   return getScriptAnalysisGraphForProject(input.projectId);

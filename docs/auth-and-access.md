@@ -92,6 +92,8 @@ Asset Bible mutations enforce permissions per action: reference uploads use `upl
 
 Storyboard mutations enforce permissions per action: provider generation uses `generate_storyboard_frames`, sketch/markup uploads use `use_drawing_markup_tools`, approval/rejection uses `approve_reject_frames`, comments use `add_review_comments`, and other frame metadata edits use `edit_storyboard_frames`.
 
+Mutation handlers must also verify object ownership after the role check. For example, a user with review rights on one project cannot update a frame or clip version from another project by guessing its ID.
+
 ## Invitations
 
 - Workspace owners and admins can invite users by email.

@@ -82,6 +82,26 @@ describe("video workflow", () => {
     expect(checkFfmpegAvailability().message).toBeTruthy();
   });
 
+  it("rejects clip version updates when the version belongs to another project", async () => {
+    const first = await projectWithApprovedFrame();
+    const second = await projectWithApprovedFrame();
+    const firstGraph = await generateVideoClip({
+      projectId: first.project.id,
+      mode: "shot",
+      shotId: first.graph.shots[0].id,
+      providerSlug: "runway",
+    });
+    const foreignClipVersionId = firstGraph.clipVersions[0].id;
+
+    await expect(
+      updateClipVersion({
+        projectId: second.project.id,
+        clipVersionId: foreignClipVersionId,
+        status: "approved",
+      }),
+    ).rejects.toMatchObject({ code: "not_found" });
+  });
+
   it("rejects mock-backed video providers from generation paths", async () => {
     const { project, graph } = await projectWithApprovedFrame();
 
