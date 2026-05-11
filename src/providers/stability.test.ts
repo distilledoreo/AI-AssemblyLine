@@ -35,7 +35,7 @@ describe("Stability adapter", () => {
       }),
     );
 
-    const result = await new StabilityAdapter("sk-stability-test", fetchMock).generateImage(prompt, {
+    const result = await new StabilityAdapter(" sk-stability-test ", fetchMock).generateImage(prompt, {
       modelId: "stable-image-core",
       width: 1536,
       height: 1024,

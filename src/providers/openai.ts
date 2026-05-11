@@ -29,7 +29,8 @@ export class OpenAIAdapter implements TextAdapter, ImageAdapter {
   }
 
   async generateStructuredOutput(prompt: string, schema: unknown, options: TextOptions): Promise<TextResult> {
-    if (!this.apiKey || this.apiKey === "mock") {
+    const apiKey = normalizeApiKey(this.apiKey);
+    if (!apiKey || apiKey === "mock") {
       assertMockProviderAllowed(this.slug);
       return {
         content: JSON.stringify({
@@ -77,7 +78,8 @@ export class OpenAIAdapter implements TextAdapter, ImageAdapter {
   }
 
   async generateImage(prompt: ComposedPrompt, options: ImageOptions): Promise<ImageResult> {
-    if (this.apiKey && this.apiKey !== "mock") {
+    const apiKey = normalizeApiKey(this.apiKey);
+    if (apiKey && apiKey !== "mock") {
       const response = await this.openAiRequest("https://api.openai.com/v1/images/generations", {
         model: options.modelId,
         prompt: prompt.positivePrompt,
@@ -134,10 +136,11 @@ export class OpenAIAdapter implements TextAdapter, ImageAdapter {
   }
 
   private async openAiRequest(url: string, body: Record<string, unknown>) {
+    const apiKey = normalizeApiKey(this.apiKey);
     const response = await this.fetchImpl(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -151,6 +154,10 @@ export class OpenAIAdapter implements TextAdapter, ImageAdapter {
     }
     return payload;
   }
+}
+
+function normalizeApiKey(apiKey: string) {
+  return apiKey.trim();
 }
 
 function estimateTokens(value: string) {

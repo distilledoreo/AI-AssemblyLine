@@ -60,7 +60,7 @@ describe("provider adapters", () => {
         usage: { input_tokens: 3, output_tokens: 5 },
       });
     }) as unknown as typeof fetch;
-    const adapter = new OpenAIAdapter("sk-live", fetchMock);
+    const adapter = new OpenAIAdapter(" sk-live ", fetchMock);
 
     const result = await adapter.generateStructuredOutput(
       "Return JSON",

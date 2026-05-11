@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SeedanceAdapter } from "@/providers/extendedAdapters";
+import { OpenAIAdapter } from "@/providers/openai";
 import { StabilityAdapter } from "@/providers/stability";
 import { KlingAdapter, RunwayAdapter } from "@/providers/videoProviders";
 import type { ComposedPrompt } from "@/providers/types";
@@ -50,5 +51,24 @@ describe("mock-backed provider production guard", () => {
     await expect(new SeedanceAdapter().checkJobStatus("seedance-task-without-key")).rejects.toMatchObject({
       code: "provider_not_configured",
     });
+  });
+
+  it("treats whitespace-padded mock keys as mock-backed in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const fetchMock = vi.fn();
+
+    await expect(
+      new OpenAIAdapter(" mock ", fetchMock).generateStructuredOutput("Analyze this script.", { type: "object" }, {
+        modelId: "gpt-4.1-mini",
+        responseFormat: "json",
+      }),
+    ).rejects.toMatchObject({ code: "provider_not_configured" });
+    await expect(
+      new StabilityAdapter(" mock ", fetchMock).generateImage(prompt, { modelId: "stable-image-core", width: 1024, height: 1024 }),
+    ).rejects.toMatchObject({ code: "provider_not_configured" });
+    await expect(
+      new RunwayAdapter(" mock ", fetchMock).generateVideo(prompt, { modelId: "gen4.5", width: 1024, height: 576, durationSeconds: 3 }),
+    ).rejects.toMatchObject({ code: "provider_not_configured" });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -14,7 +14,7 @@ describe("Runway video adapter", () => {
   it("submits live text-to-video tasks to Runway when a key is configured", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-1", status: "PENDING" }));
 
-    const result = await new RunwayAdapter("key_runway_live", fetchMock).generateVideo(prompt, {
+    const result = await new RunwayAdapter(" key_runway_live ", fetchMock).generateVideo(prompt, {
       modelId: "gen4.5",
       width: 1024,
       height: 576,

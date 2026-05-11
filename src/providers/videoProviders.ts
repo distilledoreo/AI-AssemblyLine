@@ -12,13 +12,14 @@ export class RunwayAdapter implements VideoAdapter {
   ) {}
 
   async generateVideo(prompt: ComposedPrompt, options: VideoOptions): Promise<VideoResult> {
-    if (this.apiKey && this.apiKey !== "mock") {
+    const apiKey = normalizeApiKey(this.apiKey);
+    if (apiKey && apiKey !== "mock") {
       const response = await this.runwayRequest("https://api.dev.runwayml.com/v1/image_to_video", {
         model: normalizeRunwayModel(options.modelId),
         promptText: prompt.positivePrompt,
         ratio: toRunwayRatio(options.width, options.height),
         duration: normalizeRunwayDuration(options.durationSeconds),
-      });
+      }, apiKey);
       return {
         providerJobId: requireRunwayTaskId(response),
         isAsync: true,
@@ -30,11 +31,12 @@ export class RunwayAdapter implements VideoAdapter {
   }
 
   async checkJobStatus(providerJobId: string): Promise<AsyncJobStatus> {
-    if (!this.apiKey || this.apiKey === "mock") {
+    const apiKey = normalizeApiKey(this.apiKey);
+    if (!apiKey || apiKey === "mock") {
       assertMockProviderAllowed(this.slug);
       return this.mock.checkJobStatus?.(providerJobId) ?? { status: "complete", progress: 100 };
     }
-    const response = await this.runwayRequest(`https://api.dev.runwayml.com/v1/tasks/${providerJobId}`);
+    const response = await this.runwayRequest(`https://api.dev.runwayml.com/v1/tasks/${providerJobId}`, undefined, apiKey);
     return mapRunwayTaskStatus(response);
   }
 
@@ -50,11 +52,11 @@ export class RunwayAdapter implements VideoAdapter {
     };
   }
 
-  private async runwayRequest(url: string, body?: Record<string, unknown>) {
+  private async runwayRequest(url: string, body: Record<string, unknown> | undefined, apiKey: string) {
     const response = await this.fetchImpl(url, {
       method: body ? "POST" : "GET",
       headers: {
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "X-Runway-Version": "2024-11-06",
       },
@@ -69,6 +71,10 @@ export class RunwayAdapter implements VideoAdapter {
     }
     return payload;
   }
+}
+
+function normalizeApiKey(apiKey: string) {
+  return apiKey.trim();
 }
 
 export class KlingAdapter {

@@ -193,7 +193,7 @@ Successful OpenAI responses must still include usable provider output. Responses
 
 Run `npm run smoke:openai` with `OPENAI_API_KEY` set to verify live OpenAI connectivity before a production release. The smoke command uses a small structured-output Responses API request with `gpt-4.1-mini` by default; set `OPENAI_SMOKE_MODEL` to test a different approved model.
 
-Runtime generation paths resolve OpenAI credentials from the project workspace's encrypted provider key first. If no workspace key is configured, they fall back to `OPENAI_API_KEY`. If neither is present, local development and tests use the mock OpenAI adapter response; production generation fails with a provider-key configuration error instead of silently producing mock outputs. The literal `mock` key is also rejected in production.
+Runtime generation paths resolve OpenAI credentials from the project workspace's encrypted provider key first. If no workspace key is configured, they fall back to `OPENAI_API_KEY`. Provider keys are trimmed before use, so whitespace around a saved key or environment key is not sent to the provider and a whitespace-padded `mock` value is still treated as mock mode. If neither real key is present, local development and tests use the mock OpenAI adapter response; production generation fails with a provider-key configuration error instead of silently producing mock outputs. The literal `mock` key is also rejected in production.
 
 The OpenAI adapter itself also blocks direct mock-mode usage when `NODE_ENV=production`, so production safety does not depend on all callers using the project credential resolver.
 

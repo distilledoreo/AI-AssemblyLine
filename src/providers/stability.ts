@@ -12,11 +12,12 @@ export class StabilityAdapter implements ImageAdapter {
   ) {}
 
   async generateImage(prompt: ComposedPrompt, options: ImageOptions): Promise<ImageResult> {
-    if (this.apiKey && this.apiKey !== "mock") {
+    const apiKey = normalizeApiKey(this.apiKey);
+    if (apiKey && apiKey !== "mock") {
       const images: ImageResult["images"] = [];
       const count = Math.max(1, Math.min(options.count ?? 1, this.getCapabilities().maxImageCount));
       for (let index = 0; index < count; index += 1) {
-        const response = await this.stabilityRequest(prompt, options);
+        const response = await this.stabilityRequest(prompt, options, apiKey);
         images.push(response);
       }
       return {
@@ -43,7 +44,7 @@ export class StabilityAdapter implements ImageAdapter {
     };
   }
 
-  private async stabilityRequest(prompt: ComposedPrompt, options: ImageOptions) {
+  private async stabilityRequest(prompt: ComposedPrompt, options: ImageOptions, apiKey: string) {
     const form = new FormData();
     form.set("prompt", prompt.positivePrompt);
     if (prompt.negativePrompt) {
@@ -58,7 +59,7 @@ export class StabilityAdapter implements ImageAdapter {
     const response = await this.fetchImpl(stabilityEndpointForModel(options.modelId), {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         Accept: "image/*",
       },
       body: form,
@@ -81,6 +82,10 @@ export class StabilityAdapter implements ImageAdapter {
       mimeType: response.headers.get("content-type")?.split(";")[0] || "image/png",
     };
   }
+}
+
+function normalizeApiKey(apiKey: string) {
+  return apiKey.trim();
 }
 
 function stabilityEndpointForModel(modelId: string) {

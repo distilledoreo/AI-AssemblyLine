@@ -105,6 +105,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Asset Bible approval and merge operations now refresh scene/shot readiness through repository helpers instead of reading in-memory store state directly from the service module.
 - Video generation workers and server-side generation calls now reject non-Runway provider slugs, closing the last mock-backed Kling execution path while leaving placeholder capabilities visible only as non-executable metadata.
 - Workspace provider-key lookup and decryption failures now surface during OpenAI, Stability, and Runway credential resolution instead of falling back to server environment keys; fallback is reserved for genuinely absent workspace keys.
+- OpenAI, Stability, and Runway adapters now trim direct API key inputs before mock/live classification and Authorization header construction, preventing whitespace-padded `mock` values from bypassing the production mock-provider guard.
 - Queued script-analysis job metadata now resolves OpenAI credentials before job creation, labeling live-key analysis as `openai` and reserving `local-mock` for deterministic local fallback.
 - Storyboard frame, frame-version, review-note, shot-status, and related generation-job persistence now surface Prisma write failures instead of silently continuing after a missed production database write.
 - Video clip, clip-version, superseded-version, and related generation-job persistence now surface Prisma write failures instead of silently continuing after a missed production database write.
