@@ -1612,14 +1612,34 @@ export async function supersedeScriptVersionScenes(scriptVersionIds: Iterable<st
 }
 
 export async function updateScriptVersionAnalysisStatus(scriptVersionId: string, status: ScriptVersion["analysisStatus"]) {
+  if (isPrismaRepositoryEnabled()) {
+    const updated = await prisma.scriptVersion.update({ where: { id: scriptVersionId }, data: { analysisStatus: status } });
+    const local = getStore().scriptVersions.find((candidate) => candidate.id === scriptVersionId);
+    if (local) {
+      local.analysisStatus = status;
+    }
+    return isMappableScriptVersionRecord(updated) ? mapScriptVersion(updated) : getScriptVersionById(scriptVersionId);
+  }
   const version = getStore().scriptVersions.find((candidate) => candidate.id === scriptVersionId);
   if (version) {
     version.analysisStatus = status;
   }
-  if (isPrismaRepositoryEnabled()) {
-    await prisma.scriptVersion.update({ where: { id: scriptVersionId }, data: { analysisStatus: status } });
-  }
   return version;
+}
+
+function isMappableScriptVersionRecord(value: unknown): value is Parameters<typeof mapScriptVersion>[0] {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      "id" in value &&
+      "scriptId" in value &&
+      "versionNumber" in value &&
+      "filePath" in value &&
+      "rawText" in value &&
+      "analysisStatus" in value &&
+      "isActive" in value &&
+      "createdAt" in value,
+  );
 }
 
 export async function persistGeneratedScriptAnalysis(input: {

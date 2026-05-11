@@ -1244,6 +1244,39 @@ describe("Prisma repository mode", () => {
     ).rejects.toThrow("script status write failed");
   });
 
+  it("returns Prisma script-version status updates instead of stale local mirrors", async () => {
+    const repository = await import("@/server/repository");
+    repository.resetStoreForTests();
+    repository.getStore().scriptVersions.push({
+      id: "88888888-8888-4888-8888-888888888888",
+      scriptId: "99999999-9999-4999-8999-999999999999",
+      versionNumber: 1,
+      filePath: "storage/stale.txt",
+      rawText: "INT. STALE ROOM - DAY",
+      analysisStatus: "pending",
+      isActive: true,
+      createdAt: timestamp,
+    });
+    prismaMock.scriptVersion.update.mockResolvedValue({
+      id: "88888888-8888-4888-8888-888888888888",
+      scriptId: "99999999-9999-4999-8999-999999999999",
+      versionNumber: 2,
+      filePath: "storage/database.txt",
+      rawText: "INT. DATABASE ROOM - DAY",
+      analysisStatus: "complete",
+      isActive: true,
+      createdAt: timestamp,
+    });
+
+    await expect(
+      repository.updateScriptVersionAnalysisStatus("88888888-8888-4888-8888-888888888888", "complete"),
+    ).resolves.toMatchObject({
+      versionNumber: 2,
+      filePath: "storage/database.txt",
+      analysisStatus: "complete",
+    });
+  });
+
   it("reads and persists scene, shot, and asset editor mutations through Prisma", async () => {
     const repository = await import("@/server/repository");
     const scene = {
