@@ -2564,6 +2564,13 @@ export async function findInvitationByTokenHash(tokenHash: string) {
 }
 
 export async function persistInvitationState(invitation: Invitation) {
+  const store = getStore();
+  const existing = store.invitations.find((candidate) => candidate.id === invitation.id);
+  if (existing) {
+    Object.assign(existing, invitation);
+  } else {
+    store.invitations.push(invitation);
+  }
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2599,6 +2606,13 @@ export async function persistInvitationState(invitation: Invitation) {
 }
 
 export async function persistProjectMemberState(member: ProjectMember) {
+  const store = getStore();
+  const existing = store.projectMembers.find((candidate) => candidate.id === member.id);
+  if (existing) {
+    Object.assign(existing, member);
+  } else {
+    store.projectMembers.push(member);
+  }
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2616,6 +2630,13 @@ export async function persistProjectMemberState(member: ProjectMember) {
 }
 
 export async function persistAssignmentState(assignment: Assignment) {
+  const store = getStore();
+  const existing = store.assignments.find((candidate) => candidate.id === assignment.id);
+  if (existing) {
+    Object.assign(existing, assignment);
+  } else {
+    store.assignments.push(assignment);
+  }
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2647,6 +2668,10 @@ export async function persistAssignmentState(assignment: Assignment) {
 }
 
 export async function persistActivityEventState(event: ActivityEvent) {
+  const store = getStore();
+  if (!store.activityEvents.some((candidate) => candidate.id === event.id)) {
+    store.activityEvents.push(event);
+  }
   if (!isPrismaRepositoryEnabled()) {
     return;
   }

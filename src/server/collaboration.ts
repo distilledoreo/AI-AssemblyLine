@@ -4,7 +4,6 @@ import { createId, nowIso } from "@/server/ids";
 import {
   findInvitationByTokenHash,
   getProjectMemberForUser,
-  getStore,
   persistActivityEventState,
   persistAssignmentState,
   persistInvitationState,
@@ -33,13 +32,6 @@ export async function createInvitation(input: {
     invitedById: input.invitedById,
     createdAt: nowIso(),
   };
-  const store = getStore();
-  const mirroredInvitation = store.invitations.find((candidate) => candidate.id === invitation.id);
-  if (mirroredInvitation) {
-    Object.assign(mirroredInvitation, invitation);
-  } else {
-    store.invitations.push(invitation);
-  }
   await persistInvitationState(invitation);
   if (input.projectId) {
     await recordActivity(input.projectId, input.invitedById, "invitation_created", `Invited ${invitation.email} as ${input.role}.`);
@@ -48,7 +40,6 @@ export async function createInvitation(input: {
 }
 
 export async function acceptInvitation(token: string, userId: string) {
-  const store = getStore();
   const invitation = await findInvitationByTokenHash(hashToken(token));
   if (!invitation) throw new NotFoundError("Invitation not found.");
   if (invitation.status !== "pending" || new Date(invitation.expiresAt).getTime() < Date.now()) {
@@ -56,12 +47,6 @@ export async function acceptInvitation(token: string, userId: string) {
   }
   invitation.status = "accepted";
   invitation.acceptedAt = nowIso();
-  const existingInvitation = store.invitations.find((candidate) => candidate.id === invitation.id);
-  if (existingInvitation) {
-    Object.assign(existingInvitation, invitation);
-  } else {
-    store.invitations.push(invitation);
-  }
   await persistInvitationState(invitation);
   if (invitation.projectId && !(await getProjectMemberForUser(invitation.projectId, userId))) {
     const member: ProjectMember = {
@@ -71,7 +56,6 @@ export async function acceptInvitation(token: string, userId: string) {
       role: invitation.role as ProjectRole,
       joinedAt: nowIso(),
     };
-    store.projectMembers.push(member);
     await persistProjectMemberState(member);
     await recordActivity(invitation.projectId, userId, "invitation_accepted", `${invitation.email} joined the project.`);
   }
@@ -99,25 +83,19 @@ export async function assignProjectTarget(input: {
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
-  getStore().assignments.push(assignment);
   await persistAssignmentState(assignment);
   await recordActivity(input.projectId, input.actorId, "assignment_created", `Assigned ${input.targetType}.`, assignment);
   return assignment;
 }
 
 export async function addProjectMember(input: { projectId: string; userId: string; role: ProjectRole; actorId?: string }) {
-  const store = getStore();
   const existing = await getProjectMemberForUser(input.projectId, input.userId);
   let member: ProjectMember;
   if (existing) {
     existing.role = input.role;
     member = existing;
-    if (!store.projectMembers.some((candidate) => candidate.id === existing.id)) {
-      store.projectMembers.push(existing);
-    }
   } else {
     member = { id: createId(), projectId: input.projectId, userId: input.userId, role: input.role, joinedAt: nowIso() };
-    store.projectMembers.push(member);
   }
   await persistProjectMemberState(member);
   await recordActivity(input.projectId, input.actorId, "member_updated", `Project member role set to ${input.role}.`);
@@ -125,7 +103,6 @@ export async function addProjectMember(input: { projectId: string; userId: strin
 
 export async function recordActivity(projectId: string, actorId: string | undefined, eventType: string, message: string, metadata?: Record<string, unknown>) {
   const event = { id: createId(), projectId, actorId, eventType, message, metadata, createdAt: nowIso() };
-  getStore().activityEvents.push(event);
   await persistActivityEventState(event);
   return event;
 }
