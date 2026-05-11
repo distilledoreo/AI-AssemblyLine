@@ -14,16 +14,15 @@ Phase 5 adds video clip generation from approved storyboard frames.
 
 - `GET /api/projects/{projectId}/videos` returns the project graph with video clips and clip versions.
 - `POST /api/projects/{projectId}/videos` accepts:
-  - `generate` for shot or scene video generation with `runway` or `kling`.
+  - `generate` for shot or scene video generation with `runway`.
   - `clip` for clip version status transitions.
 
 ## Provider, polling, and media behavior
 
-- Runway and Kling adapters implement the video provider contract and declare async polling capability, but the public video generation API accepts Runway only until another live provider is wired.
+- Runway implements the live video generation path. Kling still advertises placeholder capabilities for planning/export metadata, but generation workers and server-side generation calls reject non-Runway provider slugs with `unsupported_provider` until another live provider client and credential flow are implemented.
 - Local verification uses deterministic mock video bytes when no real provider keys are configured.
 - The production UI routes both shot and scene video generation through Runway because it is the live-wired video provider.
 - With a workspace Runway key or `RUNWAYML_API_SECRET`, shot and scene video generation can submit live Runway async video tasks, persist the returned provider task id, and finalize completed output through the Runway polling processor. Run `npm run smoke:runway` before enabling live Runway generation in production.
-- Kling remains development/test-only until a live Kling client and credentials are implemented; production use fails through the mock-provider guard instead of silently producing placeholder video.
 - Generation jobs store polling metadata matching `job-queue-design.md` defaults: 15 second interval and 120 max attempts.
 - Media inspection checks FFmpeg availability and falls back to placeholder metadata when FFmpeg is unavailable in local development.
 - Clip versions record source frame version IDs so downstream staleness can be tracked when storyboard frames are superseded.

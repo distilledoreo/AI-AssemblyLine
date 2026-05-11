@@ -60,7 +60,7 @@ describe("video workflow", () => {
       projectId: project.id,
       mode: "scene",
       sceneId: graph.scenes[0].id,
-      providerSlug: "kling",
+      providerSlug: "runway",
     });
 
     expect(sceneClipGraph.videoClips).toHaveLength(2);
@@ -80,6 +80,19 @@ describe("video workflow", () => {
     expect(new RunwayAdapter().getCapabilities().requiresAsyncPolling).toBe(true);
     expect(new KlingAdapter().getCapabilities().supportsImageToVideo).toBe(true);
     expect(checkFfmpegAvailability().message).toBeTruthy();
+  });
+
+  it("rejects mock-backed video providers from generation paths", async () => {
+    const { project, graph } = await projectWithApprovedFrame();
+
+    await expect(
+      generateVideoClip({
+        projectId: project.id,
+        mode: "shot",
+        shotId: graph.shots[0].id,
+        providerSlug: "kling",
+      }),
+    ).rejects.toMatchObject({ code: "unsupported_provider" });
   });
 
   it("submits live Runway jobs without writing mock video bytes", async () => {

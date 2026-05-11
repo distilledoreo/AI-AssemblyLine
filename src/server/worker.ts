@@ -69,7 +69,7 @@ async function processImageJob(job: Job<WorkerJobData>) {
   throw new Error(`Unsupported image job type: ${job.name}`);
 }
 
-async function processVideoJob(job: Job<WorkerJobData & { providerSlug?: "runway" | "kling" }>) {
+async function processVideoJob(job: Job<WorkerJobData & { providerSlug?: string }>) {
   if (job.name === "provider_poll") {
     return processSubmittedVideoProviderJobs();
   }

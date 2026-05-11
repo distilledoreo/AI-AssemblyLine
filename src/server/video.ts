@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { KlingAdapter, RunwayAdapter } from "@/providers/videoProviders";
+import { RunwayAdapter } from "@/providers/videoProviders";
 import { AppError, NotFoundError } from "@/server/errors";
 import {
   addJobEvent,
@@ -29,8 +29,9 @@ export async function generateVideoClip(input: {
   mode: "shot" | "scene";
   shotId?: string;
   sceneId?: string;
-  providerSlug?: "runway" | "kling";
+  providerSlug?: string;
 }) {
+  const providerSlug = requireLiveVideoProvider(input.providerSlug);
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const frameVersions =
     input.mode === "shot"
@@ -39,7 +40,7 @@ export async function generateVideoClip(input: {
   if (frameVersions.length === 0) {
     throw new AppError("Video generation requires approved storyboard frames.", 409, "missing_approved_frames");
   }
-  const adapter = input.providerSlug === "kling" ? new KlingAdapter() : new RunwayAdapter(await resolveRunwayApiKeyForProject(input.projectId));
+  const adapter = new RunwayAdapter(await resolveRunwayApiKeyForProject(input.projectId));
   const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
   const job = await createGenerationJob({
     projectId: input.projectId,
@@ -51,7 +52,7 @@ export async function generateVideoClip(input: {
       mode: input.mode,
       shotId: input.shotId,
       sceneId: input.sceneId,
-      providerSlug: input.providerSlug ?? "runway",
+      providerSlug,
       prompt,
       sourceFrameVersionIds: frameVersions.map((version) => version.id),
       polling: { intervalSeconds: 15, maxAttempts: 120 },
@@ -65,7 +66,7 @@ export async function generateVideoClip(input: {
     mode: input.mode,
     shotId: input.shotId,
     sceneId: input.sceneId,
-    providerSlug: input.providerSlug ?? "runway",
+    providerSlug,
     jobId: job.id,
   });
 }
@@ -75,9 +76,10 @@ export async function processVideoClipJob(input: {
   mode: "shot" | "scene";
   shotId?: string;
   sceneId?: string;
-  providerSlug: "runway" | "kling";
+  providerSlug: string;
   jobId: string;
 }) {
+  const providerSlug = requireLiveVideoProvider(input.providerSlug);
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const frameVersions =
     input.mode === "shot"
@@ -86,7 +88,7 @@ export async function processVideoClipJob(input: {
   if (frameVersions.length === 0) {
     throw new AppError("Video generation requires approved storyboard frames.", 409, "missing_approved_frames");
   }
-  const adapter = input.providerSlug === "kling" ? new KlingAdapter() : new RunwayAdapter(await resolveRunwayApiKeyForProject(input.projectId));
+  const adapter = new RunwayAdapter(await resolveRunwayApiKeyForProject(input.projectId));
   const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
   const job = await markGenerationJobRunning(input.jobId, "polling");
   if (!job) throw new NotFoundError("Generation job not found.");
@@ -139,6 +141,13 @@ export async function processVideoClipJob(input: {
     data: result.video.data,
     mimeType: result.video.mimeType,
   });
+}
+
+function requireLiveVideoProvider(providerSlug = "runway") {
+  if (providerSlug !== "runway") {
+    throw new AppError("Runway is the only live-wired video provider for production generation.", 400, "unsupported_provider");
+  }
+  return providerSlug;
 }
 
 export async function processVideoProviderResult(input: {
