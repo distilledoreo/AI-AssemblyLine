@@ -7,6 +7,7 @@ type SmokeCheck = {
 };
 
 type PrismaClientModule = typeof import("../src/server/prisma");
+type QueueModule = typeof import("../src/server/queue");
 type RepositoryModule = typeof import("../src/server/repository");
 
 process.env.REPOSITORY_MODE = "prisma";
@@ -26,8 +27,9 @@ async function main() {
 }
 
 export async function runPrismaRepositorySmoke() {
-  const [{ prisma }, repository] = await Promise.all([
+  const [{ prisma }, { closeQueueConnections }, repository] = await Promise.all([
     import("../src/server/prisma") as Promise<PrismaClientModule>,
+    import("../src/server/queue") as Promise<QueueModule>,
     import("../src/server/repository") as Promise<RepositoryModule>,
   ]);
   const checks: SmokeCheck[] = [];
@@ -142,6 +144,7 @@ export async function runPrismaRepositorySmoke() {
       detail: `job ${job.id} ended as ${completedJob?.status ?? "missing"} with ${events.length} event(s)`,
     });
   } finally {
+    await closeQueueConnections();
     await cleanupSmokeData({ prisma, userId, workspaceId, projectStoragePath });
     await prisma.$disconnect();
   }
