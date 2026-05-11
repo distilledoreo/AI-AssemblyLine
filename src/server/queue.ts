@@ -193,12 +193,24 @@ export async function getQueueHealthSnapshot() {
   return Promise.all(
     Object.entries(queueTopology).map(async ([name, config]) => {
       const queue = getBullQueue(name);
-      const counts = queue
-        ? await queue
-            .getJobCounts("active", "waiting", "delayed", "failed", "completed")
-            .catch(() => ({ active: 0, waiting: 0, delayed: 0, failed: 0, completed: 0 }))
-        : { active: 0, waiting: 0, delayed: 0, failed: 0, completed: 0 };
-      const latestFailures = queue ? await getRecentFailedJobs(queue) : [];
+      const fallbackCounts = { active: 0, waiting: 0, delayed: 0, failed: 0, completed: 0 };
+      let counts = fallbackCounts;
+      let latestFailures: Array<{
+        id: string;
+        name: string;
+        failedReason: string | undefined;
+        attemptsMade: number;
+        finishedAt: string | undefined;
+      }> = [];
+      let healthError: string | undefined;
+      if (queue) {
+        try {
+          counts = normalizeQueueCounts(await queue.getJobCounts("active", "waiting", "delayed", "failed", "completed"));
+          latestFailures = await getRecentFailedJobs(queue);
+        } catch (error) {
+          healthError = queueHealthErrorMessage(error);
+        }
+      }
       return {
         name,
         jobTypes: config.jobTypes,
@@ -211,9 +223,20 @@ export async function getQueueHealthSnapshot() {
         completed: counts.completed,
         latestFailures,
         redisBacked: Boolean(queue),
+        healthError,
       };
     }),
   );
+}
+
+function normalizeQueueCounts(counts: Record<string, number>) {
+  return {
+    active: counts.active ?? 0,
+    waiting: counts.waiting ?? 0,
+    delayed: counts.delayed ?? 0,
+    failed: counts.failed ?? 0,
+    completed: counts.completed ?? 0,
+  };
 }
 
 function getQueueRateLimit(queueName: keyof typeof queueTopology) {
@@ -228,7 +251,7 @@ function getQueueRateLimit(queueName: keyof typeof queueTopology) {
 }
 
 async function getRecentFailedJobs(queue: Queue) {
-  const failedJobs = await queue.getJobs(["failed"], 0, 9, false).catch(() => [] as BullJob[]);
+  const failedJobs = await queue.getJobs(["failed"], 0, 9, false);
   return failedJobs.map((job) => ({
     id: String(job.id),
     name: job.name,
@@ -236,6 +259,10 @@ async function getRecentFailedJobs(queue: Queue) {
     attemptsMade: job.attemptsMade,
     finishedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : undefined,
   }));
+}
+
+function queueHealthErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Queue health check failed.";
 }
 
 function projectEventChannel(projectId: string) {

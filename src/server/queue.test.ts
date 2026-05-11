@@ -170,6 +170,39 @@ describe("queue and SSE foundation", () => {
     expect(queueInstances[0].getJobs).toHaveBeenCalledWith(["failed"], 0, 9, false);
   });
 
+  it("surfaces Redis-backed queue health failures instead of reporting successful zero counts", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("QUEUE_MODE", "redis");
+    vi.stubEnv("REDIS_URL", "redis://queue.test:6379");
+    resetConfigForTests();
+    QueueConstructorMock.mockImplementationOnce(function Queue(name: string) {
+      const instance = {
+        name,
+        add: vi.fn().mockResolvedValue({ id: "bull-job-1" }),
+        getJobCounts: vi.fn().mockRejectedValue(new Error("redis count failed")),
+        getJobs: vi.fn(),
+      };
+      queueInstances.push(instance);
+      return instance;
+    });
+
+    const { getQueueHealthSnapshot } = await importQueueModule();
+    const queues = await getQueueHealthSnapshot();
+
+    expect(queues[0]).toMatchObject({
+      name: "analysis",
+      active: 0,
+      waiting: 0,
+      delayed: 0,
+      failed: 0,
+      completed: 0,
+      redisBacked: true,
+      latestFailures: [],
+      healthError: "redis count failed",
+    });
+    expect(queueInstances[0].getJobs).not.toHaveBeenCalled();
+  });
+
   it("configures worker rate limits from global and per-queue environment variables", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("QUEUE_MODE", "redis");
