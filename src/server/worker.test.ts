@@ -122,4 +122,30 @@ describe("worker bootstrap", () => {
       progressPct: 100,
     });
   });
+
+  it("surfaces GenerationJob lookup failures before persisting worker failure state", async () => {
+    const { startGenerationWorkers } = await import("@/server/worker");
+    startGenerationWorkers();
+    const analysisProcessor = workerMocks.createGenerationWorker.mock.calls.find((call) => call[0] === "analysis")?.[1];
+    if (!analysisProcessor) {
+      throw new Error("Expected analysis processor registration.");
+    }
+    workerMocks.processScriptAnalysisJob.mockRejectedValue(new Error("OpenAI rate limited the analysis pass."));
+    workerMocks.getGenerationJob.mockRejectedValue(new Error("database unavailable"));
+
+    await expect(
+      analysisProcessor({
+        id: "job-1",
+        name: "script_analysis",
+        attemptsMade: 0,
+        data: {
+          projectId: "project-1",
+          scriptVersionId: "script-version-1",
+        },
+      }),
+    ).rejects.toThrow("database unavailable");
+
+    expect(workerMocks.completeGenerationJob).not.toHaveBeenCalled();
+    expect(workerMocks.addJobEvent).not.toHaveBeenCalled();
+  });
 });

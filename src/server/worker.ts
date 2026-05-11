@@ -164,7 +164,7 @@ async function persistWorkerFailure(job: Job<WorkerJobData>, error: unknown) {
     return;
   }
   const jobId = String(job.id);
-  const existing = await getGenerationJob(jobId).catch(() => undefined);
+  const existing = await getGenerationJob(jobId);
   if (existing && terminalStatuses.has(existing.status)) {
     return;
   }
