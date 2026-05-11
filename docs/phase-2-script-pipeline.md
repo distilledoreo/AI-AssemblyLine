@@ -11,7 +11,7 @@ Phase 2 adds a runnable script-analysis workflow on top of the Phase 1 foundatio
 5. Edit scene summaries and shot user direction inline.
 6. Select **Re-analyze** to run analysis again while preserving user-edited scene metadata.
 
-The local development pipeline uses a deterministic analyzer that follows the three-pass shape from `script-analysis.md`: scene extraction, shot breakdown, and asset detection/deduplication. This keeps tests and local runtime verification provider-free while preserving the same API, job, and SSE event surfaces that provider-backed analysis workers will use.
+The local development pipeline uses a deterministic analyzer that follows the three-pass shape from `script-analysis.md`: scene extraction, shot breakdown, and asset detection/deduplication. When a workspace OpenAI key or `OPENAI_API_KEY` is configured, queued analysis jobs are labeled as OpenAI work and the worker runs the provider-backed three-pass analysis path. Without live credentials, deterministic local fallback remains available only for development and tests.
 
 ## Runtime endpoints
 

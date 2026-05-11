@@ -191,11 +191,13 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
 }
 
 async function createScriptAnalysisJob(projectId: string, scriptVersionId: string) {
+  const apiKey = await resolveOpenAiApiKeyForProject(projectId);
+  const usesLiveOpenAi = apiKey !== "mock";
   return createGenerationJob({
     projectId,
     type: "script_analysis",
-    providerSlug: process.env.OPENAI_API_KEY ? "openai" : "local-mock",
-    modelId: process.env.OPENAI_ANALYSIS_MODEL ?? (process.env.OPENAI_API_KEY ? "gpt-4.1-mini" : "deterministic-script-pass-v1"),
+    providerSlug: usesLiveOpenAi ? "openai" : "local-mock",
+    modelId: process.env.OPENAI_ANALYSIS_MODEL ?? (usesLiveOpenAi ? "gpt-4.1-mini" : "deterministic-script-pass-v1"),
     inputPayload: { projectId, scriptVersionId, preserveUserEdits: true },
   });
 }
