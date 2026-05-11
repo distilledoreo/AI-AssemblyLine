@@ -27,6 +27,8 @@ The local MVP can run with default development values. Production-style deployme
 - `STORAGE_ROOT`
 - `SENTRY_DSN` when error tracking should be enabled
 
+The checked-in `.env.example` uses `QUEUE_MODE=inline` and `REPOSITORY_MODE=memory` for a bare local development loop. Production should leave both unset or set them to `redis` and `prisma`; production runtime config and preflight reject the development-only values.
+
 Provider keys are entered in the app settings and encrypted server-side. The dashboard does not prefill mock keys; paste real OpenAI, Stability, and Runway API keys for production verification. In production, the server rejects `mock`, placeholder, and checked-in example values regardless of casing or surrounding whitespace, and saved provider keys are limited to those live-wired providers. Provider keys are never written to exports.
 
 ## OpenAI provider

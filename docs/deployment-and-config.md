@@ -12,8 +12,6 @@ All configuration is driven by environment variables loaded from `.env` files (v
 |----------|-------------|---------|
 | `DATABASE_URL` | Postgres connection string | `postgresql://user:pass@localhost:5432/assemblyline` |
 | `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
-| `QUEUE_MODE` | Queue execution mode. Use `inline` for no-worker local development or `redis` for BullMQ-backed async jobs. Production defaults to Redis mode when unset. | `redis` |
-| `REPOSITORY_MODE` | Repository backend override. Use `prisma` for production-like persistence. Leave unset in production to default to Prisma; `memory` is development/test-only. | `prisma` |
 | `NEXTAUTH_URL` | Canonical app origin, without a path/query/fragment | `http://localhost:3000` |
 | `NEXTAUTH_SECRET` | NextAuth session signing secret (32+ chars) | Generated via `openssl rand -base64 32` |
 | `ENCRYPTION_KEY` | AES-256 key for provider API key encryption (32 bytes, base64) | Generated via `openssl rand -base64 32` |
@@ -24,6 +22,8 @@ All configuration is driven by environment variables loaded from `.env` files (v
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | App port | `3000` |
+| `QUEUE_MODE` | Queue execution mode. Use `inline` for no-worker local development or `redis` for BullMQ-backed async jobs. Production rejects `inline` and defaults to Redis mode when unset. | Production: Redis; local example: `inline` |
+| `REPOSITORY_MODE` | Repository backend override. Use `memory` only for local development or `prisma` for production-like persistence. Production rejects `memory` and defaults to Prisma when unset. | Production: Prisma; local example: `memory` |
 | `ANALYSIS_QUEUE_CONCURRENCY` | Workers for script analysis queue | `2` |
 | `IMAGE_QUEUE_CONCURRENCY` | Workers for image generation queue | `3` |
 | `VIDEO_QUEUE_CONCURRENCY` | Workers for video generation queue | `2` |
