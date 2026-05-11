@@ -157,4 +157,39 @@ describe("worker bootstrap", () => {
     expect(workerMocks.completeGenerationJob).not.toHaveBeenCalled();
     expect(workerMocks.addJobEvent).not.toHaveBeenCalled();
   });
+
+  it("persists malformed BullMQ payload failures using the persisted GenerationJob project", async () => {
+    const { startGenerationWorkers } = await import("@/server/worker");
+    await startGenerationWorkers();
+    const analysisProcessor = workerMocks.createGenerationWorker.mock.calls.find((call) => call[0] === "analysis")?.[1];
+    if (!analysisProcessor) {
+      throw new Error("Expected analysis processor registration.");
+    }
+    workerMocks.getGenerationJob.mockResolvedValue({ id: "job-1", projectId: "project-1", status: "running" });
+
+    await expect(
+      analysisProcessor({
+        id: "job-1",
+        name: "script_analysis",
+        attemptsMade: 2,
+        data: {
+          scriptVersionId: "script-version-1",
+        },
+      }),
+    ).rejects.toThrow("Script analysis jobs require projectId and scriptVersionId.");
+
+    expect(workerMocks.completeGenerationJob).toHaveBeenCalledWith("job-1", {
+      status: "failed",
+      errorMessage: "Script analysis jobs require projectId and scriptVersionId.",
+      errorClass: "fatal",
+      retryCount: 3,
+    });
+    expect(workerMocks.addJobEvent).toHaveBeenCalledWith({
+      jobId: "job-1",
+      projectId: "project-1",
+      eventType: "status_change",
+      message: "Script analysis jobs require projectId and scriptVersionId.",
+      progressPct: 100,
+    });
+  });
 });

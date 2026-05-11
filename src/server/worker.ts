@@ -160,12 +160,16 @@ function withFailurePersistence<T extends WorkerJobData>(processor: Processor<T>
 }
 
 async function persistWorkerFailure(job: Job<WorkerJobData>, error: unknown) {
-  if (job.name === "provider_poll" || !job.id || !job.data.projectId) {
+  if (job.name === "provider_poll" || !job.id) {
     return;
   }
   const jobId = String(job.id);
   const existing = await getGenerationJob(jobId);
   if (existing && terminalStatuses.has(existing.status)) {
+    return;
+  }
+  const projectId = job.data.projectId ?? existing?.projectId;
+  if (!projectId) {
     return;
   }
   const message = error instanceof Error ? error.message : "Worker job failed.";
@@ -178,7 +182,7 @@ async function persistWorkerFailure(job: Job<WorkerJobData>, error: unknown) {
   });
   await addJobEvent({
     jobId,
-    projectId: job.data.projectId,
+    projectId,
     eventType: "status_change",
     message,
     progressPct: 100,
