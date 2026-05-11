@@ -138,4 +138,6 @@ When a user uploads a new script revision mid-production:
 
 Script revision upload persistence commits any new script row, prior-version deactivation, and new active `ScriptVersion` creation in one database transaction. A failed upload write should not leave previous script versions inactive without the replacement version.
 
+Previous-version scene superseding commits scene and shot status updates in one database transaction. A failed superseding write should not leave old scenes marked `superseded` while their shots remain active.
+
 See [script-analysis.md](script-analysis.md) for the analysis pipeline details.

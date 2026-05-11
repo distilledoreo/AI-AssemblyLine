@@ -1279,6 +1279,27 @@ describe("Prisma repository mode", () => {
       where: { sceneId: { in: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"] } },
       data: expect.objectContaining({ status: "superseded", updatedAt: expect.any(Date) }),
     });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction.mock.calls[0]?.[0]).toHaveLength(2);
+  });
+
+  it("rejects script scene superseding when the transaction fails", async () => {
+    const scriptVersionId = "88888888-8888-4888-8888-888888888888";
+    prismaMock.scene.findMany.mockResolvedValue([
+      { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+      { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" },
+    ]);
+    prismaMock.scene.updateMany.mockResolvedValue({ count: 2 });
+    prismaMock.shot.updateMany.mockResolvedValue({ count: 4 });
+    prismaMock.$transaction.mockRejectedValueOnce(new Error("script supersede transaction failed"));
+
+    const repository = await import("@/server/repository");
+
+    await expect(repository.supersedeScriptVersionScenes([scriptVersionId])).rejects.toThrow(
+      "script supersede transaction failed",
+    );
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction.mock.calls[0]?.[0]).toHaveLength(2);
   });
 
   it("persists generated script analysis graph records through Prisma", async () => {

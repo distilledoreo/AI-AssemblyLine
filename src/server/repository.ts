@@ -1634,14 +1634,17 @@ export async function supersedeScriptVersionScenes(scriptVersionIds: Iterable<st
     });
     const previousPrismaSceneIds = previousScenes.map((scene) => scene.id);
     if (previousPrismaSceneIds.length) {
-      await prisma.scene.updateMany({
-        where: { id: { in: previousPrismaSceneIds } },
-        data: { status: "superseded", updatedAt: new Date() },
-      });
-      await prisma.shot.updateMany({
-        where: { sceneId: { in: previousPrismaSceneIds } },
-        data: { status: "superseded", updatedAt: new Date() },
-      });
+      const updatedAt = new Date();
+      await prisma.$transaction([
+        prisma.scene.updateMany({
+          where: { id: { in: previousPrismaSceneIds } },
+          data: { status: "superseded", updatedAt },
+        }),
+        prisma.shot.updateMany({
+          where: { sceneId: { in: previousPrismaSceneIds } },
+          data: { status: "superseded", updatedAt },
+        }),
+      ]);
     }
   }
 }
