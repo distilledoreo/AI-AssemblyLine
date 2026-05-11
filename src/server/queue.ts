@@ -24,6 +24,7 @@ export const retryPolicy: Record<ErrorClass, { maxRetries: number; backoff: stri
 };
 
 type Listener = (event: JobEvent) => void;
+type ErrorListener = (error: unknown) => void;
 
 const listeners = new Map<string, Set<Listener>>();
 const queues = new Map<string, Queue>();
@@ -81,7 +82,7 @@ function getBullQueue(name: string) {
   return queue;
 }
 
-export function subscribeToProjectEvents(projectId: string, listener: Listener) {
+export function subscribeToProjectEvents(projectId: string, listener: Listener, onError?: ErrorListener) {
   const projectListeners = listeners.get(projectId) ?? new Set<Listener>();
   projectListeners.add(listener);
   listeners.set(projectId, projectListeners);
@@ -89,7 +90,7 @@ export function subscribeToProjectEvents(projectId: string, listener: Listener) 
   const subscriber = isRedisQueueEnabled() ? new IORedis(getConfig().REDIS_URL, { maxRetriesPerRequest: null }) : undefined;
   if (subscriber) {
     const channel = projectEventChannel(projectId);
-    subscriber.subscribe(channel).catch(() => undefined);
+    subscriber.subscribe(channel).catch((error) => onError?.(error));
     subscriber.on("message", (messageChannel, payload) => {
       if (messageChannel !== channel) {
         return;
@@ -187,6 +188,13 @@ export function formatSseEvent(event: JobEvent) {
 
 export function formatHeartbeat() {
   return `event: heartbeat\ndata: ${JSON.stringify({ timestamp: nowIso() })}\n\n`;
+}
+
+export function formatSseError(error: unknown) {
+  return `event: stream_error\ndata: ${JSON.stringify({
+    message: error instanceof Error ? error.message : "Project event stream failed.",
+    timestamp: nowIso(),
+  })}\n\n`;
 }
 
 export async function getQueueHealthSnapshot() {

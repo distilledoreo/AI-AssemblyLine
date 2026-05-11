@@ -1,5 +1,6 @@
 import {
   formatHeartbeat,
+  formatSseError,
   formatSseEvent,
   subscribeToProjectEvents,
 } from "@/server/queue";
@@ -23,7 +24,11 @@ export async function GET(request: Request, context: { params: Promise<{ project
         (await listProjectEvents(projectId, lastEventId)).forEach((event) => send(formatSseEvent(event)));
         send(`event: connected\ndata: ${JSON.stringify({ projectId })}\n\n`);
 
-        const unsubscribe = subscribeToProjectEvents(projectId, (event) => send(formatSseEvent(event)));
+        const unsubscribe = subscribeToProjectEvents(
+          projectId,
+          (event) => send(formatSseEvent(event)),
+          (error) => send(formatSseError(error)),
+        );
         const heartbeat = setInterval(() => send(formatHeartbeat()), 30000);
         request.signal.addEventListener("abort", () => {
           clearInterval(heartbeat);

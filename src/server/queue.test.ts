@@ -347,4 +347,32 @@ describe("queue and SSE foundation", () => {
     unsubscribe();
     expect(redisInstances[0].disconnect).toHaveBeenCalled();
   });
+
+  it("surfaces Redis subscribe failures to SSE callers", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("QUEUE_MODE", "redis");
+    vi.stubEnv("REDIS_URL", "redis://events.test:6379");
+    resetConfigForTests();
+    RedisConstructorMock.mockImplementationOnce(function Redis() {
+      const instance = {
+        publish: vi.fn().mockResolvedValue(1),
+        subscribe: vi.fn().mockRejectedValue(new Error("redis subscribe failed")),
+        on: vi.fn(),
+        disconnect: vi.fn(),
+      };
+      redisInstances.push(instance);
+      return instance;
+    });
+
+    const { formatSseError, subscribeToProjectEvents } = await importQueueModule();
+    const onError = vi.fn();
+    const unsubscribe = subscribeToProjectEvents("project-1", vi.fn(), onError);
+    await Promise.resolve();
+
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "redis subscribe failed" }));
+    expect(formatSseError(new Error("redis subscribe failed"))).toContain("event: stream_error");
+
+    unsubscribe();
+    expect(redisInstances[0].disconnect).toHaveBeenCalled();
+  });
 });
