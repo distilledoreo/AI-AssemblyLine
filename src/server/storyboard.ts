@@ -6,7 +6,9 @@ import {
   completeGenerationJob,
   createGenerationJob,
   decryptProjectProviderKey,
+  getProjectDashboard,
   getScriptAnalysisGraph,
+  getScriptAnalysisGraphForProject,
   getStore,
   markGenerationJobRunning,
   persistFrameVersionState,
@@ -30,7 +32,7 @@ export async function generateStoryboardFrame(input: {
   keyframeIndex?: number;
   userDirection?: string;
 }) {
-  const graph = getScriptAnalysisGraph(input.projectId);
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const shot = graph.shots.find((candidate) => candidate.id === input.shotId);
   if (!shot) throw new NotFoundError("Shot not found.");
   if (shot.status !== "ready" && shot.status !== "storyboarded") {
@@ -55,7 +57,7 @@ export async function generateStoryboardFrame(input: {
     },
   });
   if (isRedisQueueEnabled()) {
-    return getScriptAnalysisGraph(input.projectId);
+    return getScriptAnalysisGraphForProject(input.projectId);
   }
   return processStoryboardFrameJob({
     projectId: input.projectId,
@@ -74,7 +76,7 @@ export async function processStoryboardFrameJob(input: {
   jobId: string;
 }) {
   const store = getStore();
-  const graph = getScriptAnalysisGraph(input.projectId);
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const shot = graph.shots.find((candidate) => candidate.id === input.shotId);
   if (!shot) throw new NotFoundError("Shot not found.");
   if (shot.status !== "ready" && shot.status !== "storyboarded") {
@@ -84,17 +86,18 @@ export async function processStoryboardFrameJob(input: {
   if (!scene) throw new NotFoundError("Scene not found.");
   const job = await markGenerationJobRunning(input.jobId);
   if (!job) throw new NotFoundError("Generation job not found.");
-  let frame = store.storyboardFrames.find(
-    (candidate) => candidate.shotId === shot.id && candidate.keyframeIndex === input.keyframeIndex,
-  );
+  let frame =
+    graph.storyboardFrames.find((candidate) => candidate.shotId === shot.id && candidate.keyframeIndex === input.keyframeIndex) ??
+    store.storyboardFrames.find((candidate) => candidate.shotId === shot.id && candidate.keyframeIndex === input.keyframeIndex);
   const timestamp = nowIso();
   if (!frame) {
     frame = { id: createId(), shotId: shot.id, keyframeIndex: input.keyframeIndex, createdAt: timestamp, updatedAt: timestamp };
-    store.storyboardFrames.push(frame);
   }
+  mirrorStoryboardFrameForLegacyState(frame);
   const requiredAssetIds = new Set(graph.shotAssetRequirements.filter((req) => req.shotId === shot.id).map((req) => req.assetId));
+  const dashboard = await getProjectDashboard(input.projectId);
   const prompt = composeStoryboardPrompt({
-    style: store.projectStyles.find((style) => style.projectId === input.projectId),
+    style: dashboard?.style ?? store.projectStyles.find((style) => style.projectId === input.projectId),
     scene,
     shot,
     assets: graph.assets.filter((asset) => requiredAssetIds.has(asset.id)),
@@ -106,7 +109,7 @@ export async function processStoryboardFrameJob(input: {
     height: 576,
     count: 1,
   });
-  const versionNumber = store.frameVersions.filter((version) => version.frameId === frame.id).length + 1;
+  const versionNumber = nextFrameVersionNumber(frame.id, [...store.frameVersions, ...graph.frameVersions]);
   const dir = path.join(projectFolderPath(input.projectId, "storyboards"), shot.id);
   await mkdir(dir, { recursive: true });
   const filePath = path.join(dir, `frame-${input.keyframeIndex + 1}-v${versionNumber}.png`);
@@ -126,8 +129,8 @@ export async function processStoryboardFrameJob(input: {
   store.frameVersions.push(version);
   shot.status = "storyboarded";
   await persistGeneratedFrameVersion({ frame, version, shot });
-  completeGenerationJob(job.id, { status: "complete", outputPayload: { frameId: frame.id, frameVersionId: version.id } });
-  return getScriptAnalysisGraph(input.projectId);
+  await completeGenerationJob(job.id, { status: "complete", outputPayload: { frameId: frame.id, frameVersionId: version.id } });
+  return getScriptAnalysisGraphForProject(input.projectId);
 }
 
 export async function updateFrameVersion(input: {
@@ -225,4 +228,17 @@ export function markFramesStaleForAsset(projectId: string, assetId: string) {
       version.status = "stale";
       version.isStale = true;
     });
+}
+
+function nextFrameVersionNumber(frameId: string, knownVersions: FrameVersion[]) {
+  return knownVersions
+    .filter((version) => version.frameId === frameId)
+    .reduce((max, version) => Math.max(max, version.versionNumber), 0) + 1;
+}
+
+function mirrorStoryboardFrameForLegacyState(frame: StoryboardFrame) {
+  const store = getStore();
+  if (!store.storyboardFrames.some((candidate) => candidate.id === frame.id)) {
+    store.storyboardFrames.push(frame);
+  }
 }

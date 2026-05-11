@@ -68,33 +68,54 @@ describe("storyboard frame queue handoff", () => {
       createdAt: timestamp,
       updatedAt: timestamp,
     };
+    const frame = {
+      id: "55555555-5555-4555-8555-555555555555",
+      shotId: shot.id,
+      keyframeIndex: 1,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const frameVersion = {
+      id: "66666666-6666-4666-8666-666666666666",
+      frameId: frame.id,
+      versionNumber: 4,
+      prompt: "Existing frame prompt.",
+      filePath: "storage/projects/queued/storyboards/frame-2-v4.png",
+      thumbnailPath: "storage/projects/queued/storyboards/frame-2-v4.png",
+      status: "approved" as const,
+      isStale: false,
+      createdAt: timestamp,
+    };
     repository.getStore().scripts.push(script);
     repository.getStore().scriptVersions.push(version);
     repository.getStore().scenes.push(scene);
     repository.getStore().shots.push(shot);
+    repository.getStore().storyboardFrames.push(frame);
+    repository.getStore().frameVersions.push(frameVersion);
 
     const queued = await generateStoryboardFrame({
       projectId: project.id,
       shotId: shot.id,
-      keyframeIndex: 0,
+      keyframeIndex: 1,
     });
 
-    expect(queued.frameVersions).toHaveLength(0);
+    expect(queued.frameVersions).toHaveLength(1);
     expect(queued.jobs[0]).toMatchObject({
       type: "storyboard_frame",
       status: "queued",
-      inputPayload: { projectId: project.id, shotId: shot.id, keyframeIndex: 0 },
+      inputPayload: { projectId: project.id, shotId: shot.id, keyframeIndex: 1 },
     });
 
     const completed = await processStoryboardFrameJob({
       projectId: project.id,
       shotId: shot.id,
-      keyframeIndex: 0,
+      keyframeIndex: 1,
       jobId: queued.jobs[0].id,
     });
 
     expect(completed.storyboardFrames).toHaveLength(1);
-    expect(completed.frameVersions).toHaveLength(1);
+    expect(completed.frameVersions).toHaveLength(2);
+    expect(completed.frameVersions.at(-1)?.versionNumber).toBe(5);
     expect(completed.jobs[0].status).toBe("complete");
   });
 });
