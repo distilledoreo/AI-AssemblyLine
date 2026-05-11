@@ -20,24 +20,28 @@ export function getStorageRoot() {
 }
 
 export function projectStoragePath(projectId: string) {
-  return path.join(getStorageRoot(), "projects", projectId.replaceAll("-", ""));
+  return storagePath(getStorageRoot(), "projects", projectId.replaceAll("-", ""));
 }
 
 export function projectFolderPath(projectId: string, folder: ProjectStorageFolder) {
-  return path.join(projectStoragePath(projectId), folder);
+  return storagePath(projectStoragePath(projectId), folder);
 }
 
 export function allocateProjectStoragePath() {
-  return path.join(getStorageRoot(), "projects", createShortId());
+  return storagePath(getStorageRoot(), "projects", createShortId());
 }
 
 export async function ensureProjectStorage(projectId: string) {
   const root = projectStoragePath(projectId);
-  await Promise.all(projectStorageFolders.map((folder) => mkdir(path.join(root, folder), { recursive: true })));
+  await Promise.all(projectStorageFolders.map((folder) => mkdir(storagePath(root, folder), { recursive: true })));
   return root;
 }
 
 export async function ensureStorageRoot() {
   await mkdir(getStorageRoot(), { recursive: true });
   return getStorageRoot();
+}
+
+function storagePath(root: string, ...segments: string[]) {
+  return [root.replace(/[\\/]$/, ""), ...segments].join(path.sep);
 }

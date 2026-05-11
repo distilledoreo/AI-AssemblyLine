@@ -1800,6 +1800,18 @@ export async function getAssetById(assetId: string) {
   return asset ? mapAsset(asset) : undefined;
 }
 
+export async function getFrameVersionById(frameVersionId: string) {
+  const local = getStore().frameVersions.find((candidate) => candidate.id === frameVersionId);
+  if (local) {
+    return local;
+  }
+  if (!isPrismaRepositoryEnabled()) {
+    return undefined;
+  }
+  const version = await prisma.frameVersion.findUnique({ where: { id: frameVersionId } }).catch(() => undefined);
+  return version ? mapFrameVersion(version) : undefined;
+}
+
 export async function persistSceneState(scene: Scene) {
   if (!isPrismaRepositoryEnabled()) {
     return;

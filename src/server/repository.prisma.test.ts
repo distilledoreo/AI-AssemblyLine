@@ -123,6 +123,7 @@ const prismaMock = vi.hoisted(() => ({
   frameVersion: {
     create: vi.fn(),
     createMany: vi.fn(),
+    findUnique: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
@@ -1301,6 +1302,7 @@ describe("Prisma repository mode", () => {
 
     prismaMock.storyboardFrame.upsert.mockResolvedValue(frame);
     prismaMock.frameVersion.create.mockResolvedValue(version);
+    prismaMock.frameVersion.findUnique.mockResolvedValue({ ...version, createdAt: timestamp });
     prismaMock.frameVersion.update.mockResolvedValue(version);
     prismaMock.frameVersion.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.shot.update.mockResolvedValue(shot);
@@ -1308,6 +1310,11 @@ describe("Prisma repository mode", () => {
     prismaMock.reviewNote.create.mockResolvedValue(note);
 
     await repository.persistGeneratedFrameVersion({ frame, version, shot });
+    await expect(repository.getFrameVersionById(version.id)).resolves.toMatchObject({
+      id: version.id,
+      frameId: frame.id,
+      annotations: { library: "fabric-compatible-json" },
+    });
     await repository.persistFrameVersionState(version);
     await repository.persistReviewNoteState(note);
 

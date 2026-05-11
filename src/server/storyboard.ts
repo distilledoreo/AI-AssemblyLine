@@ -6,6 +6,7 @@ import {
   completeGenerationJob,
   createGenerationJob,
   decryptProjectProviderKey,
+  getFrameVersionById,
   getProjectDashboard,
   getScriptAnalysisGraph,
   getScriptAnalysisGraphForProject,
@@ -140,8 +141,9 @@ export async function updateFrameVersion(input: {
   annotations?: Record<string, unknown>;
 }) {
   const store = getStore();
-  const version = store.frameVersions.find((candidate) => candidate.id === input.frameVersionId);
+  const version = await getFrameVersionById(input.frameVersionId);
   if (!version) throw new NotFoundError("Frame version not found.");
+  mirrorFrameVersionForLegacyState(version);
   if (input.status === "approved") {
     store.frameVersions
       .filter((candidate) => candidate.frameId === version.frameId && candidate.status === "approved")
@@ -157,7 +159,7 @@ export async function updateFrameVersion(input: {
   }
   Object.assign(version, { status: input.status ?? version.status, annotations: input.annotations ?? version.annotations });
   await persistFrameVersionState(version);
-  return getScriptAnalysisGraph(input.projectId);
+  return getScriptAnalysisGraphForProject(input.projectId);
 }
 
 export async function attachSketch(input: {
@@ -243,5 +245,12 @@ function mirrorStoryboardFrameForLegacyState(frame: StoryboardFrame) {
   const store = getStore();
   if (!store.storyboardFrames.some((candidate) => candidate.id === frame.id)) {
     store.storyboardFrames.push(frame);
+  }
+}
+
+function mirrorFrameVersionForLegacyState(version: FrameVersion) {
+  const store = getStore();
+  if (!store.frameVersions.some((candidate) => candidate.id === version.id)) {
+    store.frameVersions.push(version);
   }
 }
