@@ -54,7 +54,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Runway video generation now has a live task-submission path when a workspace Runway key or `RUNWAYML_API_SECRET` is configured, plus a result processor that polls completed tasks and downloads output media. Redis workers now register a repeatable video provider poll job that automatically invokes that processor for submitted/polling Runway jobs.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 32 files and 109 tests.
+- `npm test`: passing, 32 files and 110 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
