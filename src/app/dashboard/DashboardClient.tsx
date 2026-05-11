@@ -208,6 +208,7 @@ export function DashboardClient({
                 <option value="openai">OpenAI</option>
                 <option value="stability">Stability</option>
                 <option value="runway">Runway</option>
+                <option value="google-ai">Google AI Veo</option>
               </select>
             </div>
             <div className="field">

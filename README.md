@@ -79,4 +79,4 @@ The `services:up` script requires Docker Compose and starts the local Postgres a
 
 For Redis-backed script analysis in a production-like setup, set `QUEUE_MODE=redis`, start the web app with `npm run dev` or `npm run build && npm start`, and run `npm run worker` in a separate process. In the default local `.env.example`, `QUEUE_MODE=inline` keeps jobs synchronous so the app can be exercised without a Redis worker.
 
-Google and GitHub sign-in appear on `/signin` when the corresponding `AUTH_GOOGLE_*` or `AUTH_GITHUB_*` variables are configured. Live OpenAI verification uses `npm run smoke:openai` with `OPENAI_API_KEY` set.
+Google and GitHub sign-in appear on `/signin` when the corresponding `AUTH_GOOGLE_*` or `AUTH_GITHUB_*` variables are configured. Live provider verification uses `npm run smoke:openai`, `npm run smoke:stability`, `npm run smoke:runway`, `npm run smoke:google-veo`, or `npm run smoke:providers` with the matching provider keys set.

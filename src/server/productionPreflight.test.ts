@@ -25,6 +25,7 @@ const validEnv = {
   OPENAI_API_KEY: "sk-prod-openai-smoke-abc123",
   STABILITY_API_KEY: "sk-stability-prod-smoke-abc123",
   RUNWAYML_API_SECRET: "rw-prod-runway-smoke-abc123",
+  GEMINI_API_KEY: "gemini-prod-veo-smoke-abc123",
   AUTH_GOOGLE_ID: "google-client",
   AUTH_GOOGLE_SECRET: "google-secret",
 };
@@ -96,6 +97,7 @@ describe("production preflight", () => {
         OPENAI_API_KEY: "MOCK",
         STABILITY_API_KEY: " Mock ",
         RUNWAYML_API_SECRET: "mOcK",
+        GEMINI_API_KEY: "mock",
       },
       () => false,
     );
@@ -109,6 +111,7 @@ describe("production preflight", () => {
         "OPENAI_API_KEY",
         "STABILITY_API_KEY",
         "RUNWAYML_API_SECRET",
+        "GEMINI_API_KEY",
         "ffmpeg",
         "ffprobe",
       ]),
@@ -122,6 +125,7 @@ describe("production preflight", () => {
         OPENAI_API_KEY: "sk-live-test",
         STABILITY_API_KEY: "sk-stability-live-test",
         RUNWAYML_API_SECRET: "key_runway_live",
+        GEMINI_API_KEY: "mock",
       },
       () => true,
     );
@@ -135,6 +139,10 @@ describe("production preflight", () => {
       detail: "missing, mock, or placeholder",
     });
     expect(results.find((result) => result.name === "RUNWAYML_API_SECRET")).toMatchObject({
+      ok: false,
+      detail: "missing, mock, or placeholder",
+    });
+    expect(results.find((result) => result.name === "GEMINI_API_KEY")).toMatchObject({
       ok: false,
       detail: "missing, mock, or placeholder",
     });

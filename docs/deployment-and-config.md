@@ -43,6 +43,9 @@ All configuration is driven by environment variables loaded from `.env` files (v
 | `STABILITY_SMOKE_MODEL`                | Optional model override for `npm run smoke:stability`.                                                                                                                           | `stable-image-core`                         |
 | `RUNWAYML_API_SECRET`                  | Optional server fallback Runway key when a workspace Runway key is not saved. Enables live Runway video task submission.                                                         | None                                        |
 | `RUNWAY_SMOKE_MODEL`                   | Optional model override for `npm run smoke:runway`.                                                                                                                              | `gen4.5`                                    |
+| `GEMINI_API_KEY`                       | Optional server fallback Google AI key when a workspace Google AI key is not saved. Enables live Gemini API / Veo video operation submission.                                   | None                                        |
+| `GOOGLE_AI_API_KEY`                    | Alternate fallback variable accepted when `GEMINI_API_KEY` is not set.                                                                                                           | None                                        |
+| `GOOGLE_VEO_SMOKE_MODEL`               | Optional model override for `npm run smoke:google-veo`.                                                                                                                          | `veo-3.1-generate-preview`                  |
 
 ### OAuth sign-in variables
 
@@ -55,7 +58,7 @@ Google and GitHub sign-in are optional. Configure both a client ID and client se
 
 ## API key encryption
 
-Provider API keys entered by users are encrypted before storage and decrypted only server-side when making provider API calls. The key UI and API currently accept live credentials for OpenAI, Stability, and Runway only; development-only placeholder adapters do not accept saved production keys until a live client is implemented for that provider.
+Provider API keys entered by users are encrypted before storage and decrypted only server-side when making provider API calls. The key UI and API currently accept live credentials for OpenAI, Stability, Runway, and Google AI only; development-only placeholder adapters do not accept saved production keys until a live client is implemented for that provider.
 
 ### Encryption scheme
 

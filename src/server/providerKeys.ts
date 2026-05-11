@@ -2,7 +2,7 @@ import { isLiveProviderApiKey, normalizeProviderApiKey } from "@/providers/provi
 import { AppError } from "@/server/errors";
 import { decryptProjectProviderKey } from "@/server/repository";
 
-type ProviderSlug = "openai" | "stability" | "runway";
+type ProviderSlug = "openai" | "stability" | "runway" | "google-ai";
 
 export async function resolveOpenAiApiKeyForProject(projectId: string) {
   const key = await resolveProviderKey(projectId, "openai", process.env.OPENAI_API_KEY);
@@ -33,6 +33,17 @@ export async function resolveRunwayApiKeyForProject(projectId: string) {
   }
   if (process.env.NODE_ENV === "production") {
     throw new AppError("Runway API key is required for production video generation.", 500, "provider_key_missing");
+  }
+  return "mock";
+}
+
+export async function resolveGoogleAiApiKeyForProject(projectId: string) {
+  const key = await resolveProviderKey(projectId, "google-ai", process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_API_KEY);
+  if (isUsableProviderKey(key)) {
+    return key;
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new AppError("Google AI API key is required for production Veo video generation.", 500, "provider_key_missing");
   }
   return "mock";
 }

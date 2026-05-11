@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resolveOpenAiApiKeyForProject, resolveRunwayApiKeyForProject, resolveStabilityApiKeyForProject } from "@/server/providerKeys";
+import {
+  resolveGoogleAiApiKeyForProject,
+  resolveOpenAiApiKeyForProject,
+  resolveRunwayApiKeyForProject,
+  resolveStabilityApiKeyForProject,
+} from "@/server/providerKeys";
 
 const decryptProjectProviderKeyMock = vi.hoisted(() => vi.fn());
 
@@ -120,5 +125,34 @@ describe("provider key resolution", () => {
     await expect(resolveRunwayApiKeyForProject("00000000-0000-4000-8000-000000000000")).rejects.toThrow(
       "key store offline",
     );
+  });
+
+  it("requires real Google AI credentials in production", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "");
+    vi.stubEnv("NODE_ENV", "production");
+
+    await expect(resolveGoogleAiApiKeyForProject("00000000-0000-4000-8000-000000000000")).rejects.toMatchObject({
+      code: "provider_key_missing",
+    });
+  });
+
+  it("uses GEMINI_API_KEY when no workspace Google AI key is configured", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "gemini-prod-veo-smoke-abc123");
+    vi.stubEnv("NODE_ENV", "production");
+
+    await expect(resolveGoogleAiApiKeyForProject("00000000-0000-4000-8000-000000000000")).resolves.toBe(
+      "gemini-prod-veo-smoke-abc123",
+    );
+  });
+
+  it("uses a workspace Google AI key before the server fallback key", async () => {
+    decryptProjectProviderKeyMock.mockResolvedValue("gemini-workspace-test");
+    vi.stubEnv("GEMINI_API_KEY", "gemini-env-test");
+    vi.stubEnv("NODE_ENV", "production");
+
+    await expect(resolveGoogleAiApiKeyForProject("00000000-0000-4000-8000-000000000000")).resolves.toBe(
+      "gemini-workspace-test",
+    );
+    expect(decryptProjectProviderKeyMock).toHaveBeenCalledWith("00000000-0000-4000-8000-000000000000", "google-ai");
   });
 });

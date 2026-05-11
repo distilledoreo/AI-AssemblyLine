@@ -672,7 +672,17 @@ export function ProjectDashboardClient({
                         }
                       >
                         <Film size={15} aria-hidden="true" />
-                        Generate clip
+                        Generate Runway
+                      </button>
+                      <button
+                        className="button secondary"
+                        type="button"
+                        onClick={() =>
+                          videoAction({ action: "generate", mode: "shot", shotId: shot.id, providerSlug: "google-ai" })
+                        }
+                      >
+                        <Film size={15} aria-hidden="true" />
+                        Generate Veo
                       </button>
                       {latest ? (
                         <button
@@ -703,7 +713,18 @@ export function ProjectDashboardClient({
                 onClick={() => videoAction({ action: "generate", mode: "scene", sceneId: scene.id, providerSlug: "runway" })}
               >
                 <Film size={15} aria-hidden="true" />
-                Generate scene {scene.sceneNumber}
+                Runway scene {scene.sceneNumber}
+              </button>
+            ))}
+            {analysisGraph.scenes.map((scene) => (
+              <button
+                className="button secondary"
+                key={`${scene.id}-google-ai`}
+                type="button"
+                onClick={() => videoAction({ action: "generate", mode: "scene", sceneId: scene.id, providerSlug: "google-ai" })}
+              >
+                <Film size={15} aria-hidden="true" />
+                Veo scene {scene.sceneNumber}
               </button>
             ))}
           </div>

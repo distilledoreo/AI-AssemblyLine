@@ -20,6 +20,7 @@
     "smoke:openai": "tsx scripts/smoke-openai.ts",
     "smoke:stability": "tsx scripts/smoke-stability.ts",
     "smoke:runway": "tsx scripts/smoke-runway.ts",
+    "smoke:google-veo": "tsx scripts/smoke-google-veo.ts",
     "smoke:providers": "tsx scripts/smoke-providers.ts",
     "rotate-keys": "tsx scripts/rotate-provider-keys.ts",
     "prisma:generate": "prisma generate",

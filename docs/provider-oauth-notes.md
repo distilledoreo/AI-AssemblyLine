@@ -11,6 +11,7 @@ That is different from letting AI AssemblyLine sign a user in with ChatGPT and s
 For Google generative AI production use, the supported options depend on the product surface:
 
 - Gemini API / Google AI Studio: API key-based developer access.
+- Gemini API OAuth: Google documents OAuth support for the Gemini API when stricter access control is required.
 - Vertex AI: Google Cloud API keys for testing or Application Default Credentials for production.
 
-Google's Vertex AI documentation recommends Application Default Credentials for production. It also notes that AI Studio API keys are not supported in Vertex AI. For AI AssemblyLine, the production path should be a Google provider adapter that supports Vertex AI credentials or service-account-backed deployment credentials rather than trying to use a consumer Google AI Pro subscription as an OAuth quota source.
+AI AssemblyLine now has a live Google AI / Veo adapter through the Gemini API using encrypted workspace keys or `GEMINI_API_KEY` / `GOOGLE_AI_API_KEY`. OAuth-backed Gemini credentials remain a future hardening path because production OAuth needs token refresh, consent scopes, and project attribution; it should not be treated as a consumer Google AI Pro subscription quota bridge until Google documents that flow for third-party app delegation.

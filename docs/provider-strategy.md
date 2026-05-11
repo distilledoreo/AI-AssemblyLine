@@ -17,6 +17,7 @@ The architecture should support adapters for:
 - OpenAI
 - ByteDance/Seedance
 - Runway
+- Google AI / Veo
 - Pika
 - Kling
 - Luma
@@ -177,6 +178,8 @@ The capability matrix is **hard-coded per adapter** as a default and **user-edit
 Users should add provider API keys through workspace settings. Keys are encrypted at rest using AES-256-GCM. See [deployment-and-config.md](deployment-and-config.md) for the encryption scheme, key rotation, and security rules.
 
 Keys are never exposed in generation logs, prompts, exports, or client-side code.
+
+Live-wired production providers currently accepted by the provider-key API are OpenAI, Stability, Runway, and Google AI. Google AI is used for Veo video operations through the Gemini API; the adapter submits async `predictLongRunning` operations, polls operation status, and downloads completed output with the same API key header required by the media URI.
 
 Credential resolution falls back from a workspace key to the matching server environment key only when the workspace key is absent. Database, lookup, or decryption failures while reading a workspace provider key are treated as runtime failures and are surfaced instead of silently using a different credential source.
 

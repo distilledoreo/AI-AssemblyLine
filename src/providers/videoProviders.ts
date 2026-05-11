@@ -74,6 +74,90 @@ export class RunwayAdapter implements VideoAdapter {
   }
 }
 
+export class GoogleVeoAdapter implements VideoAdapter {
+  readonly slug = "google-ai";
+  private readonly mock = createMockAdapter(this.slug);
+  private readonly baseUrl = "https://generativelanguage.googleapis.com/v1beta";
+
+  constructor(
+    private readonly apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_API_KEY ?? "",
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  async generateVideo(prompt: ComposedPrompt, options: VideoOptions): Promise<VideoResult> {
+    const apiKey = normalizeProviderApiKey(this.apiKey);
+    if (apiKey && !isMockProviderApiKey(apiKey)) {
+      const response = await this.googleRequest(
+        `${this.baseUrl}/models/${normalizeGoogleVeoModel(options.modelId)}:predictLongRunning`,
+        {
+          instances: [{ prompt: prompt.positivePrompt }],
+          parameters: {
+            aspectRatio: toGoogleVeoAspectRatio(options.width, options.height),
+            durationSeconds: normalizeGoogleVeoDuration(options.durationSeconds),
+          },
+        },
+        apiKey,
+      );
+      return {
+        providerJobId: requireGoogleOperationName(response),
+        isAsync: true,
+      };
+    }
+
+    assertMockProviderAllowed(this.slug);
+    return this.mock.generateVideo(prompt, options);
+  }
+
+  async checkJobStatus(providerJobId: string): Promise<AsyncJobStatus> {
+    const apiKey = normalizeProviderApiKey(this.apiKey);
+    if (!apiKey || isMockProviderApiKey(apiKey)) {
+      assertMockProviderAllowed(this.slug);
+      return this.mock.checkJobStatus?.(providerJobId) ?? { status: "complete", progress: 100 };
+    }
+    const operationName = providerJobId.replace(/^\/+/, "");
+    const response = await this.googleRequest(`${this.baseUrl}/${operationName}`, undefined, apiKey);
+    return mapGoogleVeoOperationStatus(response);
+  }
+
+  getCapabilities() {
+    return {
+      models: ["veo-3.1-generate-preview", "veo-3.0-generate-001", "veo-3.0-fast-generate-001"],
+      supportsTextToVideo: true,
+      supportsImageToVideo: false,
+      supportsVideoExtension: false,
+      requiresAsyncPolling: true,
+      maxDurationSeconds: 8,
+      aspectRatios: ["16:9", "9:16"],
+    };
+  }
+
+  downloadHeaders(): Record<string, string> {
+    const apiKey = normalizeProviderApiKey(this.apiKey);
+    return apiKey && !isMockProviderApiKey(apiKey) ? { "x-goog-api-key": apiKey } : {};
+  }
+
+  private async googleRequest(url: string, body: Record<string, unknown> | undefined, apiKey: string) {
+    const response = await this.fetchImpl(url, {
+      method: body ? "POST" : "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(120000),
+    });
+    const payload = (await response.json().catch(() => ({}))) as Record<string, any>;
+    if (!response.ok) {
+      const error = new Error(
+        payload.error?.message ?? payload.message ?? `Google AI Veo request failed with status ${response.status}.`,
+      );
+      Object.assign(error, { errorClass: classifyGoogleVeoStatus(response.status), status: response.status });
+      throw error;
+    }
+    return payload;
+  }
+}
+
 export class KlingAdapter {
   readonly slug = "kling";
   private readonly mock = createMockAdapter(this.slug);
@@ -141,6 +225,55 @@ function requireRunwayTaskId(response: Record<string, any>) {
 }
 
 function classifyRunwayStatus(status: number) {
+  if (status === 429) return "rate_limit";
+  if (status === 408 || status === 504) return "timeout";
+  if (status === 400 || status === 401 || status === 403 || status === 404) return "fatal";
+  if (status >= 500) return "retriable";
+  return "fatal";
+}
+
+function normalizeGoogleVeoModel(modelId: string) {
+  return modelId || "veo-3.1-generate-preview";
+}
+
+function normalizeGoogleVeoDuration(durationSeconds: number) {
+  const duration = Math.max(4, Math.min(durationSeconds || 8, 8));
+  if (duration <= 4) return 4;
+  if (duration <= 6) return 6;
+  return 8;
+}
+
+function toGoogleVeoAspectRatio(width: number, height: number) {
+  return height > width ? "9:16" : "16:9";
+}
+
+function requireGoogleOperationName(response: Record<string, any>) {
+  if (typeof response.name === "string" && response.name.trim()) {
+    return response.name;
+  }
+  const error = new Error("Google AI Veo submission succeeded without an operation name.");
+  Object.assign(error, { errorClass: "fatal", status: 502 });
+  throw error;
+}
+
+function mapGoogleVeoOperationStatus(operation: Record<string, any>): AsyncJobStatus {
+  if (!operation.done) {
+    return { status: "processing", progress: undefined };
+  }
+  if (operation.error) {
+    return {
+      status: "failed",
+      error: operation.error.message ?? operation.error.status ?? "Google AI Veo operation failed.",
+    };
+  }
+  const generatedSamples = operation.response?.generateVideoResponse?.generatedSamples;
+  const resultUrl = Array.isArray(generatedSamples) ? generatedSamples[0]?.video?.uri : undefined;
+  return resultUrl
+    ? { status: "complete", progress: 100, resultUrl }
+    : { status: "failed", error: "Google AI Veo operation completed without an output video URI." };
+}
+
+function classifyGoogleVeoStatus(status: number) {
   if (status === 429) return "rate_limit";
   if (status === 408 || status === 504) return "timeout";
   if (status === 400 || status === 401 || status === 403 || status === 404) return "fatal";

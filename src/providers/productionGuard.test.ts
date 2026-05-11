@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { SeedanceAdapter } from "@/providers/extendedAdapters";
 import { OpenAIAdapter } from "@/providers/openai";
 import { StabilityAdapter } from "@/providers/stability";
-import { KlingAdapter, RunwayAdapter } from "@/providers/videoProviders";
+import { GoogleVeoAdapter, KlingAdapter, RunwayAdapter } from "@/providers/videoProviders";
 import type { ComposedPrompt } from "@/providers/types";
 
 const prompt: ComposedPrompt = {
@@ -27,6 +27,9 @@ describe("mock-backed provider production guard", () => {
     await expect(new RunwayAdapter().generateVideo(prompt, { modelId: "runway-gen3-alpha", width: 1024, height: 576, durationSeconds: 3 })).resolves.toMatchObject({
       isAsync: false,
     });
+    await expect(new GoogleVeoAdapter().generateVideo(prompt, { modelId: "veo-3.1-generate-preview", width: 1024, height: 576, durationSeconds: 8 })).resolves.toMatchObject({
+      isAsync: false,
+    });
   });
 
   it("rejects mock-backed image and video providers in production", async () => {
@@ -40,6 +43,12 @@ describe("mock-backed provider production guard", () => {
       code: "provider_not_configured",
     });
     await expect(new RunwayAdapter().checkJobStatus("task-without-key")).rejects.toMatchObject({
+      code: "provider_not_configured",
+    });
+    await expect(new GoogleVeoAdapter().generateVideo(prompt, { modelId: "veo-3.1-generate-preview", width: 1024, height: 576, durationSeconds: 8 })).rejects.toMatchObject({
+      code: "provider_not_configured",
+    });
+    await expect(new GoogleVeoAdapter().checkJobStatus("operations/task-without-key")).rejects.toMatchObject({
       code: "provider_not_configured",
     });
     await expect(new KlingAdapter().generateVideo(prompt, { modelId: "kling-1.6", width: 1024, height: 576, durationSeconds: 3 })).rejects.toMatchObject({
@@ -68,6 +77,14 @@ describe("mock-backed provider production guard", () => {
     ).rejects.toMatchObject({ code: "provider_not_configured" });
     await expect(
       new RunwayAdapter(" mOcK ", fetchMock).generateVideo(prompt, { modelId: "gen4.5", width: 1024, height: 576, durationSeconds: 3 }),
+    ).rejects.toMatchObject({ code: "provider_not_configured" });
+    await expect(
+      new GoogleVeoAdapter(" MOCK ", fetchMock).generateVideo(prompt, {
+        modelId: "veo-3.1-generate-preview",
+        width: 1024,
+        height: 576,
+        durationSeconds: 8,
+      }),
     ).rejects.toMatchObject({ code: "provider_not_configured" });
     expect(fetchMock).not.toHaveBeenCalled();
   });

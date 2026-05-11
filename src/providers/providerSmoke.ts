@@ -1,8 +1,9 @@
+import { runGoogleVeoSmoke, type GoogleVeoSmokeResult } from "@/providers/googleVeoSmoke";
 import { runOpenAiSmoke, type OpenAiSmokeResult } from "@/providers/openaiSmoke";
 import { runRunwaySmoke, type RunwaySmokeResult } from "@/providers/runwaySmoke";
 import { runStabilitySmoke, type StabilitySmokeResult } from "@/providers/stabilitySmoke";
 
-export type ProviderSmokeResult = OpenAiSmokeResult | StabilitySmokeResult | RunwaySmokeResult;
+export type ProviderSmokeResult = OpenAiSmokeResult | StabilitySmokeResult | RunwaySmokeResult | GoogleVeoSmokeResult;
 
 export type ProviderSmokeSummary =
   | { provider: ProviderSmokeResult["provider"]; ok: true; result: ProviderSmokeResult }
@@ -41,6 +42,15 @@ export async function runProviderSmokeSuite(input: {
         runRunwaySmoke({
           apiKey: env.RUNWAYML_API_SECRET,
           modelId: env.RUNWAY_SMOKE_MODEL,
+          fetchImpl,
+        }),
+    },
+    {
+      provider: "google-ai",
+      run: () =>
+        runGoogleVeoSmoke({
+          apiKey: env.GEMINI_API_KEY ?? env.GOOGLE_AI_API_KEY,
+          modelId: env.GOOGLE_VEO_SMOKE_MODEL,
           fetchImpl,
         }),
     },

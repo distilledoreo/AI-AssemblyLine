@@ -11,7 +11,7 @@ import { uploadScriptForProject } from "@/server/scriptAnalysis";
 import { generateStoryboardFrame, updateFrameVersion } from "@/server/storyboard";
 import { generateVideoClip, processSubmittedVideoProviderJobs, processVideoProviderResult, updateClipVersion } from "@/server/video";
 import { checkFfmpegAvailability } from "@/server/media";
-import { KlingAdapter, RunwayAdapter } from "@/providers/videoProviders";
+import { GoogleVeoAdapter, KlingAdapter, RunwayAdapter } from "@/providers/videoProviders";
 
 const scriptText = `INT. COFFEE SHOP - MORNING
 ANNA
@@ -78,6 +78,7 @@ describe("video workflow", () => {
       code: "missing_approved_frames",
     });
     expect(new RunwayAdapter().getCapabilities().requiresAsyncPolling).toBe(true);
+    expect(new GoogleVeoAdapter().getCapabilities().models).toContain("veo-3.1-generate-preview");
     expect(new KlingAdapter().getCapabilities().supportsImageToVideo).toBe(true);
     expect(checkFfmpegAvailability().message).toBeTruthy();
   });
@@ -177,6 +178,36 @@ describe("video workflow", () => {
     );
   });
 
+  it("submits live Google AI Veo jobs without writing mock video bytes", async () => {
+    const { project, graph } = await projectWithApprovedFrame();
+    vi.stubEnv("GEMINI_API_KEY", "gemini-prod-smoke-abc123");
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ name: "operations/veo-live-1" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const submitted = await generateVideoClip({
+      projectId: project.id,
+      mode: "shot",
+      shotId: graph.shots[0].id,
+      providerSlug: "google-ai",
+    });
+
+    expect(submitted.videoClips).toHaveLength(0);
+    expect(submitted.clipVersions).toHaveLength(0);
+    expect(submitted.jobs.at(-1)).toMatchObject({
+      type: "video_clip",
+      status: "provider_submitted",
+      providerSlug: "google-ai",
+      providerJobId: "operations/veo-live-1",
+      outputPayload: expect.objectContaining({ providerJobId: "operations/veo-live-1" }),
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning",
+      expect.objectContaining({
+        headers: expect.objectContaining({ "x-goog-api-key": "gemini-prod-smoke-abc123" }),
+      }),
+    );
+  });
+
   it("fails video generation instead of writing mock bytes when a provider returns no output", async () => {
     const { project, graph } = await projectWithApprovedFrame();
     vi.stubEnv("RUNWAYML_API_SECRET", "rw-prod-runway-smoke-abc123");
@@ -241,6 +272,56 @@ describe("video workflow", () => {
       expect.objectContaining({ method: "GET" }),
     );
     expect(pollFetch).toHaveBeenNthCalledWith(2, "https://example.com/video.mp4", expect.any(Object));
+  });
+
+  it("downloads completed Google AI Veo output into a clip version with the API key header", async () => {
+    const { project, graph } = await projectWithApprovedFrame();
+    vi.stubEnv("GEMINI_API_KEY", "gemini-prod-smoke-abc123");
+    const submitFetch = vi.fn().mockResolvedValue(Response.json({ name: "operations/veo-live-2" }));
+    vi.stubGlobal("fetch", submitFetch);
+    const submitted = await generateVideoClip({
+      projectId: project.id,
+      mode: "shot",
+      shotId: graph.shots[0].id,
+      providerSlug: "google-ai",
+    });
+    const job = submitted.jobs.at(-1)!;
+    const videoBytes = Buffer.from("google-veo-video-bytes");
+    const pollFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          done: true,
+          response: {
+            generateVideoResponse: {
+              generatedSamples: [{ video: { uri: "https://generativelanguage.googleapis.com/v1beta/files/video-2:download" } }],
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(new Response(videoBytes, { status: 200, headers: { "content-type": "video/mp4" } }));
+
+    const completed = await processVideoProviderResult({
+      projectId: project.id,
+      jobId: job.id,
+      fetchImpl: pollFetch,
+    });
+
+    expect(completed.videoClips).toHaveLength(1);
+    expect(completed.clipVersions[0]).toMatchObject({
+      status: "draft",
+      generationJobId: job.id,
+    });
+    expect(pollFetch).toHaveBeenNthCalledWith(
+      1,
+      "https://generativelanguage.googleapis.com/v1beta/operations/veo-live-2",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(pollFetch).toHaveBeenNthCalledWith(
+      2,
+      "https://generativelanguage.googleapis.com/v1beta/files/video-2:download",
+      expect.objectContaining({ headers: { "x-goog-api-key": "gemini-prod-smoke-abc123" } }),
+    );
   });
 
   it("rejects completed Runway task output downloads with empty video bytes", async () => {

@@ -121,6 +121,13 @@ export function evaluateProductionPreflight(
     detail: isLiveProviderApiKey(runwayKey) ? "configured for live video submission" : "missing, mock, or placeholder",
   });
 
+  const geminiKey = (env.GEMINI_API_KEY ?? env.GOOGLE_AI_API_KEY)?.trim() ?? "";
+  results.push({
+    name: "GEMINI_API_KEY",
+    ok: isLiveProviderApiKey(geminiKey),
+    detail: isLiveProviderApiKey(geminiKey) ? "configured for live Veo submission" : "missing, mock, or placeholder",
+  });
+
   results.push(oauthPairCheck("Google OAuth", env, ["AUTH_GOOGLE_ID", "GOOGLE_CLIENT_ID", "GOOGLE_ID"], [
     "AUTH_GOOGLE_SECRET",
     "GOOGLE_CLIENT_SECRET",

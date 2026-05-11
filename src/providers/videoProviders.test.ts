@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { RunwayAdapter } from "@/providers/videoProviders";
+import { GoogleVeoAdapter, RunwayAdapter } from "@/providers/videoProviders";
 import type { ComposedPrompt } from "@/providers/types";
 
 const prompt: ComposedPrompt = {
@@ -85,6 +85,84 @@ describe("Runway video adapter", () => {
       }),
     ).rejects.toMatchObject({
       message: "Runway task submission succeeded without a task id.",
+      errorClass: "fatal",
+      status: 502,
+    });
+  });
+});
+
+describe("Google Veo video adapter", () => {
+  it("submits live Veo operations through the Gemini API when a key is configured", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ name: "operations/veo-live-1" }));
+
+    const result = await new GoogleVeoAdapter(" gemini-prod-smoke-abc123 ", fetchMock).generateVideo(prompt, {
+      modelId: "veo-3.1-generate-preview",
+      width: 720,
+      height: 1280,
+      durationSeconds: 5,
+    });
+
+    expect(result).toEqual({ providerJobId: "operations/veo-live-1", isAsync: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "Content-Type": "application/json",
+          "x-goog-api-key": "gemini-prod-smoke-abc123",
+        }),
+      }),
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1].body))).toMatchObject({
+      instances: [{ prompt: prompt.positivePrompt }],
+      parameters: { aspectRatio: "9:16", durationSeconds: 6 },
+    });
+  });
+
+  it("maps completed Veo operations to downloadable result URLs", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        done: true,
+        response: {
+          generateVideoResponse: {
+            generatedSamples: [{ video: { uri: "https://generativelanguage.googleapis.com/v1beta/files/video-1:download" } }],
+          },
+        },
+      }),
+    );
+
+    await expect(new GoogleVeoAdapter("gemini-prod-smoke-abc123", fetchMock).checkJobStatus("operations/veo-live-1")).resolves.toEqual({
+      status: "complete",
+      progress: 100,
+      resultUrl: "https://generativelanguage.googleapis.com/v1beta/files/video-1:download",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://generativelanguage.googleapis.com/v1beta/operations/veo-live-1",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("maps Veo API failures to retry classes and rejects missing operation names", async () => {
+    const rateLimitFetch = vi.fn().mockResolvedValue(Response.json({ error: { message: "rate limited" } }, { status: 429 }));
+    await expect(
+      new GoogleVeoAdapter("gemini-prod-smoke-abc123", rateLimitFetch).generateVideo(prompt, {
+        modelId: "veo-3.1-generate-preview",
+        width: 1024,
+        height: 576,
+        durationSeconds: 8,
+      }),
+    ).rejects.toMatchObject({ errorClass: "rate_limit", status: 429 });
+
+    const malformedFetch = vi.fn().mockResolvedValue(Response.json({ done: false }));
+    await expect(
+      new GoogleVeoAdapter("gemini-prod-smoke-abc123", malformedFetch).generateVideo(prompt, {
+        modelId: "veo-3.1-generate-preview",
+        width: 1024,
+        height: 576,
+        durationSeconds: 8,
+      }),
+    ).rejects.toMatchObject({
+      message: "Google AI Veo submission succeeded without an operation name.",
       errorClass: "fatal",
       status: 502,
     });

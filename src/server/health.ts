@@ -53,6 +53,7 @@ function checkProviderEnv(): AppHealthSnapshot["providerEnv"] {
     openai: "OPENAI_API_KEY",
     stability: "STABILITY_API_KEY",
     runway: "RUNWAYML_API_SECRET",
+    "google-ai": "GEMINI_API_KEY",
   };
   return Object.fromEntries(
     LIVE_PROVIDER_SLUGS.map((provider) => {

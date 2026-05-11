@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { RunwayAdapter } from "@/providers/videoProviders";
+import { GoogleVeoAdapter, RunwayAdapter } from "@/providers/videoProviders";
+import type { VideoAdapter } from "@/providers/types";
 import { AppError, NotFoundError } from "@/server/errors";
 import {
   addJobEvent,
@@ -21,8 +22,10 @@ import { isRedisQueueEnabled } from "@/server/queue";
 import { inspectClip } from "@/server/media";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
-import { resolveRunwayApiKeyForProject } from "@/server/providerKeys";
+import { resolveGoogleAiApiKeyForProject, resolveRunwayApiKeyForProject } from "@/server/providerKeys";
 import type { ClipVersion, ErrorClass, GenerationJob, ScriptAnalysisGraph, VideoClip } from "@/server/types";
+
+type LiveVideoProviderSlug = "runway" | "google-ai";
 
 export async function generateVideoClip(input: {
   projectId: string;
@@ -41,7 +44,7 @@ export async function generateVideoClip(input: {
   if (frameVersions.length === 0) {
     throw new AppError("Video generation requires approved storyboard frames.", 409, "missing_approved_frames");
   }
-  const adapter = new RunwayAdapter(await resolveRunwayApiKeyForProject(input.projectId));
+  const adapter = await createLiveVideoAdapter(input.projectId, providerSlug);
   const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
   const job = await createGenerationJob({
     projectId: input.projectId,
@@ -90,7 +93,7 @@ export async function processVideoClipJob(input: {
   if (frameVersions.length === 0) {
     throw new AppError("Video generation requires approved storyboard frames.", 409, "missing_approved_frames");
   }
-  const adapter = new RunwayAdapter(await resolveRunwayApiKeyForProject(input.projectId));
+  const adapter = await createLiveVideoAdapter(input.projectId, providerSlug);
   const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
   const job = await markGenerationJobRunning(input.jobId, "polling");
   if (!job) throw new NotFoundError("Generation job not found.");
@@ -145,11 +148,29 @@ export async function processVideoClipJob(input: {
   });
 }
 
-function requireLiveVideoProvider(providerSlug = "runway") {
-  if (providerSlug !== "runway") {
-    throw new AppError("Runway is the only live-wired video provider for production generation.", 400, "unsupported_provider");
+function requireLiveVideoProvider(providerSlug = "runway"): LiveVideoProviderSlug {
+  if (providerSlug !== "runway" && providerSlug !== "google-ai") {
+    throw new AppError("Runway and Google AI Veo are the live-wired video providers for production generation.", 400, "unsupported_provider");
   }
   return providerSlug;
+}
+
+async function createLiveVideoAdapter(projectId: string, providerSlug: LiveVideoProviderSlug, fetchImpl: typeof fetch = fetch) {
+  if (providerSlug === "google-ai") {
+    return new GoogleVeoAdapter(await resolveGoogleAiApiKeyForProject(projectId), fetchImpl);
+  }
+  return new RunwayAdapter(await resolveRunwayApiKeyForProject(projectId), fetchImpl);
+}
+
+function providerDisplayName(providerSlug: LiveVideoProviderSlug) {
+  return providerSlug === "google-ai" ? "Google AI Veo" : "Runway";
+}
+
+function providerDownloadHeaders(adapter: VideoAdapter): Record<string, string> {
+  if (adapter instanceof GoogleVeoAdapter) {
+    return adapter.downloadHeaders();
+  }
+  return {};
 }
 
 export async function processVideoProviderResult(input: {
@@ -161,11 +182,13 @@ export async function processVideoProviderResult(input: {
   if (!job) {
     throw new NotFoundError("Generation job not found.");
   }
-  if (job.type !== "video_clip" || job.providerSlug !== "runway" || !job.providerJobId) {
-    throw new AppError("Only submitted Runway video jobs can be polled.", 400, "unsupported_provider_poll");
+  const providerSlug = requireLiveVideoProvider(job.providerSlug);
+  if (job.type !== "video_clip" || !job.providerJobId) {
+    throw new AppError("Only submitted live video jobs can be polled.", 400, "unsupported_provider_poll");
   }
 
-  const adapter = new RunwayAdapter(await resolveRunwayApiKeyForProject(input.projectId), input.fetchImpl ?? fetch);
+  const adapter = await createLiveVideoAdapter(input.projectId, providerSlug, input.fetchImpl ?? fetch);
+  const providerName = providerDisplayName(providerSlug);
   const status = await adapter.checkJobStatus(job.providerJobId);
   if (status.status === "pending" || status.status === "processing") {
     await markGenerationJobRunning(input.jobId, "polling");
@@ -173,34 +196,37 @@ export async function processVideoProviderResult(input: {
       jobId: job.id,
       projectId: input.projectId,
       eventType: "progress",
-      message: "Runway video task is still processing.",
+      message: `${providerName} video task is still processing.`,
       progressPct: status.progress ?? 50,
     });
     return getScriptAnalysisGraphForProject(input.projectId);
   }
   if (status.status === "failed") {
-    await completeGenerationJob(job.id, { status: "failed", errorMessage: status.error ?? "Runway video task failed." });
+    await completeGenerationJob(job.id, { status: "failed", errorMessage: status.error ?? `${providerName} video task failed.` });
     await addJobEvent({
       jobId: job.id,
       projectId: input.projectId,
       eventType: "status_change",
-      message: status.error ?? "Runway video task failed.",
+      message: status.error ?? `${providerName} video task failed.`,
       progressPct: 100,
     });
     return getScriptAnalysisGraphForProject(input.projectId);
   }
   if (!status.resultUrl) {
-    throw new AppError("Runway task completed without an output URL.", 502, "provider_output_missing");
+    throw new AppError(`${providerName} task completed without an output URL.`, 502, "provider_output_missing");
   }
 
   await markGenerationJobRunning(input.jobId, "processing_output");
-  const output = await (input.fetchImpl ?? fetch)(status.resultUrl, { signal: AbortSignal.timeout(120000) });
+  const output = await (input.fetchImpl ?? fetch)(status.resultUrl, {
+    headers: providerDownloadHeaders(adapter),
+    signal: AbortSignal.timeout(120000),
+  });
   if (!output.ok) {
-    throw new AppError(`Runway output download failed with status ${output.status}.`, 502, "provider_output_download_failed");
+    throw new AppError(`${providerName} output download failed with status ${output.status}.`, 502, "provider_output_download_failed");
   }
   const data = Buffer.from(await output.arrayBuffer());
   if (data.length === 0) {
-    throw new AppError("Runway output download did not include video bytes.", 502, "provider_output_missing");
+    throw new AppError(`${providerName} output download did not include video bytes.`, 502, "provider_output_missing");
   }
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const payload = normalizeVideoJobPayload(job);
@@ -219,9 +245,12 @@ export async function processVideoProviderResult(input: {
 }
 
 export async function processSubmittedVideoProviderJobs(input: { fetchImpl?: typeof fetch } = {}) {
-  const jobs = await listSubmittedProviderJobs({ type: "video_clip", providerSlug: "runway" });
+  const jobs = await listSubmittedProviderJobs({ type: "video_clip" });
   const results = [];
   for (const job of jobs) {
+    if (job.providerSlug !== "runway" && job.providerSlug !== "google-ai") {
+      continue;
+    }
     try {
       results.push(
         await processVideoProviderResult({
@@ -231,7 +260,7 @@ export async function processSubmittedVideoProviderJobs(input: { fetchImpl?: typ
         }),
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Runway provider polling failed.";
+      const message = error instanceof Error ? error.message : `${providerDisplayName(job.providerSlug)} provider polling failed.`;
       const errorClass = classifyVideoProviderPollError(error);
       if (isRetryableProviderPollError(errorClass)) {
         await markGenerationJobRunning(job.id, "polling");
@@ -252,7 +281,7 @@ export async function processSubmittedVideoProviderJobs(input: { fetchImpl?: typ
       results.push({ jobId: job.id, status: isRetryableProviderPollError(errorClass) ? "retrying" : "failed", errorMessage: message });
     }
   }
-  return { processed: jobs.length, results };
+  return { processed: results.length, results };
 }
 
 function isRetryableProviderPollError(errorClass: ErrorClass) {

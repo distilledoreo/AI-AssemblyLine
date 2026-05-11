@@ -173,7 +173,8 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Typed Asset Bible detail saves now commit the base asset update and matching type-specific detail upsert in one Prisma transaction, preventing canonical asset metadata from drifting away from its continuity detail record.
 - Local credentials sign-in now creates the database session through the same Prisma user upsert that creates or updates the user, preventing successful credential sign-in from leaving a user row without an active session.
 - Scene and shot readiness refreshes now commit all recalculated status updates in one Prisma transaction, preventing asset-approval refreshes from leaving scenes and shots at different dependency-calculation revisions.
-- `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
+- Google AI / Veo is now a live-wired video provider alongside Runway: encrypted workspace keys or `GEMINI_API_KEY` / `GOOGLE_AI_API_KEY` can submit Gemini API async video operations, poll operation status, and download completed output with the required Google API key header.
+- `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway/Google AI credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
 - `npm test`: passing, 36 files and 176 tests.
 - `npm run lint`: passing.
@@ -183,7 +184,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - `prisma validate`: passing when `DATABASE_URL` is set for schema validation.
 - `npm run test:e2e`: passing, 1 Chromium workflow test.
 - `QUEUE_MODE=inline npm run worker`: exits cleanly with Redis disabled message.
-- `npm run preflight:production`: fails in this environment with explicit blockers: `NODE_ENV` is not set to production, required production env vars are missing, `NEXTAUTH_URL` is missing/invalid, secret/key shape and fallback-value checks fail, `STORAGE_ROOT` is missing, OpenAI/Stability/Runway keys are missing or placeholder values, FFmpeg/ffprobe are missing, and Postgres/Redis URLs are missing. `QUEUE_MODE` passes because it is unset and production defaults to Redis.
+- `npm run preflight:production`: fails in this environment with 20 explicit blockers: `NODE_ENV` is not set to production, required production env vars are missing, `NEXTAUTH_URL` is missing/invalid, secret/key shape and fallback-value checks fail, `STORAGE_ROOT` is missing, OpenAI/Stability/Runway/Google AI keys are missing or placeholder values, FFmpeg/ffprobe are missing, and Postgres/Redis URLs are missing. `QUEUE_MODE` passes because it is unset and production defaults to Redis.
 - `GET /api/health` against the live local dev server returns `503` with `status: "degraded"` and local dependency diagnostics. The current local server process still lacks `DATABASE_URL`, cannot reach Redis, and reports OpenAI/Stability/Runway fallback keys as unconfigured. Production responses redact raw dependency exception details by default.
 - Docker preflight: `docker --version` and `docker compose version` fail because Docker is not installed in this environment.
 - Local Postgres TCP check: failed on `127.0.0.1:5432`.
