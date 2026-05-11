@@ -22,7 +22,7 @@ async function projectWithApprovedFrame() {
   const workspace = await createWorkspaceForUser(user.id, { name: "Video Lab" });
   const project = await createProjectForWorkspace(user.id, { workspaceId: workspace.id, title: "Video" });
   const analyzed = await uploadScriptForProject({ projectId: project.id, filename: "video.txt", text: scriptText });
-  await Promise.all(analyzed.assets.map((asset) => transitionAssetStatus(asset.id, "approved")));
+  await Promise.all(analyzed.assets.map((asset) => transitionAssetStatus(project.id, asset.id, "approved")));
   const ready = getScriptAnalysisGraph(project.id);
   const generated = await generateStoryboardFrame({ projectId: project.id, shotId: ready.shots[0].id });
   await updateFrameVersion({ projectId: project.id, frameVersionId: generated.frameVersions[0].id, status: "approved" });

@@ -37,13 +37,12 @@ import type {
   ScriptAnalysisGraph,
 } from "@/server/types";
 
-export async function upsertAssetDetail(assetId: string, input: Partial<AssetDetail>) {
-  const asset = await getAssetById(assetId);
-  if (!asset) throw new NotFoundError("Asset not found.");
+export async function upsertAssetDetail(projectId: string, assetId: string, input: Partial<AssetDetail>) {
+  const graph = await getScriptAnalysisGraphForProject(projectId);
+  const asset = await resolveProjectAsset(projectId, assetId, graph);
   if (asset.status === "locked") {
     throw new AppError("This asset is locked. Unlock it before editing continuity details.", 409, "asset_locked");
   }
-  const graph = await getScriptAnalysisGraphForProject(asset.projectId);
   const timestamp = nowIso();
   const existing = graph.assetDetails.find((detail) => detail.assetId === assetId);
   if (existing) {
@@ -61,12 +60,9 @@ export async function upsertAssetDetail(assetId: string, input: Partial<AssetDet
   return detail;
 }
 
-export async function createAssetVersion(assetId: string, input: { description?: string; status?: AssetVersion["status"] }) {
-  const asset = await getAssetById(assetId);
-  if (!asset) {
-    throw new NotFoundError("Asset not found.");
-  }
-  const graph = await getScriptAnalysisGraphForProject(asset.projectId);
+export async function createAssetVersion(projectId: string, assetId: string, input: { description?: string; status?: AssetVersion["status"] }) {
+  const graph = await getScriptAnalysisGraphForProject(projectId);
+  const asset = await resolveProjectAsset(projectId, assetId, graph);
   const version = buildAssetVersion(asset, graph.assetVersions, input);
   if (asset.status === "missing") {
     asset.status = "draft";
@@ -87,7 +83,7 @@ export async function uploadAssetReference(input: {
   validateImageMime(input.mimeType);
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const asset = await resolveProjectAsset(input.projectId, input.assetId, graph);
-  const version = await createAssetVersion(input.assetId, { description: `Uploaded reference: ${input.filename}` });
+  const version = await createAssetVersion(input.projectId, input.assetId, { description: `Uploaded reference: ${input.filename}` });
   const dir = storagePath(projectFolderPath(input.projectId, "assets"), input.assetId);
   await mkdir(dir, { recursive: true });
   const safeName = input.filename.replace(/[^a-z0-9._-]/gi, "_") || "reference.png";
@@ -207,9 +203,9 @@ export async function processAssetReferenceJob(input: {
   return { version, reference, job };
 }
 
-export async function transitionAssetStatus(assetId: string, status: AssetStatus) {
-  const asset = await getAssetById(assetId);
-  if (!asset) throw new NotFoundError("Asset not found.");
+export async function transitionAssetStatus(projectId: string, assetId: string, status: AssetStatus) {
+  const graph = await getScriptAnalysisGraphForProject(projectId);
+  const asset = await resolveProjectAsset(projectId, assetId, graph);
   if (asset.status === "locked" && status !== "locked") {
     asset.continuityNotes = `${asset.continuityNotes ?? ""}\nUnlocked after warning acknowledgement.`.trim();
   }
@@ -217,32 +213,30 @@ export async function transitionAssetStatus(assetId: string, status: AssetStatus
   asset.status = status;
   asset.updatedAt = nowIso();
   if (wasApproved && !["approved", "locked"].includes(status)) {
-    await markFramesStaleForAsset(asset.projectId, asset.id);
+    await markFramesStaleForAsset(projectId, asset.id);
   }
-  refreshLocalReadiness(asset.projectId);
+  refreshLocalReadiness(projectId);
   await persistAssetState(asset);
-  await refreshPrismaReadiness(asset.projectId);
+  await refreshPrismaReadiness(projectId);
   return asset;
 }
 
-export async function mergeAssets(sourceAssetId: string, targetAssetId: string) {
-  const source = await getAssetById(sourceAssetId);
-  const target = await getAssetById(targetAssetId);
-  if (!source || !target || source.projectId !== target.projectId) {
-    throw new NotFoundError("Assets to merge were not found.");
-  }
+export async function mergeAssets(projectId: string, sourceAssetId: string, targetAssetId: string) {
+  const graph = await getScriptAnalysisGraphForProject(projectId);
+  const source = await resolveProjectAsset(projectId, sourceAssetId, graph);
+  const target = await resolveProjectAsset(projectId, targetAssetId, graph);
   target.aliases = Array.from(new Set([...target.aliases, source.canonicalName, ...source.aliases]));
   source.status = "superseded";
   source.updatedAt = nowIso();
-  refreshLocalReadiness(target.projectId);
+  refreshLocalReadiness(projectId);
   await persistAssetMergeState({ source, target });
-  await refreshPrismaReadiness(target.projectId);
+  await refreshPrismaReadiness(projectId);
   return target;
 }
 
-export async function splitAsset(assetId: string, input: { canonicalName: string; type?: AssetType }) {
-  const source = await getAssetById(assetId);
-  if (!source) throw new NotFoundError("Asset not found.");
+export async function splitAsset(projectId: string, assetId: string, input: { canonicalName: string; type?: AssetType }) {
+  const graph = await getScriptAnalysisGraphForProject(projectId);
+  const source = await resolveProjectAsset(projectId, assetId, graph);
   const timestamp = nowIso();
   const asset: Asset = {
     ...source,

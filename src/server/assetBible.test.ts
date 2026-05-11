@@ -38,7 +38,7 @@ describe("asset bible lifecycle", () => {
     const graph = await analyzedProject();
     const asset = graph.assets.find((candidate) => candidate.canonicalName === "Anna")!;
 
-    await upsertAssetDetail(asset.id, {
+    await upsertAssetDetail(asset.projectId, asset.id, {
       narrativeDescription: "Lead character.",
       physicalDescription: "Curly hair and nervous energy.",
     });
@@ -47,7 +47,7 @@ describe("asset bible lifecycle", () => {
       assetId: asset.id,
       providerSlug: "stability",
     });
-    await transitionAssetStatus(asset.id, "approved");
+    await transitionAssetStatus(asset.projectId, asset.id, "approved");
 
     const updated = getScriptAnalysisGraph(asset.projectId);
     expect(generated.reference.mimeType).toBe("image/png");
@@ -62,7 +62,7 @@ describe("asset bible lifecycle", () => {
     expect(graph.shots.map((shot) => shot.status)).toContain("blocked");
 
     for (const asset of graph.assets) {
-      await transitionAssetStatus(asset.id, "approved");
+      await transitionAssetStatus(asset.projectId, asset.id, "approved");
     }
 
     const updated = getScriptAnalysisGraph(graph.assets[0].projectId);
@@ -85,9 +85,33 @@ describe("asset bible lifecycle", () => {
       }),
     ).rejects.toMatchObject({ code: "unsupported_media_type" });
 
-    const split = await splitAsset(asset.id, { canonicalName: "Duplicate Location" });
-    const merged = await mergeAssets(split.id, asset.id);
+    const split = await splitAsset(asset.projectId, asset.id, { canonicalName: "Duplicate Location" });
+    const merged = await mergeAssets(asset.projectId, split.id, asset.id);
     expect(merged.aliases).toContain("Duplicate Location");
+  });
+
+  it("rejects cross-project asset detail, status, split, and merge mutations", async () => {
+    const firstGraph = await analyzedProject();
+    const secondGraph = await analyzedProject();
+    const firstAsset = firstGraph.assets[0];
+    const secondAsset = secondGraph.assets[0];
+
+    await expect(
+      upsertAssetDetail(secondAsset.projectId, firstAsset.id, { narrativeDescription: "Cross-project edit" }),
+    ).rejects.toMatchObject({ code: "not_found" });
+    await expect(transitionAssetStatus(secondAsset.projectId, firstAsset.id, "approved")).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(splitAsset(secondAsset.projectId, firstAsset.id, { canonicalName: "Cross-project split" })).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(mergeAssets(secondAsset.projectId, firstAsset.id, secondAsset.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
+
+    const unchangedGraph = getScriptAnalysisGraph(firstAsset.projectId);
+    expect(unchangedGraph.assets.find((asset) => asset.id === firstAsset.id)?.status).toBe(firstAsset.status);
+    expect(unchangedGraph.assetDetails.find((detail) => detail.assetId === firstAsset.id)).toBeUndefined();
   });
 
   it("updates project style and warns when changing a locked style", async () => {

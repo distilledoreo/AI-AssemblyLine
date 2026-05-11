@@ -21,6 +21,7 @@ Phase 3 turns detected script assets into a reviewable Asset Bible with versione
   - `merge` redirects requirements from a duplicate asset to a canonical asset.
   - `split` creates a new asset from an incorrectly merged one.
   - `style` updates the project style and warns when changing a locked style.
+- Asset detail, status, merge, and split actions require every referenced asset ID to belong to the route `projectId`; cross-project asset IDs return `not_found` and are not mutated.
 - The same endpoint accepts multipart image upload and stores uploaded references under the project asset folder.
 
 ## Provider and media behavior

@@ -66,9 +66,9 @@ describe("collaboration workflow", () => {
     });
 
     await addProjectMember({ projectId: project.id, userId: reviewer.id, role: "reviewer", actorId: owner.id });
-    await transitionAssetStatus(graph.assets[0].id, "locked");
+    await transitionAssetStatus(project.id, graph.assets[0].id, "locked");
 
-    await expect(upsertAssetDetail(graph.assets[0].id, { narrativeDescription: "Change" })).rejects.toThrow(/locked/);
+    await expect(upsertAssetDetail(project.id, graph.assets[0].id, { narrativeDescription: "Change" })).rejects.toThrow(/locked/);
     expect(getScriptAnalysisGraph(project.id).activityEvents.at(-1)?.eventType).toBe("member_updated");
   });
 });

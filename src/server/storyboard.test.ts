@@ -28,7 +28,7 @@ async function readyProject() {
   const workspace = await createWorkspaceForUser(user.id, { name: "Board Lab" });
   const project = await createProjectForWorkspace(user.id, { workspaceId: workspace.id, title: "Boards" });
   const graph = await uploadScriptForProject({ projectId: project.id, filename: "boards.txt", text: scriptText });
-  await Promise.all(graph.assets.map((asset) => transitionAssetStatus(asset.id, "approved")));
+  await Promise.all(graph.assets.map((asset) => transitionAssetStatus(project.id, asset.id, "approved")));
   return { user, project, graph: getScriptAnalysisGraph(project.id) };
 }
 
@@ -56,7 +56,7 @@ describe("storyboard workflow", () => {
     expect(updated.reviewNotes[0].body).toBe("Approved.");
 
     const asset = graph.assets.find((candidate) => candidate.canonicalName === "Anna")!;
-    await transitionAssetStatus(asset.id, "missing");
+    await transitionAssetStatus(project.id, asset.id, "missing");
     const staleGraph = getScriptAnalysisGraph(project.id);
     expect(staleGraph.frameVersions[0].status).toBe("stale");
     expect(staleGraph.frameVersions[0].isStale).toBe(true);

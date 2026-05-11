@@ -72,11 +72,11 @@ export async function POST(request: Request, context: { params: Promise<{ projec
 
     const body = jsonActionSchema.parse(await request.json());
     assertProjectPermission(role, permissionForAssetBibleAction(body));
-    if (body.action === "detail") await upsertAssetDetail(body.assetId, body.detail);
+    if (body.action === "detail") await upsertAssetDetail(projectId, body.assetId, body.detail);
     if (body.action === "generate") await generateAssetReference({ projectId, assetId: body.assetId, providerSlug: body.providerSlug });
-    if (body.action === "status") await transitionAssetStatus(body.assetId, body.status);
-    if (body.action === "merge") await mergeAssets(body.sourceAssetId, body.targetAssetId);
-    if (body.action === "split") await splitAsset(body.assetId, body);
+    if (body.action === "status") await transitionAssetStatus(projectId, body.assetId, body.status);
+    if (body.action === "merge") await mergeAssets(projectId, body.sourceAssetId, body.targetAssetId);
+    if (body.action === "split") await splitAsset(projectId, body.assetId, body);
     if (body.action === "style") await updateProjectStyle(projectId, body.style);
     return Response.json(await getScriptAnalysisGraphForProject(projectId));
   } catch (error) {

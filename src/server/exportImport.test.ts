@@ -28,7 +28,7 @@ async function createPortableProject() {
   const workspace = await createWorkspaceForUser(user.id, { name: "Phase 7 Lab" });
   const project = await createProjectForWorkspace(user.id, { workspaceId: workspace.id, title: "Portable Project" });
   const analyzed = await uploadScriptForProject({ projectId: project.id, filename: "portable.txt", text: scriptText });
-  await Promise.all(analyzed.assets.map((asset) => transitionAssetStatus(asset.id, "approved")));
+  await Promise.all(analyzed.assets.map((asset) => transitionAssetStatus(project.id, asset.id, "approved")));
   const ready = getScriptAnalysisGraph(project.id);
   const storyboard = await generateStoryboardFrame({ projectId: project.id, shotId: ready.shots[0].id });
   await updateFrameVersion({ projectId: project.id, frameVersionId: storyboard.frameVersions[0].id, status: "approved" });

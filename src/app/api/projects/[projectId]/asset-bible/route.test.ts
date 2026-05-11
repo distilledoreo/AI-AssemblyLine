@@ -59,7 +59,11 @@ describe("Asset Bible API permissions", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(routeMocks.transitionAssetStatus).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", "approved");
+    expect(routeMocks.transitionAssetStatus).toHaveBeenCalledWith(
+      "33333333-3333-4333-8333-333333333333",
+      "11111111-1111-4111-8111-111111111111",
+      "approved",
+    );
   });
 
   it("denies reviewers from requesting asset generation", async () => {
