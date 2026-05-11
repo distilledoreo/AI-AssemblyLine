@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { loadStandardEnvFiles, type ScriptEnv } from "./env-files";
@@ -164,6 +164,7 @@ function oauthPairCheck(name: string, env: Env, clientIdKeys: string[], clientSe
 export async function runProductionPreflight(env: Env = process.env) {
   const results = evaluateProductionPreflight(env);
   results.push(checkPrismaSchema(env));
+  results.push(await checkPrismaMigrations());
   results.push(await checkStorageRoot(env.STORAGE_ROOT));
   results.push(await checkTcpUrl("Postgres TCP", env.DATABASE_URL, ["postgres:", "postgresql:"]));
   results.push(await checkTcpUrl("Redis TCP", env.REDIS_URL, ["redis:", "rediss:"]));
@@ -226,6 +227,37 @@ function commandFailureDetail(result: { error?: Error; stderr?: string; stdout?:
     .map((line) => line.trim())
     .find(Boolean);
   return result.error?.message ?? output ?? fallback;
+}
+
+export async function checkPrismaMigrations(cwd = process.cwd()): Promise<CheckResult> {
+  const migrationsRoot = path.join(cwd, "prisma", "migrations");
+  try {
+    const lock = await readFile(path.join(migrationsRoot, "migration_lock.toml"), "utf8");
+    if (!/provider\s*=\s*"postgresql"/.test(lock)) {
+      return { name: "Prisma migrations", ok: false, detail: "migration lock must use postgresql provider" };
+    }
+
+    const entries = await readdir(migrationsRoot, { withFileTypes: true });
+    const migrationDirs = entries.filter((entry) => entry.isDirectory()).sort((a, b) => a.name.localeCompare(b.name));
+    if (migrationDirs.length === 0) {
+      return { name: "Prisma migrations", ok: false, detail: "no migration directories found" };
+    }
+
+    for (const migrationDir of migrationDirs) {
+      const migrationSql = await readFile(path.join(migrationsRoot, migrationDir.name, "migration.sql"), "utf8");
+      if (!migrationSql.trim()) {
+        return { name: "Prisma migrations", ok: false, detail: `${migrationDir.name}/migration.sql is empty` };
+      }
+    }
+
+    return { name: "Prisma migrations", ok: true, detail: `${migrationDirs.length} migration(s) present` };
+  } catch (error) {
+    return {
+      name: "Prisma migrations",
+      ok: false,
+      detail: error instanceof Error ? error.message : "migration files could not be read",
+    };
+  }
 }
 
 async function checkTcpUrl(name: string, value: string | undefined, allowedProtocols: string[]): Promise<CheckResult> {

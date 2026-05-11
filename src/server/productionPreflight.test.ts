@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -6,6 +6,7 @@ import { DEVELOPMENT_ENCRYPTION_KEY, DEVELOPMENT_NEXTAUTH_SECRET } from "@/lib/c
 import {
   checkStorageRoot,
   checkPrismaSchema,
+  checkPrismaMigrations,
   evaluateProductionPreflight,
   loadProductionEnvFiles,
   runProductionPreflight,
@@ -290,6 +291,59 @@ describe("production preflight", () => {
       ok: false,
       detail: "Prisma schema validation failed",
     });
+  });
+
+  it("verifies Prisma migration files are present and non-empty", async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "assemblyline-migrations-"));
+    try {
+      const migrationDir = path.join(tempRoot, "prisma", "migrations", "0001_init");
+      await mkdir(migrationDir, { recursive: true });
+      await writeFile(path.join(tempRoot, "prisma", "migrations", "migration_lock.toml"), 'provider = "postgresql"\n');
+      await writeFile(path.join(migrationDir, "migration.sql"), "CREATE TABLE example (id text PRIMARY KEY);\n");
+
+      await expect(checkPrismaMigrations(tempRoot)).resolves.toEqual({
+        name: "Prisma migrations",
+        ok: true,
+        detail: "1 migration(s) present",
+      });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects missing or empty Prisma migrations", async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "assemblyline-migrations-"));
+    try {
+      const migrationsRoot = path.join(tempRoot, "prisma", "migrations");
+      await mkdir(path.join(migrationsRoot, "0001_empty"), { recursive: true });
+      await writeFile(path.join(migrationsRoot, "migration_lock.toml"), 'provider = "postgresql"\n');
+      await writeFile(path.join(migrationsRoot, "0001_empty", "migration.sql"), "   ");
+
+      await expect(checkPrismaMigrations(tempRoot)).resolves.toEqual({
+        name: "Prisma migrations",
+        ok: false,
+        detail: "0001_empty/migration.sql is empty",
+      });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a Prisma migration lock for the wrong provider", async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "assemblyline-migrations-"));
+    try {
+      const migrationsRoot = path.join(tempRoot, "prisma", "migrations");
+      await mkdir(migrationsRoot, { recursive: true });
+      await writeFile(path.join(migrationsRoot, "migration_lock.toml"), 'provider = "sqlite"\n');
+
+      await expect(checkPrismaMigrations(tempRoot)).resolves.toEqual({
+        name: "Prisma migrations",
+        ok: false,
+        detail: "migration lock must use postgresql provider",
+      });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
   });
 
   it("rejects non-Postgres and non-Redis dependency URLs before TCP checks", async () => {

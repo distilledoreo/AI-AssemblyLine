@@ -23,6 +23,7 @@
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate --schema prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "verify:phase1": "vitest run && next build"
   },
   "dependencies": {
