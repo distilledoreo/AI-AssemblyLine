@@ -73,6 +73,21 @@ test("creator can run the core project workflow and export a bundle", async ({ p
   await expect(page.getByText("bytedance-seedance, pika, luma, elevenlabs")).toBeVisible();
   await expect(page.getByText("Approved frames: 1")).toBeVisible();
 
+  await page.getByRole("link", { name: "Script" }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/script$`));
+  await expect(page.getByRole("heading", { name: "Script analysis" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Scenes and shots" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Assets and requirements" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Export and operations" })).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Asset Bible" }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/asset-bible$`));
+  const assetBiblePanel = page.locator('section[aria-labelledby="asset-bible-heading"]');
+  await expect(assetBiblePanel.getByRole("heading", { name: "Asset Bible lifecycle" })).toBeVisible();
+  await expect(assetBiblePanel.getByText(/Scenes ready:/)).toBeVisible();
+  await expect(assetBiblePanel.getByText("0 references", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Script analysis" })).toHaveCount(0);
+
   await page.getByRole("link", { name: "Storyboard" }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/storyboard$`));
   await expect(page.getByRole("heading", { name: "Storyboard frames" })).toBeVisible();
