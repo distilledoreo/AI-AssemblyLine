@@ -29,12 +29,14 @@ Restores the bundle into a new imported project in a new workspace for the curre
 ```
 
 Deletes files in project storage that are not referenced by project metadata.
+The response includes the cleanup result plus a refreshed operations payload, so `storage.orphanFiles` and file counts reflect the post-cleanup state.
 
 ```json
 { "action": "clear_thumbnails" }
 ```
 
 Deletes cached thumbnail files. Thumbnails may be regenerated later.
+The response includes the thumbnail clear result plus a refreshed operations payload, so `storage.thumbnailFiles` reflects the post-clear state.
 
 ## Core workflow endpoints
 

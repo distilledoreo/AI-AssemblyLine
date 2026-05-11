@@ -49,6 +49,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
+- Project operations cleanup actions now rebuild their operations payload after mutating storage, so operator-facing orphan and thumbnail lists reflect the state after cleanup instead of the stale pre-action snapshot.
 - Production config and preflight now reject the known development fallback `NEXTAUTH_SECRET` and `ENCRYPTION_KEY` values, preventing copied local defaults from satisfying production shape checks.
 - Provider key safety now rejects known placeholder/test values as non-live credentials, so checked-in smoke-test examples cannot satisfy production preflight or production provider-key saves.
 - Production preflight now requires `NODE_ENV=production`, matching the runtime branches that enable production repository mode, Redis queue defaults, secure auth cookies, production error redaction, and provider mock guards.
