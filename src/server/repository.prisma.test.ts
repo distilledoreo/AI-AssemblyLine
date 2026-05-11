@@ -719,6 +719,92 @@ describe("Prisma repository mode", () => {
     );
   });
 
+  it.each([
+    {
+      name: "project member lookup",
+      mock: () => prismaMock.projectMember.findUnique,
+      run: (repository: typeof import("@/server/repository")) =>
+        repository.getProjectMemberForUser(
+          "33333333-3333-4333-8333-333333333333",
+          "11111111-1111-4111-8111-111111111111",
+        ),
+    },
+    {
+      name: "scene lookup",
+      mock: () => prismaMock.scene.findUnique,
+      run: (repository: typeof import("@/server/repository")) =>
+        repository.getSceneById("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+    },
+    {
+      name: "script version lookup",
+      mock: () => prismaMock.scriptVersion.findUnique,
+      run: (repository: typeof import("@/server/repository")) =>
+        repository.getScriptVersionById("88888888-8888-4888-8888-888888888888"),
+    },
+    {
+      name: "shot lookup",
+      mock: () => prismaMock.shot.findUnique,
+      run: (repository: typeof import("@/server/repository")) =>
+        repository.getShotById("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+    },
+    {
+      name: "asset lookup",
+      mock: () => prismaMock.asset.findUnique,
+      run: (repository: typeof import("@/server/repository")) =>
+        repository.getAssetById("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+    },
+    {
+      name: "frame version lookup",
+      mock: () => prismaMock.frameVersion.findUnique,
+      run: (repository: typeof import("@/server/repository")) =>
+        repository.getFrameVersionById("14141414-1414-4141-8141-141414141414"),
+    },
+    {
+      name: "clip version lookup",
+      mock: () => prismaMock.clipVersion.findUnique,
+      run: (repository: typeof import("@/server/repository")) =>
+        repository.getClipVersionById("17171717-1717-4171-8171-171717171717"),
+    },
+    {
+      name: "shot video clip lookup",
+      mock: () => prismaMock.videoClip.findFirst,
+      run: (repository: typeof import("@/server/repository")) =>
+        repository.getVideoClipForShot("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+    },
+    {
+      name: "scene video clip lookup",
+      mock: () => prismaMock.videoClip.findFirst,
+      run: (repository: typeof import("@/server/repository")) =>
+        repository.getVideoClipForScene("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+    },
+    {
+      name: "scene requirement lookup by scene and asset",
+      mock: () => prismaMock.sceneAssetReq.findFirst,
+      run: (repository: typeof import("@/server/repository")) =>
+        repository.getSceneAssetRequirementBySceneAndAsset(
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        ),
+    },
+    {
+      name: "scene requirement lookup by id",
+      mock: () => prismaMock.sceneAssetReq.findUnique,
+      run: (repository: typeof import("@/server/repository")) =>
+        repository.getSceneAssetRequirementById("dddddddd-dddd-4ddd-8ddd-dddddddddddd"),
+    },
+    {
+      name: "invitation lookup",
+      mock: () => prismaMock.invitation.findUnique,
+      run: (repository: typeof import("@/server/repository")) => repository.findInvitationByTokenHash("hashed-token"),
+    },
+  ])("surfaces $name read failures from Prisma", async ({ mock, run }) => {
+    const repository = await import("@/server/repository");
+    repository.resetStoreForTests();
+    mock().mockRejectedValue(new Error("repository read failed"));
+
+    await expect(run(repository)).rejects.toThrow("repository read failed");
+  });
+
   it("loads script versions from Prisma for out-of-process analysis workers", async () => {
     const version = {
       id: "88888888-8888-4888-8888-888888888888",

@@ -1240,7 +1240,7 @@ export async function getProjectMemberForUser(projectId: string, userId: string)
   if (!isPrismaRepositoryEnabled()) {
     return undefined;
   }
-  const member = await prisma.projectMember.findUnique({ where: { projectId_userId: { projectId, userId } } }).catch(() => undefined);
+  const member = await prisma.projectMember.findUnique({ where: { projectId_userId: { projectId, userId } } });
   return member ? mapProjectMember(member) : undefined;
 }
 
@@ -1977,7 +1977,7 @@ export async function getSceneById(sceneId: string) {
   if (!isPrismaRepositoryEnabled()) {
     return undefined;
   }
-  const scene = await prisma.scene.findUnique({ where: { id: sceneId } }).catch(() => undefined);
+  const scene = await prisma.scene.findUnique({ where: { id: sceneId } });
   return scene ? mapScene(scene) : undefined;
 }
 
@@ -1989,7 +1989,7 @@ export async function getScriptVersionById(scriptVersionId: string) {
   if (!isPrismaRepositoryEnabled()) {
     return undefined;
   }
-  const version = await prisma.scriptVersion.findUnique({ where: { id: scriptVersionId } }).catch(() => undefined);
+  const version = await prisma.scriptVersion.findUnique({ where: { id: scriptVersionId } });
   return version ? mapScriptVersion(version) : undefined;
 }
 
@@ -2001,7 +2001,7 @@ export async function getShotById(shotId: string) {
   if (!isPrismaRepositoryEnabled()) {
     return undefined;
   }
-  const shot = await prisma.shot.findUnique({ where: { id: shotId } }).catch(() => undefined);
+  const shot = await prisma.shot.findUnique({ where: { id: shotId } });
   return shot ? mapShot(shot) : undefined;
 }
 
@@ -2013,7 +2013,7 @@ export async function getAssetById(assetId: string) {
   if (!isPrismaRepositoryEnabled()) {
     return undefined;
   }
-  const asset = await prisma.asset.findUnique({ where: { id: assetId } }).catch(() => undefined);
+  const asset = await prisma.asset.findUnique({ where: { id: assetId } });
   return asset ? mapAsset(asset) : undefined;
 }
 
@@ -2025,7 +2025,7 @@ export async function getFrameVersionById(frameVersionId: string) {
   if (!isPrismaRepositoryEnabled()) {
     return undefined;
   }
-  const version = await prisma.frameVersion.findUnique({ where: { id: frameVersionId } }).catch(() => undefined);
+  const version = await prisma.frameVersion.findUnique({ where: { id: frameVersionId } });
   return version ? mapFrameVersion(version) : undefined;
 }
 
@@ -2034,7 +2034,7 @@ export async function getClipVersionById(clipVersionId: string) {
   if (!isPrismaRepositoryEnabled()) {
     return local;
   }
-  const version = await prisma.clipVersion.findUnique({ where: { id: clipVersionId } }).catch(() => undefined);
+  const version = await prisma.clipVersion.findUnique({ where: { id: clipVersionId } });
   return version ? mapClipVersion(version) : local;
 }
 
@@ -2043,7 +2043,7 @@ export async function getVideoClipForShot(shotId: string) {
   if (!isPrismaRepositoryEnabled()) {
     return local;
   }
-  const clip = await prisma.videoClip.findFirst({ where: { shotId } }).catch(() => undefined);
+  const clip = await prisma.videoClip.findFirst({ where: { shotId } });
   return clip ? mapVideoClip(clip) : local;
 }
 
@@ -2052,7 +2052,7 @@ export async function getVideoClipForScene(sceneId: string) {
   if (!isPrismaRepositoryEnabled()) {
     return local;
   }
-  const clip = await prisma.videoClip.findFirst({ where: { sceneId } }).catch(() => undefined);
+  const clip = await prisma.videoClip.findFirst({ where: { sceneId } });
   return clip ? mapVideoClip(clip) : local;
 }
 
@@ -2061,7 +2061,7 @@ export async function getSceneAssetRequirementBySceneAndAsset(sceneId: string, a
   if (!isPrismaRepositoryEnabled()) {
     return local;
   }
-  const requirement = await prisma.sceneAssetReq.findFirst({ where: { sceneId, assetId } }).catch(() => undefined);
+  const requirement = await prisma.sceneAssetReq.findFirst({ where: { sceneId, assetId } });
   return requirement ? mapSceneAssetRequirement(requirement) : local;
 }
 
@@ -2070,7 +2070,7 @@ export async function getSceneAssetRequirementById(requirementId: string) {
   if (!isPrismaRepositoryEnabled()) {
     return local;
   }
-  const requirement = await prisma.sceneAssetReq.findUnique({ where: { id: requirementId } }).catch(() => undefined);
+  const requirement = await prisma.sceneAssetReq.findUnique({ where: { id: requirementId } });
   return requirement ? mapSceneAssetRequirement(requirement) : local;
 }
 
@@ -2812,7 +2812,7 @@ export async function persistClipVersionState(version: ClipVersion) {
 
 export async function findInvitationByTokenHash(tokenHash: string) {
   if (isPrismaRepositoryEnabled()) {
-    const invitation = await prisma.invitation.findUnique({ where: { tokenHash } }).catch(() => undefined);
+    const invitation = await prisma.invitation.findUnique({ where: { tokenHash } });
     if (invitation) {
       return mapInvitation(invitation);
     }
