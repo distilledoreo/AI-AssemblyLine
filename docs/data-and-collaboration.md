@@ -114,6 +114,8 @@ Generated script analysis graph persistence also commits as a single database tr
 
 Asset Bible merge persistence commits requirement reassignment and both source/target asset lifecycle updates in one database transaction. A failed merge write should not leave production requirements reassigned without the corresponding superseded source and canonical target asset updates.
 
+Generated storyboard frame persistence commits the storyboard frame upsert, frame version insert, shot status update, and related generation-job completion in one database transaction. A failed generated-frame write should not leave a production shot marked storyboarded without the frame version and completed generation job that justify that status.
+
 ## Rights and safety controls
 
 Projects should include a user-selectable rights and safety setting. Users can choose whether their project allows uploaded references involving copyrighted characters, real people, brand assets, client-owned material, or restricted likenesses. The app should record the setting and surface provider restrictions before generation jobs are submitted.

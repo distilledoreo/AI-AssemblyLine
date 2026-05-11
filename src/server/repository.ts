@@ -2881,33 +2881,56 @@ export async function persistGeneratedFrameVersion(input: {
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
-  await persistStoryboardFrameState(input.frame);
-  await prisma.frameVersion.create({
-    data: {
-      id: input.version.id,
-      frameId: input.version.frameId,
-      versionNumber: input.version.versionNumber,
-      prompt: input.version.prompt,
-      filePath: input.version.filePath,
-      thumbnailPath: input.version.thumbnailPath,
-      status: input.version.status,
-      isStale: input.version.isStale,
-      generationJobId: input.version.generationJobId,
-      annotations: toPrismaJson(input.version.annotations),
-      createdAt: new Date(input.version.createdAt),
-    },
-  });
-  await prisma.shot.update({ where: { id: input.shot.id }, data: { status: input.shot.status } });
-  if (input.version.generationJobId) {
-    await prisma.generationJob.update({
-      where: { id: input.version.generationJobId },
-      data: {
-        status: "complete",
-        outputPayload: toPrismaJson({ frameId: input.frame.id, frameVersionId: input.version.id }),
-        completedAt: new Date(),
+  const operations: Prisma.PrismaPromise<unknown>[] = [
+    prisma.storyboardFrame.upsert({
+      where: { id: input.frame.id },
+      update: {
+        shotId: input.frame.shotId,
+        keyframeIndex: input.frame.keyframeIndex,
+        sketchFilePath: input.frame.sketchFilePath,
+        sketchWarning: input.frame.sketchWarning,
+        updatedAt: new Date(input.frame.updatedAt),
       },
-    });
+      create: {
+        id: input.frame.id,
+        shotId: input.frame.shotId,
+        keyframeIndex: input.frame.keyframeIndex,
+        sketchFilePath: input.frame.sketchFilePath,
+        sketchWarning: input.frame.sketchWarning,
+        createdAt: new Date(input.frame.createdAt),
+        updatedAt: new Date(input.frame.updatedAt),
+      },
+    }),
+    prisma.frameVersion.create({
+      data: {
+        id: input.version.id,
+        frameId: input.version.frameId,
+        versionNumber: input.version.versionNumber,
+        prompt: input.version.prompt,
+        filePath: input.version.filePath,
+        thumbnailPath: input.version.thumbnailPath,
+        status: input.version.status,
+        isStale: input.version.isStale,
+        generationJobId: input.version.generationJobId,
+        annotations: toPrismaJson(input.version.annotations),
+        createdAt: new Date(input.version.createdAt),
+      },
+    }),
+    prisma.shot.update({ where: { id: input.shot.id }, data: { status: input.shot.status } }),
+  ];
+  if (input.version.generationJobId) {
+    operations.push(
+      prisma.generationJob.update({
+        where: { id: input.version.generationJobId },
+        data: {
+          status: "complete",
+          outputPayload: toPrismaJson({ frameId: input.frame.id, frameVersionId: input.version.id }),
+          completedAt: new Date(),
+        },
+      }),
+    );
   }
+  await prisma.$transaction(operations);
 }
 
 export async function persistFrameVersionState(version: FrameVersion) {

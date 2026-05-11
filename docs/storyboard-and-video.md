@@ -87,6 +87,7 @@ Storyboard frames use a versioning model parallel to asset versioning:
 
 - **Regenerating** a frame creates a new `FrameVersion` with status `draft`. The previous version is preserved.
 - **Creating a variation** also creates a new `FrameVersion`. The prompt is pre-filled from the source version for easy modification.
+- **Generated-frame persistence** commits the storyboard frame upsert, new frame version, shot storyboard status, and related generation-job completion in one Prisma transaction.
 - **Approving** a new version automatically sets the previous approved version to `superseded`.
 - **Staleness** is set automatically when upstream assets or the project style change (see [data-model.md](data-model.md) for cascading rules). Users see a warning banner and can dismiss it or regenerate.
 

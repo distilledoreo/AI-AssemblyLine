@@ -2277,6 +2277,8 @@ describe("Prisma repository mode", () => {
     prismaMock.reviewNote.create.mockResolvedValue(note);
 
     await repository.persistGeneratedFrameVersion({ frame, version, shot });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction.mock.calls[0]?.[0]).toHaveLength(4);
     await expect(repository.getFrameVersionById(version.id)).resolves.toMatchObject({
       id: version.id,
       frameId: frame.id,
@@ -2338,13 +2340,16 @@ describe("Prisma repository mode", () => {
       updatedAt: timestamp.toISOString(),
     };
     prismaMock.storyboardFrame.upsert.mockResolvedValue(frame);
-    prismaMock.frameVersion.create.mockRejectedValue(new Error("frame version write failed"));
+    prismaMock.frameVersion.create.mockResolvedValue(version);
+    prismaMock.shot.update.mockResolvedValue(shot);
+    prismaMock.generationJob.update.mockResolvedValue({ id: version.generationJobId });
+    prismaMock.$transaction.mockRejectedValueOnce(new Error("generated frame transaction failed"));
 
     await expect(repository.persistGeneratedFrameVersion({ frame, version, shot })).rejects.toThrow(
-      "frame version write failed",
+      "generated frame transaction failed",
     );
-    expect(prismaMock.shot.update).not.toHaveBeenCalled();
-    expect(prismaMock.generationJob.update).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction.mock.calls[0]?.[0]).toHaveLength(4);
   });
 
   it("persists video clip writes through Prisma", async () => {
