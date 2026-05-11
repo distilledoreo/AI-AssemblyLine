@@ -110,6 +110,8 @@ Bundle imports persist their restored project graph in one database transaction.
 
 Generated script analysis graph persistence also commits as a single database transaction. The write replaces generated scenes, shots, and requirements while preserving user-edited scenes and shots, and detected asset upserts are committed with the regenerated requirement links so a failed analysis write does not leave a partially replaced production dependency graph.
 
+Asset Bible merge persistence commits requirement reassignment and both source/target asset lifecycle updates in one database transaction. A failed merge write should not leave production requirements reassigned without the corresponding superseded source and canonical target asset updates.
+
 ## Rights and safety controls
 
 Projects should include a user-selectable rights and safety setting. Users can choose whether their project allows uploaded references involving copyrighted characters, real people, brand assets, client-owned material, or restricted likenesses. The app should record the setting and surface provider restrictions before generation jobs are submitted.

@@ -1970,9 +1970,11 @@ describe("Prisma repository mode", () => {
       where: { id: target.id },
       data: expect.objectContaining({ aliases: ["Duplicate Room"] }),
     });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction.mock.calls[0]?.[0]).toHaveLength(4);
   });
 
-  it("rejects Asset Bible merge persistence when requirement reassignment fails", async () => {
+  it("rejects Asset Bible merge persistence when the Prisma transaction fails", async () => {
     const repository = await import("@/server/repository");
     const source = {
       id: "cdcdcdcd-cdcd-4cdc-8dcd-cdcdcdcdcdcd",
@@ -1998,12 +2000,12 @@ describe("Prisma repository mode", () => {
     };
 
     prismaMock.asset.update.mockResolvedValue(target);
-    prismaMock.sceneAssetReq.updateMany.mockRejectedValue(new Error("scene requirement reassignment failed"));
+    prismaMock.sceneAssetReq.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.shotAssetReq.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.$transaction.mockRejectedValueOnce(new Error("asset merge transaction failed"));
 
-    await expect(repository.persistAssetMergeState({ source, target })).rejects.toThrow(
-      "scene requirement reassignment failed",
-    );
+    await expect(repository.persistAssetMergeState({ source, target })).rejects.toThrow("asset merge transaction failed");
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it("persists Asset Bible versions and references through Prisma", async () => {

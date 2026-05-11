@@ -2186,19 +2186,28 @@ export async function persistCreatedAssetState(asset: Asset) {
 
 export async function persistAssetMergeState(input: { source: Asset; target: Asset }) {
   const store = getStore();
+  const mirrorAsset = (asset: Asset) => {
+    const existing = store.assets.find((candidate) => candidate.id === asset.id);
+    if (existing) {
+      Object.assign(existing, asset);
+    } else {
+      store.assets.push(asset);
+    }
+  };
+
   store.sceneAssetRequirements.forEach((req) => {
     if (req.assetId === input.source.id) req.assetId = input.target.id;
   });
   store.shotAssetRequirements.forEach((req) => {
     if (req.assetId === input.source.id) req.assetId = input.target.id;
   });
-  await persistAssetState(input.source);
-  await persistAssetState(input.target);
+  mirrorAsset(input.source);
+  mirrorAsset(input.target);
 
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
-  await Promise.all([
+  await prisma.$transaction([
     prisma.sceneAssetReq.updateMany({
       where: { assetId: input.source.id },
       data: { assetId: input.target.id },
@@ -2207,8 +2216,34 @@ export async function persistAssetMergeState(input: { source: Asset; target: Ass
       where: { assetId: input.source.id },
       data: { assetId: input.target.id },
     }),
-    persistAssetState(input.source),
-    persistAssetState(input.target),
+    prisma.asset.update({
+      where: { id: input.source.id },
+      data: {
+        canonicalName: input.source.canonicalName,
+        type: input.source.type,
+        aliases: input.source.aliases,
+        status: input.source.status,
+        continuityNotes: input.source.continuityNotes,
+        negativePrompts: input.source.negativePrompts,
+        description: input.source.description,
+        firstAppearance: toPrismaJson(input.source.firstAppearance),
+        isUserEdited: input.source.isUserEdited ?? false,
+      },
+    }),
+    prisma.asset.update({
+      where: { id: input.target.id },
+      data: {
+        canonicalName: input.target.canonicalName,
+        type: input.target.type,
+        aliases: input.target.aliases,
+        status: input.target.status,
+        continuityNotes: input.target.continuityNotes,
+        negativePrompts: input.target.negativePrompts,
+        description: input.target.description,
+        firstAppearance: toPrismaJson(input.target.firstAppearance),
+        isUserEdited: input.target.isUserEdited ?? false,
+      },
+    }),
   ]);
 }
 
