@@ -49,6 +49,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
+- Redis queue transport now has a provider-free smoke command: `npm run smoke:redis-queue` submits a BullMQ `script_analysis` job, reads Redis-backed queue health, publishes a project event, and verifies Redis pub/sub delivery through the project SSE subscription path. The GitHub Actions production infrastructure preflight job now runs this smoke against its Redis 7 service container. Local execution on this machine fails cleanly with `Redis is not reachable at redis://localhost:6379` because no local Redis service is installed or listening.
 - Script revision superseding now batches previous-version scene and shot status updates into one Prisma transaction, preventing partial superseded state after late database failures.
 - Script revision upload persistence now batches new script creation when needed, prior-version deactivation, and new active ScriptVersion creation into one Prisma transaction, preventing partial active-version state after late database failures.
 - Frame and clip approval persistence now batches previous-version superseding and selected-version approval into one Prisma transaction, preventing partial approval state after late database failures.

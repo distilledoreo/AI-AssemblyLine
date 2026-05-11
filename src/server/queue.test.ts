@@ -11,6 +11,7 @@ const redisInstances = vi.hoisted(() => [] as Array<{
 const queueInstances = vi.hoisted(() => [] as Array<{
   name: string;
   add: ReturnType<typeof vi.fn>;
+  close: ReturnType<typeof vi.fn>;
   getJobCounts: ReturnType<typeof vi.fn>;
   getJobs: ReturnType<typeof vi.fn>;
 }>);
@@ -33,6 +34,7 @@ const QueueConstructorMock = vi.hoisted(() =>
     const instance = {
       name,
       add: vi.fn().mockResolvedValue({ id: "bull-job-1" }),
+      close: vi.fn().mockResolvedValue(undefined),
       getJobCounts: vi.fn().mockResolvedValue({ active: 0, waiting: 1, delayed: 2, failed: 1, completed: 3 }),
       getJobs: vi.fn().mockResolvedValue([
         {
@@ -179,6 +181,7 @@ describe("queue and SSE foundation", () => {
       const instance = {
         name,
         add: vi.fn().mockResolvedValue({ id: "bull-job-1" }),
+        close: vi.fn().mockResolvedValue(undefined),
         getJobCounts: vi.fn().mockRejectedValue(new Error("redis count failed")),
         getJobs: vi.fn(),
       };
@@ -421,5 +424,28 @@ describe("queue and SSE foundation", () => {
 
     unsubscribe();
     expect(redisInstances[0].disconnect).toHaveBeenCalled();
+  });
+
+  it("closes cached queues and Redis connections for smoke scripts", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("QUEUE_MODE", "redis");
+    vi.stubEnv("REDIS_URL", "redis://queue.test:6379");
+    resetConfigForTests();
+
+    const { closeQueueConnections, emitProjectEvent, submitGenerationJob } = await importQueueModule();
+    await submitGenerationJob(generationJob);
+    await emitProjectEvent({
+      projectId: "project-1",
+      jobId: "job-1",
+      eventType: "progress",
+      message: "Working",
+      progressPct: 20,
+    });
+
+    await closeQueueConnections();
+
+    expect(queueInstances[0].close).toHaveBeenCalled();
+    expect(redisInstances[0].disconnect).toHaveBeenCalled();
+    expect(redisInstances[1].disconnect).toHaveBeenCalled();
   });
 });

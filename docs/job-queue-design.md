@@ -129,6 +129,8 @@ Job events are broadcast to connected clients via **Server-Sent Events (SSE)**.
 
 In automated tests, set `NODE_ENV=test` or `QUEUE_MODE=inline` to avoid opening Redis sockets. Production and production-like staging should leave `QUEUE_MODE` unset so BullMQ submission and Redis pub/sub are active.
 
+Use `npm run smoke:redis-queue` against a reachable `REDIS_URL` to verify the production queue transport without calling any AI provider. The smoke submits a script-analysis job to BullMQ, confirms Redis-backed queue health, publishes a project event, and waits for Redis pub/sub delivery through the same subscription path used by the project SSE endpoint.
+
 ### Client reconnection
 
 If the SSE connection drops, the client reconnects with a `Last-Event-ID` header. The server replays missed events from the database since that event ID.

@@ -142,6 +142,8 @@ To exercise BullMQ locally, set `QUEUE_MODE=redis`, make sure Redis is reachable
 npm run worker
 ```
 
+Run `npm run smoke:redis-queue` when Redis is reachable and you want a provider-free live queue check. The smoke submits a script-analysis job through BullMQ, reads the Redis-backed queue health snapshot, publishes a project event, confirms Redis pub/sub delivery through the same path used by the SSE endpoint, and removes its own queued smoke job afterward.
+
 ### Development mode
 
 In development:

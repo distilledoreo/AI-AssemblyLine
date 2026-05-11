@@ -241,6 +241,15 @@ export async function getQueueHealthSnapshot() {
   );
 }
 
+export async function closeQueueConnections() {
+  await Promise.all(Array.from(queues.values()).map((queue) => queue.close()));
+  queues.clear();
+  redisConnection?.disconnect();
+  redisPublisher?.disconnect();
+  redisConnection = undefined;
+  redisPublisher = undefined;
+}
+
 function normalizeQueueCounts(counts: Record<string, number>) {
   return {
     active: counts.active ?? 0,

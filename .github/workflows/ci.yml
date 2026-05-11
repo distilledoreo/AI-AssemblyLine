@@ -132,3 +132,6 @@ jobs:
 
       - name: Run production infrastructure preflight
         run: npm run preflight:production
+
+      - name: Run Redis queue and pub/sub smoke
+        run: npm run smoke:redis-queue
