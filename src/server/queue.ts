@@ -90,7 +90,10 @@ export function subscribeToProjectEvents(projectId: string, listener: Listener) 
   if (subscriber) {
     const channel = projectEventChannel(projectId);
     subscriber.subscribe(channel).catch(() => undefined);
-    subscriber.on("message", (_channel, payload) => {
+    subscriber.on("message", (messageChannel, payload) => {
+      if (messageChannel !== channel) {
+        return;
+      }
       try {
         listener(JSON.parse(payload) as JobEvent);
       } catch {
@@ -187,7 +190,7 @@ export async function getQueueHealthSnapshot() {
 }
 
 function projectEventChannel(projectId: string) {
-  return `assemblyline:project:${projectId}:events`;
+  return `project:${projectId}:events`;
 }
 
 function toBullBackoff(backoff: string) {
