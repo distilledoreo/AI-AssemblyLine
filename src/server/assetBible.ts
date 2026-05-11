@@ -71,13 +71,15 @@ export async function upsertAssetDetail(assetId: string, input: Partial<AssetDet
   return detail;
 }
 
-export function createAssetVersion(assetId: string, input: { description?: string; status?: AssetVersion["status"] }) {
+export async function createAssetVersion(assetId: string, input: { description?: string; status?: AssetVersion["status"] }) {
   const store = getStore();
-  const asset = store.assets.find((candidate) => candidate.id === assetId);
+  const asset = await getAssetById(assetId);
   if (!asset) {
     throw new NotFoundError("Asset not found.");
   }
-  const version = buildAssetVersion(asset, store.assetVersions, input);
+  mirrorAssetForLegacyState(asset);
+  const graph = await getScriptAnalysisGraphForProject(asset.projectId);
+  const version = buildAssetVersion(asset, [...store.assetVersions, ...graph.assetVersions], input);
   store.assetVersions.push(version);
   if (asset.status === "missing") {
     asset.status = "draft";
@@ -98,7 +100,7 @@ export async function uploadAssetReference(input: {
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const asset = await resolveProjectAsset(input.projectId, input.assetId, graph);
   mirrorAssetForLegacyState(asset);
-  const version = createAssetVersion(input.assetId, { description: `Uploaded reference: ${input.filename}` });
+  const version = await createAssetVersion(input.assetId, { description: `Uploaded reference: ${input.filename}` });
   const dir = path.join(projectFolderPath(input.projectId, "assets"), input.assetId);
   await mkdir(dir, { recursive: true });
   const safeName = input.filename.replace(/[^a-z0-9._-]/gi, "_") || "reference.png";

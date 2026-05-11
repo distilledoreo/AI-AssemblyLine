@@ -33,6 +33,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 - Video review updates now read individual clip versions through the repository layer before persisting approval/superseded state, so Prisma mode does not depend on the script-analysis graph or in-memory clip-version search for that path.
 - Asset status downgrades now mark dependent storyboard frame versions stale from the repository graph and persist the stale review state, rather than relying only on the in-memory graph.
+- Asset reference uploads now create asset versions from repository asset and version history, preserving local mirroring only for development/test compatibility.
 - `npm test`: passing, 25 files and 73 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
