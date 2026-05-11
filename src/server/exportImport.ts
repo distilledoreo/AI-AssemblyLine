@@ -12,7 +12,6 @@ import {
   getProject,
   getProjectDashboard,
   getScriptAnalysisGraphForProject,
-  getStore,
   markGenerationJobRunning,
   persistImportedProjectGraph,
 } from "@/server/repository";
@@ -180,7 +179,6 @@ export async function processImportProjectBundleJob(input: { userId: string; man
     estimatedRuntime: manifest.project.estimatedRuntime,
     rightsPolicy: manifest.project.rightsPolicy,
   });
-  const store = getStore();
   const job = input.jobId
     ? await markGenerationJobRunning(input.jobId)
     : createGenerationJob({
@@ -239,21 +237,6 @@ export async function processImportProjectBundleJob(input: { userId: string; man
     authorId: input.userId,
     targetId: mapId(frameVersionMap, note.targetId) ?? mapId(clipVersionMap, note.targetId) ?? mapId(assetVersionMap, note.targetId) ?? note.targetId,
   }));
-  store.scripts.push(...scripts);
-  store.scriptVersions.push(...versions);
-  store.scenes.push(...scenes);
-  store.shots.push(...shots);
-  store.assets.push(...assets);
-  store.assetDetails.push(...assetDetails);
-  store.assetVersions.push(...assetVersions);
-  store.assetReferences.push(...assetReferences);
-  store.sceneAssetRequirements.push(...sceneAssetRequirements);
-  store.shotAssetRequirements.push(...shotAssetRequirements);
-  store.storyboardFrames.push(...storyboardFrames);
-  store.frameVersions.push(...frameVersions);
-  store.videoClips.push(...videoClips);
-  store.clipVersions.push(...clipVersions);
-  store.reviewNotes.push(...reviewNotes);
   await persistImportedProjectGraph({
     ...manifest.graph,
     scripts,

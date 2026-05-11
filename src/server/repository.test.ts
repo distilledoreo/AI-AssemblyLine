@@ -11,6 +11,7 @@ import {
   listProjectsForUser,
   listProviderKeys,
   listWorkspacesForUser,
+  persistImportedProjectGraph,
   resetStoreForTests,
   saveProviderKey,
   signInWithCredentials,
@@ -103,5 +104,104 @@ describe("foundation repository flows", () => {
     globalThis.__assemblyLineStore = { ...getStore(), scripts: undefined } as unknown as ReturnType<typeof getStore>;
 
     expect(getStore().scripts).toEqual([]);
+  });
+
+  it("mirrors imported project graph records through the repository in local mode", async () => {
+    const createdAt = "2026-01-01T00:00:00.000Z";
+    const script = {
+      id: "11111111-1111-4111-8111-111111111111",
+      projectId: "22222222-2222-4222-8222-222222222222",
+      filename: "import.txt",
+      createdAt,
+    };
+    const activeVersion = {
+      id: "33333333-3333-4333-8333-333333333333",
+      scriptId: script.id,
+      versionNumber: 1,
+      filePath: "storage/projects/import/scripts/import.txt",
+      rawText: "INT. LAB - NIGHT",
+      analysisStatus: "complete" as const,
+      isActive: true,
+      createdAt,
+    };
+    const scene = {
+      id: "44444444-4444-4444-8444-444444444444",
+      scriptVersionId: activeVersion.id,
+      sceneNumber: 1,
+      heading: "INT. LAB - NIGHT",
+      summary: "A test import scene.",
+      scriptStartLine: 1,
+      scriptEndLine: 1,
+      status: "ready" as const,
+      createdAt,
+      updatedAt: createdAt,
+    };
+    const asset = {
+      id: "55555555-5555-4555-8555-555555555555",
+      projectId: script.projectId,
+      type: "prop" as const,
+      canonicalName: "Silver Key",
+      aliases: [],
+      status: "approved" as const,
+      continuityNotes: "",
+      negativePrompts: "",
+      createdAt,
+      updatedAt: createdAt,
+    };
+    const detail = {
+      assetId: asset.id,
+      role: "hero prop",
+    };
+
+    await persistImportedProjectGraph({
+      scripts: [script],
+      activeVersion,
+      scenes: [scene],
+      shots: [],
+      assets: [asset],
+      assetDetails: [detail],
+      assetVersions: [],
+      assetReferences: [],
+      storyboardFrames: [],
+      frameVersions: [],
+      reviewNotes: [],
+      videoClips: [],
+      clipVersions: [],
+      invitations: [],
+      assignments: [],
+      activityEvents: [],
+      sceneAssetRequirements: [],
+      shotAssetRequirements: [],
+      jobs: [],
+      events: [],
+    });
+    await persistImportedProjectGraph({
+      scripts: [script],
+      activeVersion,
+      scenes: [scene],
+      shots: [],
+      assets: [asset],
+      assetDetails: [detail],
+      assetVersions: [],
+      assetReferences: [],
+      storyboardFrames: [],
+      frameVersions: [],
+      reviewNotes: [],
+      videoClips: [],
+      clipVersions: [],
+      invitations: [],
+      assignments: [],
+      activityEvents: [],
+      sceneAssetRequirements: [],
+      shotAssetRequirements: [],
+      jobs: [],
+      events: [],
+    });
+
+    expect(getStore().scripts).toHaveLength(1);
+    expect(getStore().scriptVersions).toHaveLength(1);
+    expect(getStore().scenes).toHaveLength(1);
+    expect(getStore().assets).toHaveLength(1);
+    expect(getStore().assetDetails).toEqual([detail]);
   });
 });

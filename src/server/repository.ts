@@ -2018,6 +2018,45 @@ export async function persistAssetMergeState(input: { source: Asset; target: Ass
 }
 
 export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
+  const store = getStore();
+  const appendMissing = <T extends { id: string }>(items: T[], target: T[]) => {
+    const existing = new Set(target.map((item) => item.id));
+    for (const item of items) {
+      if (!existing.has(item.id)) {
+        target.push(item);
+        existing.add(item.id);
+      }
+    }
+  };
+  const appendMissingByKey = <T>(items: T[], target: T[], keyFor: (item: T) => string) => {
+    const existing = new Set(target.map(keyFor));
+    for (const item of items) {
+      const key = keyFor(item);
+      if (!existing.has(key)) {
+        target.push(item);
+        existing.add(key);
+      }
+    }
+  };
+
+  appendMissing(graph.scripts, store.scripts);
+  if (graph.activeVersion) {
+    appendMissing([graph.activeVersion], store.scriptVersions);
+  }
+  appendMissing(graph.scenes, store.scenes);
+  appendMissing(graph.shots, store.shots);
+  appendMissing(graph.assets, store.assets);
+  appendMissingByKey(graph.assetDetails, store.assetDetails, (detail) => detail.assetId);
+  appendMissing(graph.assetVersions, store.assetVersions);
+  appendMissing(graph.assetReferences, store.assetReferences);
+  appendMissing(graph.sceneAssetRequirements, store.sceneAssetRequirements);
+  appendMissing(graph.shotAssetRequirements, store.shotAssetRequirements);
+  appendMissing(graph.storyboardFrames, store.storyboardFrames);
+  appendMissing(graph.frameVersions, store.frameVersions);
+  appendMissing(graph.videoClips, store.videoClips);
+  appendMissing(graph.clipVersions, store.clipVersions);
+  appendMissing(graph.reviewNotes, store.reviewNotes);
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
