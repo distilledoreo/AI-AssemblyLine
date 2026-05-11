@@ -1,12 +1,14 @@
 import { isMockProviderApiKey, normalizeProviderApiKey } from "@/providers/providerKeySafety";
 import { RunwayAdapter } from "@/providers/videoProviders";
-import type { ComposedPrompt } from "@/providers/types";
+import type { AsyncJobStatus, ComposedPrompt } from "@/providers/types";
 
 export type RunwaySmokeResult = {
   provider: "runway";
   modelId: string;
   providerJobId: string;
   status: "submitted";
+  providerStatus: AsyncJobStatus["status"];
+  providerProgress?: number;
 };
 
 export async function runRunwaySmoke(input: {
@@ -39,11 +41,14 @@ export async function runRunwaySmoke(input: {
   if (!result.providerJobId) {
     throw new Error("Runway smoke test did not return a provider task id.");
   }
+  const providerStatus = await adapter.checkJobStatus(result.providerJobId);
 
   return {
     provider: "runway",
     modelId,
     providerJobId: result.providerJobId,
     status: "submitted",
+    providerStatus: providerStatus.status,
+    providerProgress: providerStatus.progress,
   };
 }

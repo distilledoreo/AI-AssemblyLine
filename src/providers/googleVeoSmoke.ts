@@ -1,12 +1,14 @@
 import { GoogleVeoAdapter } from "@/providers/videoProviders";
 import { isMockProviderApiKey, normalizeProviderApiKey } from "@/providers/providerKeySafety";
-import type { ComposedPrompt } from "@/providers/types";
+import type { AsyncJobStatus, ComposedPrompt } from "@/providers/types";
 
 export type GoogleVeoSmokeResult = {
   provider: "google-ai";
   modelId: string;
   providerJobId: string;
   status: "submitted";
+  providerStatus: AsyncJobStatus["status"];
+  providerProgress?: number;
 };
 
 export async function runGoogleVeoSmoke(input: {
@@ -39,11 +41,14 @@ export async function runGoogleVeoSmoke(input: {
   if (!result.providerJobId) {
     throw new Error("Google AI Veo smoke test did not return an operation name.");
   }
+  const providerStatus = await adapter.checkJobStatus(result.providerJobId);
 
   return {
     provider: "google-ai",
     modelId,
     providerJobId: result.providerJobId,
     status: "submitted",
+    providerStatus: providerStatus.status,
+    providerProgress: providerStatus.progress,
   };
 }

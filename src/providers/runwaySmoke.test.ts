@@ -7,8 +7,11 @@ describe("Runway smoke helper", () => {
     await expect(runRunwaySmoke({ apiKey: "" })).rejects.toThrow(/RUNWAYML_API_SECRET/);
   });
 
-  it("submits a low-duration Runway video task", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-smoke", status: "PENDING" }));
+  it("submits a low-duration Runway video task and verifies the status endpoint", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ id: "task-runway-smoke", status: "PENDING" }))
+      .mockResolvedValueOnce(Response.json({ id: "task-runway-smoke", status: "RUNNING", progress: 34 }));
 
     const result = await runRunwaySmoke({
       apiKey: "rw-prod-runway-smoke-abc123",
@@ -20,6 +23,8 @@ describe("Runway smoke helper", () => {
       modelId: "gen4.5",
       providerJobId: "task-runway-smoke",
       status: "submitted",
+      providerStatus: "processing",
+      providerProgress: 34,
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.dev.runwayml.com/v1/image_to_video",
@@ -30,6 +35,10 @@ describe("Runway smoke helper", () => {
           "X-Runway-Version": "2024-11-06",
         }),
       }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.dev.runwayml.com/v1/tasks/task-runway-smoke",
+      expect.objectContaining({ method: "GET" }),
     );
   });
 });

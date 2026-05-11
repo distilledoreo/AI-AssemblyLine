@@ -20,7 +20,9 @@ describe("provider smoke suite", () => {
       )
       .mockResolvedValueOnce(new Response(image, { status: 200, headers: { "content-type": "image/png" } }))
       .mockResolvedValueOnce(Response.json({ id: "task-runway-smoke", status: "PENDING" }))
-      .mockResolvedValueOnce(Response.json({ name: "operations/veo-smoke" }));
+      .mockResolvedValueOnce(Response.json({ id: "task-runway-smoke", status: "RUNNING", progress: 25 }))
+      .mockResolvedValueOnce(Response.json({ name: "operations/veo-smoke" }))
+      .mockResolvedValueOnce(Response.json({ done: false }));
 
     const results = await runProviderSmokeSuite({
       env: {
@@ -38,7 +40,7 @@ describe("provider smoke suite", () => {
       expect.objectContaining({ provider: "runway", ok: true }),
       expect.objectContaining({ provider: "google-ai", ok: true }),
     ]);
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
     expect(() => assertProviderSmokeSuitePassed(results)).not.toThrow();
   });
 
@@ -83,13 +85,15 @@ describe("provider smoke suite", () => {
         )
         .mockResolvedValueOnce(new Response(image, { status: 200, headers: { "content-type": "image/png" } }))
         .mockResolvedValueOnce(Response.json({ id: "task-runway-smoke", status: "PENDING" }))
-        .mockResolvedValueOnce(Response.json({ name: "operations/veo-smoke" }));
+        .mockResolvedValueOnce(Response.json({ id: "task-runway-smoke", status: "RUNNING", progress: 25 }))
+        .mockResolvedValueOnce(Response.json({ name: "operations/veo-smoke" }))
+        .mockResolvedValueOnce(Response.json({ done: false }));
 
       const env = await loadStandardEnvFiles(tempRoot, {});
       const results = await runProviderSmokeSuite({ env, fetchImpl: fetchMock });
 
       expect(results.map((result) => result.ok)).toEqual([true, true, true, true]);
-      expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(fetchMock).toHaveBeenCalledTimes(6);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
