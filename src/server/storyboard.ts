@@ -36,10 +36,7 @@ export async function generateStoryboardFrame(input: {
   }
   const scene = graph.scenes.find((candidate) => candidate.id === shot.sceneId);
   if (!scene) throw new NotFoundError("Scene not found.");
-  const keyframeIndex = input.keyframeIndex ?? 0;
-  if (keyframeIndex < 0 || keyframeIndex > 8) {
-    throw new AppError("Storyboard keyframes must be between 1 and 9.", 400, "bad_keyframe");
-  }
+  const keyframeIndex = validateKeyframeIndex(input.keyframeIndex ?? 0);
   const job = await createGenerationJob({
     projectId: input.projectId,
     type: "storyboard_frame",
@@ -79,14 +76,15 @@ export async function processStoryboardFrameJob(input: {
   }
   const scene = graph.scenes.find((candidate) => candidate.id === shot.sceneId);
   if (!scene) throw new NotFoundError("Scene not found.");
+  const keyframeIndex = validateKeyframeIndex(input.keyframeIndex);
   const job = await markGenerationJobRunning(input.jobId);
   if (!job) throw new NotFoundError("Generation job not found.");
   let frame = graph.storyboardFrames.find(
-    (candidate) => candidate.shotId === shot.id && candidate.keyframeIndex === input.keyframeIndex,
+    (candidate) => candidate.shotId === shot.id && candidate.keyframeIndex === keyframeIndex,
   );
   const timestamp = nowIso();
   if (!frame) {
-    frame = { id: createId(), shotId: shot.id, keyframeIndex: input.keyframeIndex, createdAt: timestamp, updatedAt: timestamp };
+    frame = { id: createId(), shotId: shot.id, keyframeIndex, createdAt: timestamp, updatedAt: timestamp };
   }
   const requiredAssetIds = new Set(graph.shotAssetRequirements.filter((req) => req.shotId === shot.id).map((req) => req.assetId));
   const dashboard = await getProjectDashboard(input.projectId);
@@ -106,7 +104,7 @@ export async function processStoryboardFrameJob(input: {
   const versionNumber = nextFrameVersionNumber(frame.id, graph.frameVersions);
   const dir = path.join(projectFolderPath(input.projectId, "storyboards"), shot.id);
   await mkdir(dir, { recursive: true });
-  const filePath = path.join(dir, `frame-${input.keyframeIndex + 1}-v${versionNumber}.png`);
+  const filePath = path.join(dir, `frame-${keyframeIndex + 1}-v${versionNumber}.png`);
   await writeFile(filePath, result.images[0].data);
   const version: FrameVersion = {
     id: createId(),
@@ -158,6 +156,13 @@ export async function updateFrameVersion(input: {
   Object.assign(version, { status: input.status ?? version.status, annotations: input.annotations ?? version.annotations });
   await persistFrameVersionState(version);
   return getScriptAnalysisGraphForProject(input.projectId);
+}
+
+function validateKeyframeIndex(keyframeIndex: number) {
+  if (!Number.isInteger(keyframeIndex) || keyframeIndex < 0 || keyframeIndex > 8) {
+    throw new AppError("Storyboard keyframe index must be between 0 and 8.", 400, "bad_keyframe");
+  }
+  return keyframeIndex;
 }
 
 export async function attachSketch(input: {

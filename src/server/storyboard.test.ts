@@ -12,6 +12,7 @@ import {
   addFrameComment,
   attachSketch,
   generateStoryboardFrame,
+  processStoryboardFrameJob,
   updateFrameVersion,
 } from "@/server/storyboard";
 import { composeStoryboardPrompt } from "@/server/promptEngine";
@@ -97,6 +98,25 @@ describe("storyboard workflow", () => {
     expect(updated.storyboardFrames).toHaveLength(1);
     expect(updated.storyboardFrames[0].shotId).toBe(shot.id);
     expect(updated.storyboardFrames[0].sketchFilePath).toContain("thumbnail.png");
+  });
+
+  it("rejects out-of-range keyframe indexes in inline and worker paths", async () => {
+    const { project, graph } = await readyProject();
+    const shot = graph.shots[0];
+
+    await expect(
+      generateStoryboardFrame({ projectId: project.id, shotId: shot.id, keyframeIndex: 9 }),
+    ).rejects.toMatchObject({ code: "bad_keyframe" });
+    await expect(
+      processStoryboardFrameJob({
+        projectId: project.id,
+        shotId: shot.id,
+        keyframeIndex: 9,
+        jobId: "00000000-0000-4000-8000-000000000000",
+      }),
+    ).rejects.toMatchObject({ code: "bad_keyframe" });
+
+    expect(getScriptAnalysisGraph(project.id).storyboardFrames).toHaveLength(0);
   });
 
   it("rejects frame updates and comments when the frame version belongs to another project", async () => {

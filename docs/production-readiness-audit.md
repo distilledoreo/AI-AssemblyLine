@@ -70,6 +70,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - The operations panel now surfaces `/api/projects/{projectId}/operations` load failures in the UI instead of silently hiding storage, queue, and adapter diagnostics.
 - Asset Bible API mutations now enforce route permissions per action, allowing reviewer approval/rejection without upload-reference rights while still denying reviewer provider-generation requests.
 - Storyboard API mutations now enforce route permissions per action, allowing reviewer frame approval/rejection and comments without storyboard-generation rights while still denying reviewer provider-generation requests.
+- Storyboard frame generation now validates keyframe indexes in both inline and Redis worker paths before frame creation, rejecting indexes outside 0-8 with `bad_keyframe`.
 - Video clip status updates now reject cross-project clip-version IDs before persistence, preventing a reviewer on one project from mutating another project's clip by ID.
 - Storyboard frame status/comment updates now reject cross-project frame-version IDs before persistence, preventing a reviewer on one project from mutating another project's frame by ID.
 - Video generation now validates target shape and ownership before provider job creation: shot mode requires exactly one route-project `shotId`, scene mode requires exactly one route-project `sceneId`, and invalid combinations fail with `invalid_video_target`.
