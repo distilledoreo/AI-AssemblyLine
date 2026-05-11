@@ -90,7 +90,7 @@ Each provider adapter transforms this into its native API format:
 
 - **OpenAI:** Maps `positivePrompt` to `prompt`, `negativePrompt` is appended as "Avoid: ..." suffix, references attached via the images API.
 - **Stability:** Maps to `text_prompts` array with positive and negative weights.
-- **Runway / Kling:** Maps to their respective `prompt` + `image` fields, with duration and aspect ratio parameters.
+- **Runway / Google AI Veo:** Maps the canonical video prompt, approved frame image, duration, and aspect-ratio settings into each live provider's request shape. Kling remains development metadata only until a live client is added.
 
 Adapters are responsible for any provider-specific quirks (e.g. prompt length limits stricter than the capability matrix suggests, special tokens, or formatting requirements).
 
