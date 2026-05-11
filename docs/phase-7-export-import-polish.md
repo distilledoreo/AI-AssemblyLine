@@ -43,6 +43,7 @@ Export and import require the `export_project` permission. Storage cleanup requi
 Import paths must resolve under the configured storage root and end with `.assemblyline-bundle.json`; paths outside storage or non-bundle extensions are rejected before any file read.
 Readable bundle manifests are validated for the required project metadata and graph collections before import records are created; malformed manifests return `invalid_import_bundle`.
 Bundle graph references are checked before import as well, so broken scene/shot/asset/frame/clip links return `invalid_import_bundle` instead of creating partial imported records.
+Bundle graph IDs must be unique within each imported collection; duplicate IDs are rejected before remapping.
 
 ## Remaining adapters
 

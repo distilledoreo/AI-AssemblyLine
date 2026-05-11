@@ -188,8 +188,33 @@ function requireKnownId(knownIds: Set<string>, id: string | undefined, label: st
   }
 }
 
+function assertUniqueIds(items: Array<{ id: string }>, label: string) {
+  const seen = new Set<string>();
+  for (const item of items) {
+    if (seen.has(item.id)) {
+      throw new AppError(`Import bundle contains duplicate ${label} IDs.`, 400, "invalid_import_bundle");
+    }
+    seen.add(item.id);
+  }
+}
+
 function validateImportManifestReferences(manifest: ExportManifest) {
   const graph = manifest.graph;
+  assertUniqueIds(graph.scripts, "script");
+  graph.activeVersion && assertUniqueIds([graph.activeVersion], "script version");
+  assertUniqueIds(graph.scenes, "scene");
+  assertUniqueIds(graph.shots, "shot");
+  assertUniqueIds(graph.assets, "asset");
+  assertUniqueIds(graph.assetVersions, "asset version");
+  assertUniqueIds(graph.assetReferences, "asset reference");
+  assertUniqueIds(graph.storyboardFrames, "storyboard frame");
+  assertUniqueIds(graph.frameVersions, "frame version");
+  assertUniqueIds(graph.videoClips, "video clip");
+  assertUniqueIds(graph.clipVersions, "clip version");
+  assertUniqueIds(graph.sceneAssetRequirements, "scene asset requirement");
+  assertUniqueIds(graph.shotAssetRequirements, "shot asset requirement");
+  assertUniqueIds(graph.reviewNotes, "review note");
+
   const scriptVersionIds = new Set<string>();
   if (graph.activeVersion) {
     scriptVersionIds.add(graph.activeVersion.id);
