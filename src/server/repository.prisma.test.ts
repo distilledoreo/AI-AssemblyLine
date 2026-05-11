@@ -39,12 +39,14 @@ const prismaMock = vi.hoisted(() => ({
   },
   generationJob: {
     create: vi.fn(),
+    createMany: vi.fn(),
     findUnique: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
   },
   jobEvent: {
     create: vi.fn(),
+    createMany: vi.fn(),
     findMany: vi.fn(),
   },
   script: {
@@ -150,16 +152,19 @@ const prismaMock = vi.hoisted(() => ({
     updateMany: vi.fn(),
   },
   invitation: {
+    createMany: vi.fn(),
     findMany: vi.fn(),
     findUnique: vi.fn(),
     upsert: vi.fn(),
   },
   assignment: {
+    createMany: vi.fn(),
     findMany: vi.fn(),
     upsert: vi.fn(),
   },
   activityEvent: {
     create: vi.fn(),
+    createMany: vi.fn(),
     findMany: vi.fn(),
   },
   exportBundle: {

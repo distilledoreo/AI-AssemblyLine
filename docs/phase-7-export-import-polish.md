@@ -44,6 +44,7 @@ Import paths must resolve under the configured storage root and end with `.assem
 Readable bundle manifests are validated for the required project metadata and graph collections before import records are created; malformed manifests return `invalid_import_bundle`.
 Bundle graph references are checked before import as well, so broken scene/shot/asset/frame/clip links return `invalid_import_bundle` instead of creating partial imported records.
 Bundle graph IDs must be unique within each imported collection; duplicate IDs are rejected before remapping.
+Imported collaboration, job, and event records are remapped onto the new workspace/project. Assignments and activity authors are assigned to the importing user, invitation token hashes are regenerated so old tokens cannot be reused, and historical active jobs are restored as `canceled` records instead of being resumed in the new project.
 
 ## Remaining adapters
 
@@ -68,7 +69,7 @@ Phase 7 is verified by unit/integration tests that:
 - confirm the bundle has schema version `1`,
 - confirm provider keys are not exported,
 - import the bundle after resetting the in-memory store,
-- compare restored scenes, shots, assets, storyboard frames, and video clips,
+- compare restored scenes, shots, assets, storyboard frames, video clips, collaboration records, jobs, and events,
 - check job metrics,
 - detect and clean an orphan file,
 - verify the remaining adapter capability matrix.

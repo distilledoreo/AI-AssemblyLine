@@ -22,8 +22,13 @@ import type {
   Asset,
   AssetReference,
   AssetVersion,
+  ActivityEvent,
+  Assignment,
   ClipVersion,
   FrameVersion,
+  GenerationJob,
+  Invitation,
+  JobEvent,
   ProjectStyle,
   ReviewNote,
   Scene,
@@ -38,6 +43,62 @@ import type {
 export const BUNDLE_VERSION = 1;
 
 const importRecordSchema = z.object({ id: z.string() }).passthrough();
+const importInvitationSchema = importRecordSchema.extend({
+  workspaceId: z.string(),
+  projectId: z.string().optional(),
+  email: z.string(),
+  tokenHash: z.string(),
+  scope: z.enum(["workspace", "project"]),
+  role: z.string(),
+  status: z.enum(["pending", "accepted", "expired", "revoked"]),
+  expiresAt: z.string(),
+  invitedById: z.string(),
+  acceptedAt: z.string().optional(),
+  createdAt: z.string(),
+});
+const importAssignmentSchema = importRecordSchema.extend({
+  projectId: z.string(),
+  userId: z.string(),
+  targetType: z.enum(["scene", "shot", "asset"]),
+  sceneId: z.string().optional(),
+  shotId: z.string().optional(),
+  assetId: z.string().optional(),
+  status: z.enum(["open", "complete"]),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+const importActivityEventSchema = importRecordSchema.extend({
+  projectId: z.string(),
+  actorId: z.string().optional(),
+  eventType: z.string(),
+  message: z.string(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  createdAt: z.string(),
+});
+const importGenerationJobSchema = importRecordSchema.extend({
+  projectId: z.string(),
+  type: z.enum(["script_analysis", "asset_reference", "storyboard_frame", "video_clip", "export", "import", "thumbnail", "media_convert"]),
+  providerSlug: z.string().optional(),
+  modelId: z.string().optional(),
+  status: z.enum(["queued", "running", "provider_submitted", "polling", "processing_output", "complete", "failed", "canceled"]),
+  inputPayload: z.unknown(),
+  outputPayload: z.unknown().optional(),
+  errorMessage: z.string().optional(),
+  errorClass: z.enum(["retriable", "fatal", "content_policy", "rate_limit", "timeout"]).optional(),
+  retryCount: z.number(),
+  providerJobId: z.string().optional(),
+  createdAt: z.string(),
+  startedAt: z.string().optional(),
+  completedAt: z.string().optional(),
+});
+const importJobEventSchema = importRecordSchema.extend({
+  jobId: z.string(),
+  projectId: z.string(),
+  eventType: z.string(),
+  message: z.string().optional(),
+  progressPct: z.number().optional(),
+  createdAt: z.string(),
+});
 const importGraphSchema = z.object({
   scripts: z.array(importRecordSchema),
   activeVersion: importRecordSchema.optional(),
@@ -52,13 +113,13 @@ const importGraphSchema = z.object({
   reviewNotes: z.array(importRecordSchema.extend({ targetId: z.string() })),
   videoClips: z.array(importRecordSchema.extend({ shotId: z.string().optional(), sceneId: z.string().optional() })),
   clipVersions: z.array(importRecordSchema.extend({ clipId: z.string() })),
-  invitations: z.array(z.unknown()).default([]),
-  assignments: z.array(z.unknown()).default([]),
-  activityEvents: z.array(z.unknown()).default([]),
+  invitations: z.array(importInvitationSchema).default([]),
+  assignments: z.array(importAssignmentSchema).default([]),
+  activityEvents: z.array(importActivityEventSchema).default([]),
   sceneAssetRequirements: z.array(importRecordSchema.extend({ sceneId: z.string(), assetId: z.string() })),
   shotAssetRequirements: z.array(importRecordSchema.extend({ shotId: z.string(), assetId: z.string() })),
-  jobs: z.array(z.unknown()).default([]),
-  events: z.array(z.unknown()).default([]),
+  jobs: z.array(importGenerationJobSchema).default([]),
+  events: z.array(importJobEventSchema).default([]),
 });
 const importManifestSchema = z.object({
   bundleVersion: z.number(),
@@ -214,6 +275,11 @@ function validateImportManifestReferences(manifest: ExportManifest) {
   assertUniqueIds(graph.sceneAssetRequirements, "scene asset requirement");
   assertUniqueIds(graph.shotAssetRequirements, "shot asset requirement");
   assertUniqueIds(graph.reviewNotes, "review note");
+  assertUniqueIds(graph.invitations, "invitation");
+  assertUniqueIds(graph.assignments, "assignment");
+  assertUniqueIds(graph.activityEvents, "activity event");
+  assertUniqueIds(graph.jobs, "generation job");
+  assertUniqueIds(graph.events, "job event");
 
   const scriptVersionIds = new Set<string>();
   if (graph.activeVersion) {
@@ -258,6 +324,13 @@ function validateImportManifestReferences(manifest: ExportManifest) {
     }
   });
   graph.scenes.forEach((scene) => requireKnownId(scriptVersionIds, scene.scriptVersionId, "scene script version"));
+  graph.assignments.forEach((assignment) => {
+    requireKnownId(sceneIds, assignment.sceneId, "assignment scene");
+    requireKnownId(shotIds, assignment.shotId, "assignment shot");
+    requireKnownId(assetIds, assignment.assetId, "assignment asset");
+  });
+  const jobIds = new Set(graph.jobs.map((job) => job.id));
+  graph.events.forEach((event) => requireKnownId(jobIds, event.jobId, "job event job"));
 }
 
 function resolveImportManifestPath(manifestPath: string) {
@@ -342,6 +415,11 @@ export async function processImportProjectBundleJob(input: { userId: string; man
   const frameVersionMap = createMap(manifest.graph.frameVersions);
   const clipMap = createMap(manifest.graph.videoClips);
   const clipVersionMap = createMap(manifest.graph.clipVersions);
+  const invitationMap = createMap(manifest.graph.invitations);
+  const assignmentMap = createMap(manifest.graph.assignments);
+  const activityEventMap = createMap(manifest.graph.activityEvents);
+  const jobMap = createMap(manifest.graph.jobs);
+  const eventMap = createMap(manifest.graph.events);
 
   const firstScriptId = scriptMap.get(manifest.graph.scripts[0]?.id ?? "") ?? createId();
   const scripts: Script[] = manifest.graph.scripts.map((script) => ({ ...script, id: mapId(scriptMap, script.id)!, projectId: project.id }));
@@ -371,6 +449,57 @@ export async function processImportProjectBundleJob(input: { userId: string; man
     authorId: input.userId,
     targetId: mapId(frameVersionMap, note.targetId) ?? mapId(clipVersionMap, note.targetId) ?? mapId(assetVersionMap, note.targetId) ?? note.targetId,
   }));
+  const invitations = manifest.graph.invitations.map((invitation): Invitation => ({
+    ...invitation,
+    id: mapId(invitationMap, invitation.id)!,
+    workspaceId: workspace.id,
+    projectId: invitation.projectId ? project.id : undefined,
+    tokenHash: `imported-${mapId(invitationMap, invitation.id)!}`,
+    invitedById: input.userId,
+    acceptedAt: invitation.acceptedAt,
+  }));
+  const assignments = manifest.graph.assignments.map((assignment): Assignment => ({
+    ...assignment,
+    id: mapId(assignmentMap, assignment.id)!,
+    projectId: project.id,
+    userId: input.userId,
+    sceneId: mapId(sceneMap, assignment.sceneId),
+    shotId: mapId(shotMap, assignment.shotId),
+    assetId: mapId(assetMap, assignment.assetId),
+  }));
+  const activityEvents = manifest.graph.activityEvents.map((event): ActivityEvent => ({
+    ...event,
+    id: mapId(activityEventMap, event.id)!,
+    projectId: project.id,
+    actorId: event.actorId ? input.userId : undefined,
+  }));
+  const jobs = manifest.graph.jobs.map((historicalJob): GenerationJob => {
+    const status = remapImportedJobStatus(historicalJob.status);
+    return {
+      ...historicalJob,
+      id: mapId(jobMap, historicalJob.id)!,
+      projectId: project.id,
+      status,
+      errorMessage:
+        status === "canceled" && historicalJob.status !== "canceled"
+          ? "Imported historical job was not resumed."
+          : historicalJob.errorMessage,
+      completedAt: status === "canceled" && !historicalJob.completedAt ? nowIso() : historicalJob.completedAt,
+    };
+  });
+  const events = manifest.graph.events
+    .map((event): JobEvent | undefined => {
+      const jobId = mapId(jobMap, event.jobId);
+      return jobId
+        ? {
+            ...event,
+            id: mapId(eventMap, event.id)!,
+            jobId,
+            projectId: project.id,
+          }
+        : undefined;
+    })
+    .filter((event): event is JobEvent => Boolean(event));
   await persistImportedProjectGraph({
     ...manifest.graph,
     scripts,
@@ -388,9 +517,18 @@ export async function processImportProjectBundleJob(input: { userId: string; man
     videoClips,
     clipVersions,
     reviewNotes,
+    invitations,
+    assignments,
+    activityEvents,
+    jobs,
+    events,
   });
 
   await completeGenerationJob(job.id, { status: "complete", outputPayload: { importedProjectId: project.id } });
   await addJobEvent({ jobId: job.id, projectId: job.projectId, eventType: "status_change", message: "Import complete.", progressPct: 100 });
   return { project, graph: await getScriptAnalysisGraphForProject(project.id), job };
+}
+
+function remapImportedJobStatus(status: GenerationJob["status"]): GenerationJob["status"] {
+  return ["queued", "running", "provider_submitted", "polling", "processing_output"].includes(status) ? "canceled" : status;
 }

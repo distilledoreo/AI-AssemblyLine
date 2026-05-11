@@ -2220,6 +2220,11 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
   appendMissing(graph.videoClips, store.videoClips);
   appendMissing(graph.clipVersions, store.clipVersions);
   appendMissing(graph.reviewNotes, store.reviewNotes);
+  appendMissing(graph.invitations, store.invitations);
+  appendMissing(graph.assignments, store.assignments);
+  appendMissing(graph.activityEvents, store.activityEvents);
+  appendMissing(graph.jobs, store.generationJobs);
+  appendMissing(graph.events, store.jobEvents);
 
   if (!isPrismaRepositoryEnabled()) {
     return;
@@ -2413,6 +2418,82 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       status: note.status,
       createdAt: new Date(note.createdAt),
       updatedAt: new Date(note.updatedAt),
+    })),
+    skipDuplicates: true,
+  });
+  await prisma.invitation.createMany({
+    data: graph.invitations.map((invitation) => ({
+      id: invitation.id,
+      workspaceId: invitation.workspaceId,
+      projectId: invitation.projectId,
+      email: invitation.email,
+      tokenHash: invitation.tokenHash,
+      scope: invitation.scope,
+      role: invitation.role,
+      status: invitation.status,
+      expiresAt: new Date(invitation.expiresAt),
+      invitedById: invitation.invitedById,
+      acceptedAt: invitation.acceptedAt ? new Date(invitation.acceptedAt) : undefined,
+      createdAt: new Date(invitation.createdAt),
+    })),
+    skipDuplicates: true,
+  });
+  await prisma.assignment.createMany({
+    data: graph.assignments.map((assignment) => ({
+      id: assignment.id,
+      projectId: assignment.projectId,
+      userId: assignment.userId,
+      targetType: assignment.targetType,
+      sceneId: assignment.sceneId,
+      shotId: assignment.shotId,
+      assetId: assignment.assetId,
+      status: assignment.status,
+      createdAt: new Date(assignment.createdAt),
+      updatedAt: new Date(assignment.updatedAt),
+    })),
+    skipDuplicates: true,
+  });
+  await prisma.activityEvent.createMany({
+    data: graph.activityEvents.map((event) => ({
+      id: event.id,
+      projectId: event.projectId,
+      actorId: event.actorId,
+      eventType: event.eventType,
+      message: event.message,
+      metadata: toPrismaJson(event.metadata),
+      createdAt: new Date(event.createdAt),
+    })),
+    skipDuplicates: true,
+  });
+  await prisma.generationJob.createMany({
+    data: graph.jobs.map((job) => ({
+      id: job.id,
+      projectId: job.projectId,
+      type: job.type,
+      providerSlug: job.providerSlug,
+      modelId: job.modelId,
+      status: job.status,
+      inputPayload: toPrismaJson(job.inputPayload) ?? {},
+      outputPayload: toPrismaJson(job.outputPayload),
+      errorMessage: job.errorMessage,
+      errorClass: job.errorClass,
+      retryCount: job.retryCount,
+      providerJobId: job.providerJobId,
+      createdAt: new Date(job.createdAt),
+      startedAt: job.startedAt ? new Date(job.startedAt) : undefined,
+      completedAt: job.completedAt ? new Date(job.completedAt) : undefined,
+    })),
+    skipDuplicates: true,
+  });
+  await prisma.jobEvent.createMany({
+    data: graph.events.map((event) => ({
+      id: event.id,
+      jobId: event.jobId,
+      projectId: event.projectId,
+      eventType: event.eventType,
+      message: event.message,
+      progressPct: event.progressPct,
+      createdAt: new Date(event.createdAt),
     })),
     skipDuplicates: true,
   });

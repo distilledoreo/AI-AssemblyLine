@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
+import { assignProjectTarget, createInvitation } from "@/server/collaboration";
 import { getRemainingAdapterCapabilities } from "@/providers/extendedAdapters";
 import { transitionAssetStatus } from "@/server/assetBible";
 import { exportProjectBundle, importProjectBundle } from "@/server/exportImport";
@@ -30,6 +31,20 @@ async function createPortableProject() {
   const analyzed = await uploadScriptForProject({ projectId: project.id, filename: "portable.txt", text: scriptText });
   await Promise.all(analyzed.assets.map((asset) => transitionAssetStatus(project.id, asset.id, "approved")));
   const ready = getScriptAnalysisGraph(project.id);
+  await createInvitation({
+    workspaceId: workspace.id,
+    projectId: project.id,
+    email: "artist@example.com",
+    role: "artist",
+    invitedById: user.id,
+  });
+  await assignProjectTarget({
+    projectId: project.id,
+    userId: user.id,
+    targetType: "scene",
+    sceneId: ready.scenes[0].id,
+    actorId: user.id,
+  });
   const storyboard = await generateStoryboardFrame({ projectId: project.id, shotId: ready.shots[0].id });
   await updateFrameVersion({ projectId: project.id, frameVersionId: storyboard.frameVersions[0].id, status: "approved" });
   await generateVideoClip({ projectId: project.id, mode: "shot", shotId: ready.shots[0].id, providerSlug: "runway" });
@@ -60,7 +75,24 @@ describe("phase 7 export, import, operations, and adapters", () => {
     expect(importedGraph.assets).toHaveLength(original.assets.length);
     expect(importedGraph.frameVersions).toHaveLength(original.frameVersions.length);
     expect(importedGraph.clipVersions).toHaveLength(original.clipVersions.length);
-    expect(importedGraph.jobs.at(-1)?.type).toBe("import");
+    expect(importedGraph.invitations).toHaveLength(original.invitations.length);
+    expect(importedGraph.assignments).toHaveLength(original.assignments.length);
+    expect(importedGraph.activityEvents.length).toBeGreaterThanOrEqual(original.activityEvents.length);
+    expect(importedGraph.assignments[0]).toMatchObject({
+      projectId: imported.project.id,
+      userId: importUser.id,
+      targetType: "scene",
+      sceneId: importedGraph.scenes[0].id,
+    });
+    expect(importedGraph.invitations[0]).toMatchObject({
+      workspaceId: imported.project.workspaceId,
+      projectId: imported.project.id,
+      email: "artist@example.com",
+      invitedById: importUser.id,
+    });
+    expect(importedGraph.jobs.some((job) => job.type === "export" && job.status === "canceled")).toBe(true);
+    expect(importedGraph.events.some((event) => importedGraph.jobs.some((job) => job.id === event.jobId))).toBe(true);
+    expect(importedGraph.jobs.some((job) => job.type === "import" && job.status === "complete")).toBe(true);
   });
 
   it("reports job metrics, storage warnings, orphan cleanup, and remaining adapter capabilities", async () => {

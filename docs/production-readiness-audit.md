@@ -38,6 +38,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
+- Project bundle import now restores remapped collaboration metadata, historical job records, and job events. Imported assignments and activity actors point to the importing user, invitation token hashes are regenerated, and active historical jobs are converted to `canceled` so imports do not imply resumable queue work.
 - Video review updates now read individual clip versions through the repository layer before persisting approval/superseded state, so Prisma mode does not depend on the script-analysis graph or in-memory clip-version search for that path.
 - Script uploads now ask the repository for the next persisted script-version number and mark previous-version scenes/shots superseded through Prisma, so production uploads no longer depend on local in-memory script-version mirrors for those transitions.
 - Asset status downgrades now mark dependent storyboard frame versions stale from the repository graph and persist the stale review state, rather than relying only on the in-memory graph.
