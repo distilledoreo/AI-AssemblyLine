@@ -9,7 +9,7 @@ type CheckResult = {
   detail: string;
 };
 
-const requiredEnv = ["DATABASE_URL", "REDIS_URL", "NEXTAUTH_URL", "NEXTAUTH_SECRET", "ENCRYPTION_KEY"] as const;
+const requiredEnv = ["DATABASE_URL", "REDIS_URL", "NEXTAUTH_URL", "NEXTAUTH_SECRET", "ENCRYPTION_KEY", "STORAGE_ROOT"] as const;
 
 export function evaluateProductionPreflight(
   env: Env,
@@ -38,6 +38,18 @@ export function evaluateProductionPreflight(
     name: "ENCRYPTION_KEY length",
     ok: decodedKeyLength === 32,
     detail: decodedKeyLength === 32 ? "32 decoded bytes" : "must decode to exactly 32 bytes",
+  });
+
+  const queueMode = env.QUEUE_MODE?.trim().toLowerCase() ?? "";
+  results.push({
+    name: "QUEUE_MODE",
+    ok: queueMode === "" || queueMode === "redis",
+    detail:
+      queueMode === ""
+        ? "unset; production defaults to redis"
+        : queueMode === "redis"
+          ? "redis"
+          : "must be unset or redis for production",
   });
 
   const openAiKey = env.OPENAI_API_KEY?.trim() ?? "";

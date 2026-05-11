@@ -7,6 +7,8 @@ const validEnv = {
   NEXTAUTH_URL: "https://assemblyline.example.com",
   NEXTAUTH_SECRET: "a".repeat(32),
   ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
+  STORAGE_ROOT: "./storage",
+  QUEUE_MODE: "redis",
   OPENAI_API_KEY: "sk-live-test",
   STABILITY_API_KEY: "sk-stability-live-test",
   RUNWAYML_API_SECRET: "key_runway_live",
@@ -42,6 +44,7 @@ describe("production preflight", () => {
         "REDIS_URL",
         "NEXTAUTH_SECRET length",
         "ENCRYPTION_KEY length",
+        "STORAGE_ROOT",
         "OPENAI_API_KEY",
         "STABILITY_API_KEY",
         "RUNWAYML_API_SECRET",
@@ -62,6 +65,26 @@ describe("production preflight", () => {
     expect(partial.find((result) => result.name === "Google OAuth")).toMatchObject({
       ok: false,
       detail: "client id and secret must be configured together",
+    });
+  });
+
+  it("requires production queue mode to be redis or unset", () => {
+    const redis = evaluateProductionPreflight(validEnv, () => true);
+    expect(redis.find((result) => result.name === "QUEUE_MODE")).toMatchObject({
+      ok: true,
+      detail: "redis",
+    });
+
+    const defaultsToRedis = evaluateProductionPreflight({ ...validEnv, QUEUE_MODE: "" }, () => true);
+    expect(defaultsToRedis.find((result) => result.name === "QUEUE_MODE")).toMatchObject({
+      ok: true,
+      detail: "unset; production defaults to redis",
+    });
+
+    const inline = evaluateProductionPreflight({ ...validEnv, QUEUE_MODE: "inline" }, () => true);
+    expect(inline.find((result) => result.name === "QUEUE_MODE")).toMatchObject({
+      ok: false,
+      detail: "must be unset or redis for production",
     });
   });
 });
