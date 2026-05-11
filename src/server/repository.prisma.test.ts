@@ -1298,6 +1298,40 @@ describe("Prisma repository mode", () => {
     });
   });
 
+  it("rejects Asset Bible merge persistence when requirement reassignment fails", async () => {
+    const repository = await import("@/server/repository");
+    const source = {
+      id: "cdcdcdcd-cdcd-4cdc-8dcd-cdcdcdcdcdcd",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      type: "location" as const,
+      canonicalName: "Duplicate Room",
+      aliases: [],
+      status: "superseded" as const,
+      isUserEdited: false,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const target = {
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      projectId: source.projectId,
+      type: "location" as const,
+      canonicalName: "Room",
+      aliases: ["Duplicate Room"],
+      status: "approved" as const,
+      isUserEdited: true,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+
+    prismaMock.asset.update.mockResolvedValue(target);
+    prismaMock.sceneAssetReq.updateMany.mockRejectedValue(new Error("scene requirement reassignment failed"));
+    prismaMock.shotAssetReq.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(repository.persistAssetMergeState({ source, target })).rejects.toThrow(
+      "scene requirement reassignment failed",
+    );
+  });
+
   it("persists Asset Bible versions and references through Prisma", async () => {
     const repository = await import("@/server/repository");
     const version = {

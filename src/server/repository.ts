@@ -2179,11 +2179,11 @@ export async function persistAssetMergeState(input: { source: Asset; target: Ass
     prisma.sceneAssetReq.updateMany({
       where: { assetId: input.source.id },
       data: { assetId: input.target.id },
-    }).catch(() => undefined),
+    }),
     prisma.shotAssetReq.updateMany({
       where: { assetId: input.source.id },
       data: { assetId: input.target.id },
-    }).catch(() => undefined),
+    }),
     persistAssetState(input.source),
     persistAssetState(input.target),
   ]);
