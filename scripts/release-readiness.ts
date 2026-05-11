@@ -8,6 +8,15 @@ type CheckResult = {
   detail: string;
 };
 
+type GithubRun = {
+  conclusion?: string | null;
+  databaseId?: number;
+  headSha?: string;
+  status?: string;
+  url?: string;
+  workflowName?: string;
+};
+
 const githubSecretRequirements = [
   { name: "OPENAI_API_KEY", detail: "OpenAI live smoke" },
   { name: "STABILITY_API_KEY", detail: "Stability live smoke" },
@@ -99,6 +108,15 @@ export function resolveGithubRepository(env: ScriptEnv, gitRemoteOutput?: string
   return `${httpsMatch.groups.owner}/${httpsMatch.groups.repo}`;
 }
 
+export function resolveGitHead(env: ScriptEnv, gitHeadOutput?: string) {
+  const configured = env.GITHUB_SHA?.trim();
+  if (configured) {
+    return configured;
+  }
+  const output = gitHeadOutput ?? spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout;
+  return output.trim() || undefined;
+}
+
 export function readGithubSecrets(repository: string) {
   const result = spawnSync("gh", ["secret", "list", "--repo", repository], { encoding: "utf8" });
   if (result.status !== 0) {
@@ -116,9 +134,82 @@ export function readGithubSecrets(repository: string) {
   };
 }
 
+export function parseGithubRunList(output: string): GithubRun[] {
+  const parsed: unknown = JSON.parse(output);
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+  return parsed.filter((run): run is GithubRun => Boolean(run && typeof run === "object"));
+}
+
+export function evaluateGithubWorkflowRuns(runs: GithubRun[], headSha: string, requireLiveProviderSmoke: boolean) {
+  const requiredWorkflows = requireLiveProviderSmoke ? ["CI", "Live Provider Smoke"] : ["CI"];
+  return requiredWorkflows.map((workflowName) => {
+    const run = runs.find((candidate) => candidate.workflowName === workflowName && candidate.headSha === headSha);
+    const label =
+      workflowName === "CI" ? "GitHub Actions CI for current commit" : "GitHub Actions live provider smoke for current commit";
+    if (!run) {
+      return {
+        name: label,
+        ok: false,
+        detail: `no ${workflowName} run found for ${headSha}`,
+      };
+    }
+    const ok = run.status === "completed" && run.conclusion === "success";
+    const runLabel = run.databaseId ? `run ${run.databaseId}` : "latest run";
+    return {
+      name: label,
+      ok,
+      detail: `${runLabel} is ${run.status ?? "unknown"} / ${run.conclusion ?? "unknown"}${run.url ? ` (${run.url})` : ""}`,
+    };
+  });
+}
+
+export function readGithubRuns(repository: string, headSha: string) {
+  const result = spawnSync(
+    "gh",
+    [
+      "run",
+      "list",
+      "--repo",
+      repository,
+      "--commit",
+      headSha,
+      "--limit",
+      "50",
+      "--json",
+      "conclusion,databaseId,headSha,status,url,workflowName",
+    ],
+    { encoding: "utf8" },
+  );
+  if (result.status !== 0) {
+    const detail = result.error?.message ?? (result.stderr.trim() || "gh run list failed");
+    return {
+      ok: false as const,
+      detail,
+      runs: [],
+    };
+  }
+  try {
+    return {
+      ok: true as const,
+      detail: `${parseGithubRunList(result.stdout).length} run(s) visible for ${headSha}`,
+      runs: parseGithubRunList(result.stdout),
+    };
+  } catch (error) {
+    return {
+      ok: false as const,
+      detail: error instanceof Error ? error.message : "could not parse gh run list output",
+      runs: [],
+    };
+  }
+}
+
 async function main() {
   const env = await loadStandardEnvFiles(process.cwd());
   const repository = resolveGithubRepository(env);
+  const headSha = resolveGitHead(env);
+  const workflowEnvMode = env.RELEASE_READINESS_GITHUB_SECRETS_MODE?.trim() === "env";
   const checks: CheckResult[] = evaluateLocalProviderCredentials(env);
 
   if (!repository) {
@@ -128,7 +219,7 @@ async function main() {
       detail: "could not resolve repository from GITHUB_REPOSITORY or origin remote",
     });
   } else {
-    if (env.RELEASE_READINESS_GITHUB_SECRETS_MODE?.trim() === "env") {
+    if (workflowEnvMode) {
       checks.push({
         name: "GitHub repository secrets",
         ok: true,
@@ -143,6 +234,29 @@ async function main() {
         detail: secretRead.ok ? `${repository}: ${secretRead.detail}` : secretRead.detail,
       });
       checks.push(...evaluateGithubProviderSecrets(secretRead.secretNames));
+    }
+
+    if (!headSha) {
+      checks.push({
+        name: "Git commit",
+        ok: false,
+        detail: "could not resolve current commit from GITHUB_SHA or git rev-parse HEAD",
+      });
+    } else {
+      const runRead = readGithubRuns(repository, headSha);
+      checks.push({
+        name: "GitHub Actions runs",
+        ok: runRead.ok,
+        detail: runRead.ok ? `${repository}: ${runRead.detail}` : runRead.detail,
+      });
+      checks.push(...evaluateGithubWorkflowRuns(runRead.runs, headSha, !workflowEnvMode));
+      if (workflowEnvMode) {
+        checks.push({
+          name: "GitHub Actions live provider smoke for current commit",
+          ok: true,
+          detail: "checked by this workflow after the readiness gate completes",
+        });
+      }
     }
   }
 

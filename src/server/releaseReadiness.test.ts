@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   evaluateGithubProviderSecrets,
+  evaluateGithubWorkflowRuns,
   evaluateLocalProviderCredentials,
+  parseGithubRunList,
   parseGithubSecretList,
   providerSecretNamesFromEnv,
+  resolveGitHead,
   resolveGithubRepository,
 } from "../../scripts/release-readiness";
 
@@ -75,5 +78,70 @@ describe("release readiness", () => {
     expect(resolveGithubRepository({}, "git@github.com:distilledoreo/AI-AssemblyLine.git")).toBe(
       "distilledoreo/AI-AssemblyLine",
     );
+  });
+
+  it("resolves current commits from env or git output", () => {
+    expect(resolveGitHead({ GITHUB_SHA: "abc123" })).toBe("abc123");
+    expect(resolveGitHead({}, "def456\n")).toBe("def456");
+    expect(resolveGitHead({}, "\n")).toBeUndefined();
+  });
+
+  it("requires successful CI and live provider smoke runs for local release readiness", () => {
+    const runs = parseGithubRunList(
+      JSON.stringify([
+        {
+          workflowName: "CI",
+          headSha: "abc123",
+          status: "completed",
+          conclusion: "success",
+          databaseId: 101,
+          url: "https://github.com/owner/repo/actions/runs/101",
+        },
+        {
+          workflowName: "Live Provider Smoke",
+          headSha: "abc123",
+          status: "completed",
+          conclusion: "failure",
+          databaseId: 102,
+          url: "https://github.com/owner/repo/actions/runs/102",
+        },
+      ]),
+    );
+
+    const results = evaluateGithubWorkflowRuns(runs, "abc123", true);
+
+    expect(results.find((result) => result.name === "GitHub Actions CI for current commit")).toMatchObject({
+      ok: true,
+    });
+    expect(
+      results.find((result) => result.name === "GitHub Actions live provider smoke for current commit"),
+    ).toMatchObject({
+      ok: false,
+      detail: "run 102 is completed / failure (https://github.com/owner/repo/actions/runs/102)",
+    });
+  });
+
+  it("lets the live provider smoke workflow skip the circular previous-smoke requirement", () => {
+    const results = evaluateGithubWorkflowRuns(
+      [
+        {
+          workflowName: "CI",
+          headSha: "abc123",
+          status: "completed",
+          conclusion: "success",
+          databaseId: 101,
+        },
+      ],
+      "abc123",
+      false,
+    );
+
+    expect(results).toEqual([
+      {
+        name: "GitHub Actions CI for current commit",
+        ok: true,
+        detail: "run 101 is completed / success",
+      },
+    ]);
   });
 });

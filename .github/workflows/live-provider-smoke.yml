@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -19,6 +20,7 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
       RELEASE_READINESS_GITHUB_SECRETS_MODE: env
+      GH_TOKEN: ${{ github.token }}
       OPENAI_SMOKE_MODEL: ${{ vars.OPENAI_SMOKE_MODEL }}
       STABILITY_SMOKE_MODEL: ${{ vars.STABILITY_SMOKE_MODEL }}
       RUNWAY_SMOKE_MODEL: ${{ vars.RUNWAY_SMOKE_MODEL }}
