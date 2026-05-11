@@ -2813,8 +2813,12 @@ export async function saveProviderKey(
   input: { providerSlug: string; apiKey: string; label?: string },
 ) {
   const providerSlug = input.providerSlug.trim().toLowerCase();
-  if (!providerSlug || input.apiKey.trim().length < 3) {
+  const apiKey = input.apiKey.trim();
+  if (!providerSlug || apiKey.length < 3) {
     throw new AppError("Provider slug and API key are required.");
+  }
+  if (process.env.NODE_ENV === "production" && providerSlug === "openai" && apiKey === "mock") {
+    throw new AppError("A real OpenAI API key is required in production.", 400, "provider_key_missing");
   }
 
   if (isPrismaRepositoryEnabled()) {
@@ -2822,7 +2826,7 @@ export async function saveProviderKey(
     if (!workspace) {
       throw new NotFoundError("Workspace not found.");
     }
-    const encrypted = encryptProviderKey(input.apiKey.trim());
+    const encrypted = encryptProviderKey(apiKey);
     await prisma.providerKey.deleteMany({ where: { workspaceId, providerSlug } });
     const providerKey = await prisma.providerKey.create({
       data: {
@@ -2843,7 +2847,7 @@ export async function saveProviderKey(
   }
 
   const timestamp = nowIso();
-  const encrypted = encryptProviderKey(input.apiKey.trim());
+  const encrypted = encryptProviderKey(apiKey);
   const providerKey: ProviderKey = {
     id: createId(),
     workspaceId,

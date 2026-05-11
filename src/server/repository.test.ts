@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createProjectForWorkspace,
   createWorkspaceForUser,
@@ -19,6 +19,10 @@ import {
 
 describe("foundation repository flows", () => {
   beforeEach(() => resetStoreForTests());
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
 
   it("signs in a user and creates workspace/project ownership", async () => {
     const { user, session } = await signInWithCredentials({
@@ -76,6 +80,17 @@ describe("foundation repository flows", () => {
     expect(JSON.stringify(clientKey)).not.toContain("phase1-secret");
     expect(await decryptWorkspaceProviderKey(workspace.id, "openai")).toBe("sk-openai-phase1-secret");
     expect(await listProviderKeys(workspace.id)).toHaveLength(1);
+  });
+
+  it("rejects mock OpenAI provider keys in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+
+    await expect(
+      saveProviderKey("00000000-0000-4000-8000-000000000000", {
+        providerSlug: "openai",
+        apiKey: "mock",
+      }),
+    ).rejects.toMatchObject({ code: "provider_key_missing" });
   });
 
   it("normalizes a hot-reloaded store created before later phase fields existed", () => {

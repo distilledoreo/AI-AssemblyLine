@@ -40,7 +40,8 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Export/import jobs now await repository job completion updates, and import returns the restored graph through the repository read path after persistence.
 - The dashboard provider-key form now starts empty, uses password entry, and blocks blank/mock-prefilled saves so production setup requires an intentional provider key entry.
 - OpenAI generation credential resolution now allows mock fallback only outside production; production requires an encrypted workspace OpenAI key or `OPENAI_API_KEY` and fails with `provider_key_missing` when neither is configured or the resolved key is the literal `mock`.
-- `npm test`: passing, 26 files and 77 tests.
+- Provider-key saving now rejects a literal `mock` OpenAI key in production before encryption/storage.
+- `npm test`: passing, 26 files and 78 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
