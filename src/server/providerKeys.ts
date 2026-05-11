@@ -1,10 +1,11 @@
 import { AppError } from "@/server/errors";
 import { decryptProjectProviderKey } from "@/server/repository";
 
+type ProviderSlug = "openai" | "stability" | "runway";
+
 export async function resolveOpenAiApiKeyForProject(projectId: string) {
-  const workspaceKey = await decryptProjectProviderKey(projectId, "openai").catch(() => undefined);
-  const key = workspaceKey || process.env.OPENAI_API_KEY;
-  if (key && (key !== "mock" || process.env.NODE_ENV !== "production")) {
+  const key = await resolveProviderKey(projectId, "openai", process.env.OPENAI_API_KEY);
+  if (isUsableProviderKey(key)) {
     return key;
   }
   if (process.env.NODE_ENV === "production") {
@@ -14,9 +15,8 @@ export async function resolveOpenAiApiKeyForProject(projectId: string) {
 }
 
 export async function resolveStabilityApiKeyForProject(projectId: string) {
-  const workspaceKey = await decryptProjectProviderKey(projectId, "stability").catch(() => undefined);
-  const key = workspaceKey || process.env.STABILITY_API_KEY;
-  if (key && (key !== "mock" || process.env.NODE_ENV !== "production")) {
+  const key = await resolveProviderKey(projectId, "stability", process.env.STABILITY_API_KEY);
+  if (isUsableProviderKey(key)) {
     return key;
   }
   if (process.env.NODE_ENV === "production") {
@@ -26,13 +26,36 @@ export async function resolveStabilityApiKeyForProject(projectId: string) {
 }
 
 export async function resolveRunwayApiKeyForProject(projectId: string) {
-  const workspaceKey = await decryptProjectProviderKey(projectId, "runway").catch(() => undefined);
-  const key = workspaceKey || process.env.RUNWAYML_API_SECRET;
-  if (key && (key !== "mock" || process.env.NODE_ENV !== "production")) {
+  const key = await resolveProviderKey(projectId, "runway", process.env.RUNWAYML_API_SECRET);
+  if (isUsableProviderKey(key)) {
     return key;
   }
   if (process.env.NODE_ENV === "production") {
     throw new AppError("Runway API key is required for production video generation.", 500, "provider_key_missing");
   }
   return "mock";
+}
+
+async function resolveProviderKey(projectId: string, providerSlug: ProviderSlug, fallbackKey: string | undefined) {
+  const workspaceKey = await resolveWorkspaceProviderKey(projectId, providerSlug);
+  return workspaceKey?.trim() || fallbackKey?.trim();
+}
+
+async function resolveWorkspaceProviderKey(projectId: string, providerSlug: ProviderSlug) {
+  try {
+    return await decryptProjectProviderKey(projectId, providerSlug);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+function isNotFoundError(error: unknown) {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "not_found");
+}
+
+function isUsableProviderKey(key: string | undefined): key is string {
+  return Boolean(key && (key !== "mock" || process.env.NODE_ENV !== "production"));
 }

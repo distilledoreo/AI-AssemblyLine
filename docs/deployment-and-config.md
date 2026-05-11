@@ -77,6 +77,7 @@ If `ENCRYPTION_KEY` needs to be rotated:
 - Provider API keys are **never** included in: API responses to the client, generation logs, prompt metadata, export bundles, error messages, or browser-accessible storage.
 - The decrypted key exists only in memory for the duration of a provider API call.
 - The `ProviderKey` table is excluded from all export queries.
+- Runtime generation falls back to server environment keys only when no workspace provider key is saved. Workspace provider-key database, lookup, or decryption failures are surfaced as runtime errors instead of silently using fallback credentials.
 
 ## Local development setup
 

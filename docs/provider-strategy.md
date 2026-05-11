@@ -178,6 +178,8 @@ Users should add provider API keys through workspace settings. Keys are encrypte
 
 Keys are never exposed in generation logs, prompts, exports, or client-side code.
 
+Credential resolution falls back from a workspace key to the matching server environment key only when the workspace key is absent. Database, lookup, or decryption failures while reading a workspace provider key are treated as runtime failures and are surfaced instead of silently using a different credential source.
+
 ## OpenAI live mode
 
 The OpenAI adapter has two modes:
