@@ -82,12 +82,18 @@ describe("foundation repository flows", () => {
     expect(await listProviderKeys(workspace.id)).toHaveLength(1);
   });
 
-  it("rejects mock OpenAI provider keys in production", async () => {
+  it("rejects mock provider keys in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
 
     await expect(
       saveProviderKey("00000000-0000-4000-8000-000000000000", {
         providerSlug: "openai",
+        apiKey: "mock",
+      }),
+    ).rejects.toMatchObject({ code: "provider_key_missing" });
+    await expect(
+      saveProviderKey("00000000-0000-4000-8000-000000000000", {
+        providerSlug: "stability",
         apiKey: "mock",
       }),
     ).rejects.toMatchObject({ code: "provider_key_missing" });

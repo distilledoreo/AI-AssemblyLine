@@ -2896,8 +2896,8 @@ export async function saveProviderKey(
   if (!providerSlug || apiKey.length < 3) {
     throw new AppError("Provider slug and API key are required.");
   }
-  if (process.env.NODE_ENV === "production" && providerSlug === "openai" && apiKey === "mock") {
-    throw new AppError("A real OpenAI API key is required in production.", 400, "provider_key_missing");
+  if (process.env.NODE_ENV === "production" && apiKey === "mock") {
+    throw new AppError("A real provider API key is required in production.", 400, "provider_key_missing");
   }
 
   if (isPrismaRepositoryEnabled()) {
