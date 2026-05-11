@@ -1,4 +1,4 @@
-import { Queue, Worker, type Processor } from "bullmq";
+import { Queue, Worker, type Job as BullJob, type Processor } from "bullmq";
 import IORedis from "ioredis";
 import { getConfig } from "@/lib/config";
 import type { ErrorClass, GenerationJob, GenerationJobType, JobEvent } from "@/server/types";
@@ -192,19 +192,36 @@ export async function getQueueHealthSnapshot() {
     Object.entries(queueTopology).map(async ([name, config]) => {
       const queue = getBullQueue(name);
       const counts = queue
-        ? await queue.getJobCounts("active", "waiting", "failed").catch(() => ({ active: 0, waiting: 0, failed: 0 }))
-        : { active: 0, waiting: 0, failed: 0 };
+        ? await queue
+            .getJobCounts("active", "waiting", "delayed", "failed", "completed")
+            .catch(() => ({ active: 0, waiting: 0, delayed: 0, failed: 0, completed: 0 }))
+        : { active: 0, waiting: 0, delayed: 0, failed: 0, completed: 0 };
+      const latestFailures = queue ? await getRecentFailedJobs(queue) : [];
       return {
         name,
         jobTypes: config.jobTypes,
         concurrency: Number(process.env[`${name.toUpperCase()}_QUEUE_CONCURRENCY`]) || config.defaultConcurrency,
         active: counts.active,
         waiting: counts.waiting,
+        delayed: counts.delayed,
         failed: counts.failed,
+        completed: counts.completed,
+        latestFailures,
         redisBacked: Boolean(queue),
       };
     }),
   );
+}
+
+async function getRecentFailedJobs(queue: Queue) {
+  const failedJobs = await queue.getJobs(["failed"], 0, 9, false).catch(() => [] as BullJob[]);
+  return failedJobs.map((job) => ({
+    id: String(job.id),
+    name: job.name,
+    failedReason: job.failedReason,
+    attemptsMade: job.attemptsMade,
+    finishedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : undefined,
+  }));
 }
 
 function projectEventChannel(projectId: string) {

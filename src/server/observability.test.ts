@@ -42,7 +42,17 @@ describe("observability metrics", () => {
         },
       ],
     });
-    queueHealthMock.mockResolvedValue([{ name: "analysis", active: 0, waiting: 0, failed: 0 }]);
+    queueHealthMock.mockResolvedValue([
+      {
+        name: "analysis",
+        active: 0,
+        waiting: 0,
+        delayed: 0,
+        failed: 0,
+        completed: 1,
+        latestFailures: [],
+      },
+    ]);
     process.env.SENTRY_DSN = "https://example@sentry.invalid/1";
 
     const { getProjectJobMetrics } = await import("@/server/observability");

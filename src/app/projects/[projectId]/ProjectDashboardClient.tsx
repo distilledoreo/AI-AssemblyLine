@@ -33,6 +33,22 @@ type OperationsPayload = {
     totalJobs: number;
     jobsByStatus: Record<string, number>;
     jobsByType: Record<string, number>;
+    queueHealth: Array<{
+      name: string;
+      active: number;
+      waiting: number;
+      delayed?: number;
+      failed: number;
+      completed?: number;
+      redisBacked: boolean;
+      latestFailures?: Array<{
+        id: string;
+        name: string;
+        failedReason?: string;
+        attemptsMade?: number;
+        finishedAt?: string;
+      }>;
+    }>;
     sentryEnabled: boolean;
   };
   adapters: Array<{ slug: string; capabilities: { models?: string[]; maxDurationSeconds?: number } }>;
@@ -772,6 +788,43 @@ export function ProjectDashboardClient({
               <span>Sentry</span>
               <span className="meta">{operations?.metrics.sentryEnabled ? "enabled" : "disabled"}</span>
             </li>
+            <li className="list-item column">
+              <span>Queue health</span>
+              {operations?.metrics.queueHealth?.length ? (
+                <ul className="list compact-list">
+                  {operations.metrics.queueHealth.map((queue) => (
+                    <li className="list-item" key={queue.name}>
+                      <span>{queue.name}</span>
+                      <span className="meta">
+                        {queue.redisBacked ? "Redis" : "inline"} · active {queue.active} · waiting {queue.waiting} ·
+                        delayed {queue.delayed ?? 0} · failed {queue.failed}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="meta">loading</span>
+              )}
+            </li>
+            {operations?.metrics.queueHealth?.some((queue) => (queue.latestFailures?.length ?? 0) > 0) ? (
+              <li className="list-item column">
+                <span>Recent queue failures</span>
+                <ul className="list compact-list">
+                  {operations.metrics.queueHealth.flatMap((queue) =>
+                    (queue.latestFailures ?? []).map((failure) => (
+                      <li className="list-item" key={`${queue.name}-${failure.id}`}>
+                        <span>
+                          {queue.name}: {failure.name}
+                        </span>
+                        <span className="meta">
+                          {failure.failedReason ?? "failed"} · attempts {failure.attemptsMade ?? 0}
+                        </span>
+                      </li>
+                    )),
+                  )}
+                </ul>
+              </li>
+            ) : null}
             <li className="list-item">
               <span>Additional adapters</span>
               <span className="meta">{operations?.adapters.map((adapter) => adapter.slug).join(", ") ?? "loading"}</span>

@@ -36,15 +36,15 @@ Each queue supports three priority levels:
 | `content_policy` | 0 | None | Provider rejected the content. No retry; surface to user immediately |
 | `fatal` | 0 | None | Unrecoverable errors (invalid API key, malformed request) |
 
-After max retries are exhausted, the job moves to the dead-letter queue and its status becomes `failed`.
+After max retries are exhausted, BullMQ retains the failed job in that queue's failed-job set and the AssemblyLine `GenerationJob` status becomes `failed`.
 
 Worker processors also persist AssemblyLine job failures before rethrowing to BullMQ. If a processor throws after a `GenerationJob` has been created, the worker marks that GenerationJob `failed`, stores the failure message and error class, emits a final project job event, and then lets BullMQ apply the configured retry/dead-letter behavior.
 
-## Dead-letter queue
+## Failed-job retention
 
-Each queue has an associated dead-letter queue (`analysis-dead`, `image-dead`, etc.). Failed jobs are preserved for debugging. Dead-letter jobs older than 30 days are automatically cleaned up.
+Each queue retains recent failed BullMQ jobs for debugging. Queue health responses include active, waiting, delayed, completed, failed counts, and up to 10 recent failed jobs with the job id, job name, failure reason, attempt count, and finish timestamp.
 
-Admins and project owners can view dead-letter jobs in the settings UI and manually retry them or dismiss them.
+Failed AssemblyLine `GenerationJob` records are also persisted in Postgres with their error message, error class, and retry count so project owners can inspect failures in the operations panel. Manual retry/dismiss controls are not currently exposed; rerun the relevant workflow action to create a new job.
 
 ## Job lifecycle
 

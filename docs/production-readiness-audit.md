@@ -55,9 +55,10 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Redis workers now register the `media` queue, and `thumbnail`/`media_convert` jobs invoke FFmpeg-backed processors that emit progress and completion events. Real local media utility verification is still blocked until `ffmpeg` and `ffprobe` are installed.
 - Redis workers now persist failed GenerationJob state and a final project event when a processor throws, while still rethrowing to BullMQ so queue retries and dead-letter handling remain active.
 - Worker failures now persist retry counts from BullMQ attempts, and project operations metrics report total retries, retried job count, and retries by job type.
+- Queue health now reports delayed/completed counts and up to 10 recent failed BullMQ jobs per Redis-backed queue; the operations panel surfaces queue health and recent failure summaries.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 33 files and 115 tests.
+- `npm test`: passing, 33 files and 116 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.

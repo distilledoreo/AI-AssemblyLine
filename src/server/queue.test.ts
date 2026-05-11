@@ -12,6 +12,7 @@ const queueInstances = vi.hoisted(() => [] as Array<{
   name: string;
   add: ReturnType<typeof vi.fn>;
   getJobCounts: ReturnType<typeof vi.fn>;
+  getJobs: ReturnType<typeof vi.fn>;
 }>);
 
 const RedisConstructorMock = vi.hoisted(() =>
@@ -32,7 +33,16 @@ const QueueConstructorMock = vi.hoisted(() =>
     const instance = {
       name,
       add: vi.fn().mockResolvedValue({ id: "bull-job-1" }),
-      getJobCounts: vi.fn().mockResolvedValue({ active: 0, waiting: 1, failed: 0 }),
+      getJobCounts: vi.fn().mockResolvedValue({ active: 0, waiting: 1, delayed: 2, failed: 1, completed: 3 }),
+      getJobs: vi.fn().mockResolvedValue([
+        {
+          id: "failed-job-1",
+          name: "script_analysis",
+          failedReason: "OpenAI rate limited the analysis pass.",
+          attemptsMade: 2,
+          finishedOn: Date.parse("2026-05-10T04:05:00.000Z"),
+        },
+      ]),
     };
     queueInstances.push(instance);
     return instance;
@@ -125,6 +135,37 @@ describe("queue and SSE foundation", () => {
         backoff: { type: "exponential", delay: 30000 },
       }),
     );
+  });
+
+  it("reports Redis-backed queue counts and recent failed job summaries", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("QUEUE_MODE", "redis");
+    vi.stubEnv("REDIS_URL", "redis://queue.test:6379");
+    resetConfigForTests();
+
+    const { getQueueHealthSnapshot } = await importQueueModule();
+    const queues = await getQueueHealthSnapshot();
+
+    expect(queues[0]).toMatchObject({
+      name: "analysis",
+      active: 0,
+      waiting: 1,
+      delayed: 2,
+      failed: 1,
+      completed: 3,
+      redisBacked: true,
+      latestFailures: [
+        {
+          id: "failed-job-1",
+          name: "script_analysis",
+          failedReason: "OpenAI rate limited the analysis pass.",
+          attemptsMade: 2,
+          finishedAt: "2026-05-10T04:05:00.000Z",
+        },
+      ],
+    });
+    expect(queueInstances[0].getJobCounts).toHaveBeenCalledWith("active", "waiting", "delayed", "failed", "completed");
+    expect(queueInstances[0].getJobs).toHaveBeenCalledWith(["failed"], 0, 9, false);
   });
 
   it("schedules repeatable provider polling jobs on Redis-backed queues", async () => {

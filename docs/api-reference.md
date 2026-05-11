@@ -6,7 +6,7 @@ All project endpoints require an authenticated local session unless noted.
 
 ### `GET /api/projects/:projectId/operations`
 
-Returns export bundles, storage usage, job metrics, queue health, Sentry status, and remaining adapter capabilities for a project. Job metrics include totals by type/status, average completed duration, total retry attempts, retried job count, and retry attempts by job type.
+Returns export bundles, storage usage, job metrics, queue health, Sentry status, and remaining adapter capabilities for a project. Job metrics include totals by type/status, average completed duration, total retry attempts, retried job count, retry attempts by job type, queue counts, and recent failed BullMQ job summaries when Redis queue mode is active.
 
 ### `POST /api/projects/:projectId/operations`
 

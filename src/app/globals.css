@@ -231,6 +231,16 @@ textarea {
   flex-direction: column;
 }
 
+.compact-list {
+  gap: 6px;
+}
+
+.compact-list .list-item {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
 .subitem {
   background: #f8fafc;
   border: 1px solid var(--line);
