@@ -1,7 +1,9 @@
+import { loadStandardEnvFiles } from "./env-files";
 import { assertProviderSmokeSuitePassed, runProviderSmokeSuite } from "../src/providers/providerSmoke";
 
 async function main() {
-  const results = await runProviderSmokeSuite();
+  const env = await loadStandardEnvFiles(process.cwd());
+  const results = await runProviderSmokeSuite({ env });
   for (const result of results) {
     if (result.ok) {
       console.log(`PASS ${result.provider}: ${JSON.stringify(result.result)}`);

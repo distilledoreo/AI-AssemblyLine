@@ -1,9 +1,11 @@
+import { loadStandardEnvFiles } from "./env-files";
 import { runStabilitySmoke } from "../src/providers/stabilitySmoke";
 
 async function main() {
+  const env = await loadStandardEnvFiles(process.cwd());
   const result = await runStabilitySmoke({
-    apiKey: process.env.STABILITY_API_KEY,
-    modelId: process.env.STABILITY_SMOKE_MODEL,
+    apiKey: env.STABILITY_API_KEY,
+    modelId: env.STABILITY_SMOKE_MODEL,
   });
 
   console.log(JSON.stringify(result, null, 2));

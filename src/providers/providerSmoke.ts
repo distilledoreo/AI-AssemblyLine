@@ -8,8 +8,10 @@ export type ProviderSmokeSummary =
   | { provider: ProviderSmokeResult["provider"]; ok: true; result: ProviderSmokeResult }
   | { provider: ProviderSmokeResult["provider"]; ok: false; errorMessage: string };
 
+type ProviderSmokeEnv = Record<string, string | undefined>;
+
 export async function runProviderSmokeSuite(input: {
-  env?: NodeJS.ProcessEnv;
+  env?: ProviderSmokeEnv;
   fetchImpl?: typeof fetch;
 } = {}): Promise<ProviderSmokeSummary[]> {
   const env = input.env ?? process.env;

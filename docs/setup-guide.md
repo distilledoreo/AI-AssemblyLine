@@ -61,6 +61,8 @@ npm run smoke:runway
 
 Optionally set `STABILITY_SMOKE_MODEL` or `RUNWAY_SMOKE_MODEL` to override the defaults. The Runway smoke command submits a short async video task and prints the provider task id without waiting for final output.
 
+Provider smoke commands also load `.env`, `.env.production`, `.env.local`, and `.env.production.local` from the project root while preserving exported shell overrides, matching `npm run preflight:production`.
+
 ## Verification commands
 
 Run these before committing substantive changes:

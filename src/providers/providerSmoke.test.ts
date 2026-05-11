@@ -1,5 +1,9 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { assertProviderSmokeSuitePassed, runProviderSmokeSuite } from "@/providers/providerSmoke";
+import { loadStandardEnvFiles } from "../../scripts/env-files";
 
 describe("provider smoke suite", () => {
   it("runs all live provider smoke checks with configured keys", async () => {
@@ -47,5 +51,41 @@ describe("provider smoke suite", () => {
       expect.objectContaining({ provider: "runway", ok: false, errorMessage: expect.stringContaining("RUNWAYML_API_SECRET") }),
     ]);
     expect(() => assertProviderSmokeSuitePassed(results)).toThrow("Provider smoke suite failed for openai, stability, runway.");
+  });
+
+  it("can run the suite from standard env files", async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "assemblyline-provider-smoke-env-"));
+    try {
+      await writeFile(
+        path.join(tempRoot, ".env.production.local"),
+        [
+          "OPENAI_API_KEY=sk-openai-live",
+          "STABILITY_API_KEY=sk-stability-live",
+          "RUNWAYML_API_SECRET=rw-prod-runway-smoke-abc123",
+          "",
+        ].join("\n"),
+      );
+      const image = Buffer.from("stability-smoke-image");
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json({
+            id: "resp_smoke",
+            model: "gpt-4.1-mini",
+            output_text: "{\"ok\":true,\"provider\":\"openai\"}",
+            usage: { input_tokens: 18, output_tokens: 8 },
+          }),
+        )
+        .mockResolvedValueOnce(new Response(image, { status: 200, headers: { "content-type": "image/png" } }))
+        .mockResolvedValueOnce(Response.json({ id: "task-runway-smoke", status: "PENDING" }));
+
+      const env = await loadStandardEnvFiles(tempRoot, {});
+      const results = await runProviderSmokeSuite({ env, fetchImpl: fetchMock });
+
+      expect(results.map((result) => result.ok)).toEqual([true, true, true]);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
   });
 });

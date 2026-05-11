@@ -1,9 +1,11 @@
+import { loadStandardEnvFiles } from "./env-files";
 import { runOpenAiSmoke } from "../src/providers/openaiSmoke";
 
 async function main() {
+  const env = await loadStandardEnvFiles(process.cwd());
   const result = await runOpenAiSmoke({
-    apiKey: process.env.OPENAI_API_KEY,
-    modelId: process.env.OPENAI_SMOKE_MODEL,
+    apiKey: env.OPENAI_API_KEY,
+    modelId: env.OPENAI_SMOKE_MODEL,
   });
 
   console.log(JSON.stringify(result, null, 2));
