@@ -187,6 +187,10 @@ export async function processVideoProviderResult(input: {
   if (!output.ok) {
     throw new AppError(`Runway output download failed with status ${output.status}.`, 502, "provider_output_download_failed");
   }
+  const data = Buffer.from(await output.arrayBuffer());
+  if (data.length === 0) {
+    throw new AppError("Runway output download did not include video bytes.", 502, "provider_output_missing");
+  }
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const payload = normalizeVideoJobPayload(job);
   return persistVideoClipBytes({
@@ -198,7 +202,7 @@ export async function processVideoProviderResult(input: {
     job,
     prompt: payload.prompt ?? composeVideoPrompt(payload.mode, graph, payload.shotId, payload.sceneId),
     sourceFrameVersionIds: payload.sourceFrameVersionIds,
-    data: Buffer.from(await output.arrayBuffer()),
+    data,
     mimeType: output.headers.get("content-type")?.split(";")[0] || "video/mp4",
   });
 }

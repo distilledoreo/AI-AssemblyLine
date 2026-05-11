@@ -176,4 +176,42 @@ describe("video workflow", () => {
     );
     expect(pollFetch).toHaveBeenNthCalledWith(2, "https://example.com/video.mp4", expect.any(Object));
   });
+
+  it("rejects completed Runway task output downloads with empty video bytes", async () => {
+    const { project, graph } = await projectWithApprovedFrame();
+    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    const submitFetch = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-live-empty", status: "PENDING" }));
+    vi.stubGlobal("fetch", submitFetch);
+    const submitted = await generateVideoClip({
+      projectId: project.id,
+      mode: "shot",
+      shotId: graph.shots[0].id,
+      providerSlug: "runway",
+    });
+    const job = submitted.jobs.at(-1)!;
+    const pollFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ id: "task-runway-live-empty", status: "SUCCEEDED", output: ["https://example.com/empty.mp4"] }),
+      )
+      .mockResolvedValueOnce(new Response(new Uint8Array(), { status: 200, headers: { "content-type": "video/mp4" } }));
+
+    await expect(
+      processVideoProviderResult({
+        projectId: project.id,
+        jobId: job.id,
+        fetchImpl: pollFetch,
+      }),
+    ).rejects.toMatchObject({
+      code: "provider_output_missing",
+      message: "Runway output download did not include video bytes.",
+    });
+
+    const failedGraph = getScriptAnalysisGraph(project.id);
+    expect(failedGraph.videoClips).toHaveLength(0);
+    expect(failedGraph.clipVersions).toHaveLength(0);
+    expect(failedGraph.jobs.find((candidate) => candidate.id === job.id)).toMatchObject({
+      status: "processing_output",
+    });
+  });
 });
