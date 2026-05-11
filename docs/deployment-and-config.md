@@ -146,7 +146,7 @@ In development:
 - Redis can be a local instance or Docker container.
 - Provider adapters default to mock mode in local development and tests if no API keys are configured, returning placeholder outputs so the full workflow can be tested without spend. Production OpenAI generation requires an encrypted workspace OpenAI key or `OPENAI_API_KEY`; production Stability image generation requires an encrypted workspace Stability key or `STABILITY_API_KEY`; production Runway video submission requires an encrypted workspace Runway key or `RUNWAYML_API_SECRET`. Missing, mock, or known placeholder production credentials fail with a provider-key configuration error instead of producing mock outputs, and production provider-key saves reject `mock`, placeholder, and checked-in example values for every provider regardless of casing or surrounding whitespace.
 - Mock-backed placeholder providers for Kling, Seedance, Pika, Luma, and ElevenLabs are development/test-only. Video generation accepts Runway only; non-Runway video provider slugs fail with `unsupported_provider` until another live provider client and credentials are configured. Other direct placeholder adapter calls fail with `provider_not_configured` in production.
-- File storage uses `./storage` relative to the project root.
+- File storage uses `./storage` relative to the project root by default. Project media directories are created below `STORAGE_ROOT/projects/{projectIdWithoutDashes}` and reject IDs containing path separators or traversal characters.
 - Phase 1 exposes a local credentials session path so the foundation UI can be exercised before a Postgres instance is available; production deployments should use the configured database-backed Auth.js sessions.
 
 ## Observability

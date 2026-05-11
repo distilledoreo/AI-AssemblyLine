@@ -72,13 +72,15 @@ The MVP stores media on the local filesystem. Project metadata in the database s
 
 Recommended folders:
 
-- `projects/{projectId}/uploads`
-- `projects/{projectId}/assets`
-- `projects/{projectId}/storyboards`
-- `projects/{projectId}/videos`
-- `projects/{projectId}/exports`
-- `projects/{projectId}/logs`
-- `projects/{projectId}/thumbnails`
+- `projects/{projectIdWithoutDashes}/uploads`
+- `projects/{projectIdWithoutDashes}/assets`
+- `projects/{projectIdWithoutDashes}/storyboards`
+- `projects/{projectIdWithoutDashes}/videos`
+- `projects/{projectIdWithoutDashes}/exports`
+- `projects/{projectIdWithoutDashes}/logs`
+- `projects/{projectIdWithoutDashes}/thumbnails`
+
+Project storage directory names remove UUID dashes and reject path separators or traversal characters. This keeps cleanup, thumbnail, export, and media-write operations inside the configured `STORAGE_ROOT`.
 
 ### Storage management
 

@@ -19,8 +19,18 @@ export function getStorageRoot() {
   return path.resolve(getConfig().STORAGE_ROOT);
 }
 
+function projectStorageDirectoryName(projectId: string) {
+  const directoryName = projectId.replaceAll("-", "");
+  if (!/^[A-Za-z0-9_]+$/.test(directoryName)) {
+    throw new Error(
+      "Project storage IDs may contain only letters, numbers, underscores, and dashes.",
+    );
+  }
+  return directoryName;
+}
+
 export function projectStoragePath(projectId: string) {
-  return storagePath(getStorageRoot(), "projects", projectId.replaceAll("-", ""));
+  return storagePath(getStorageRoot(), "projects", projectStorageDirectoryName(projectId));
 }
 
 export function projectFolderPath(projectId: string, folder: ProjectStorageFolder) {
@@ -33,7 +43,9 @@ export function allocateProjectStoragePath() {
 
 export async function ensureProjectStorage(projectId: string) {
   const root = projectStoragePath(projectId);
-  await Promise.all(projectStorageFolders.map((folder) => mkdir(storagePath(root, folder), { recursive: true })));
+  await Promise.all(
+    projectStorageFolders.map((folder) => mkdir(storagePath(root, folder), { recursive: true })),
+  );
   return root;
 }
 
