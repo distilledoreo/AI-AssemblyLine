@@ -3316,7 +3316,7 @@ export async function markGenerationJobRunning(jobId: string, status: Generation
     await prisma.generationJob.update({
       where: { id: jobId },
       data: { status, startedAt: new Date(startedAt) },
-    }).catch(() => undefined);
+    });
   }
   if (!local && !isPrismaRepositoryEnabled()) {
     throw new NotFoundError("Generation job not found.");

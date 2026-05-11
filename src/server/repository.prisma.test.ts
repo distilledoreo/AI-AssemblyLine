@@ -459,6 +459,16 @@ describe("Prisma repository mode", () => {
     });
   });
 
+  it("rejects worker running-state updates when the Prisma write fails", async () => {
+    const repository = await import("@/server/repository");
+    repository.resetStoreForTests();
+    prismaMock.generationJob.update.mockRejectedValue(new Error("job running write failed"));
+
+    await expect(repository.markGenerationJobRunning("99999999-9999-4999-8999-999999999999")).rejects.toThrow(
+      "job running write failed",
+    );
+  });
+
   it("lists submitted provider jobs through Prisma for poll workers", async () => {
     const submitted = {
       id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",

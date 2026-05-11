@@ -67,9 +67,10 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Script analysis status updates now surface Prisma write failures instead of silently continuing after a missed production database write.
 - Creature and prop Asset Bible detail persistence now surfaces Prisma write failures instead of silently continuing after a missed production database write.
 - Imported storyboard/video graph persistence now surfaces Prisma write failures instead of silently continuing after missed imported frame, clip, or requirement records.
+- Worker running-state updates now surface Prisma write failures instead of letting a worker continue after failing to mark a production job running or polling.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 33 files and 127 tests.
+- `npm test`: passing, 33 files and 128 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
