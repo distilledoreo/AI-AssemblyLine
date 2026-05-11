@@ -6,7 +6,9 @@ const configSchema = z.object({
   REDIS_URL: z.string().min(1),
   NEXTAUTH_URL: z.string().url(),
   NEXTAUTH_SECRET: z.string().min(32),
-  ENCRYPTION_KEY: z.string().min(32),
+  ENCRYPTION_KEY: z.string().refine((value) => decodeBase64Length(value) === 32, {
+    message: "must decode to exactly 32 bytes",
+  }),
   STORAGE_ROOT: z.string().min(1).default("./storage"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
   PORT: z.coerce.number().int().positive().default(3000),
@@ -45,4 +47,12 @@ export function getConfig() {
 
 export function resetConfigForTests() {
   cachedConfig = undefined;
+}
+
+function decodeBase64Length(value: string) {
+  try {
+    return Buffer.from(value, "base64").length;
+  } catch {
+    return 0;
+  }
 }

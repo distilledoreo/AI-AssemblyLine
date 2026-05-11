@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Buffer } from "node:buffer";
 import { resetConfigForTests } from "@/lib/config";
 
 const prismaMock = vi.hoisted(() => ({
@@ -39,7 +40,7 @@ describe("health checks", () => {
     process.env.REDIS_URL = "redis://localhost:6379";
     process.env.NEXTAUTH_URL = "http://localhost:3000";
     process.env.NEXTAUTH_SECRET = "test-secret-with-at-least-32-chars";
-    process.env.ENCRYPTION_KEY = "base64-test-key-with-at-least-32-chars";
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32, 4).toString("base64");
     process.env.OPENAI_API_KEY = "sk-live-health";
     process.env.STABILITY_API_KEY = "sk-stability-health";
     process.env.RUNWAYML_API_SECRET = "key_runway_health";
@@ -96,7 +97,7 @@ describe("health checks", () => {
     process.env.REDIS_URL = "redis://:secret@localhost:6379";
     process.env.NEXTAUTH_URL = "https://assemblyline.example.com";
     process.env.NEXTAUTH_SECRET = "production-secret-with-at-least-32-chars";
-    process.env.ENCRYPTION_KEY = "production-encryption-key-with-32-chars";
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32, 5).toString("base64");
     resetConfigForTests();
 
     prismaMock.$queryRaw.mockRejectedValue(new Error("password authentication failed for user assemblyline"));
