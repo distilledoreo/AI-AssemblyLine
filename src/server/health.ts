@@ -1,3 +1,5 @@
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 import IORedis from "ioredis";
 import { getConfig } from "@/lib/config";
 import { isLiveProviderApiKey } from "@/providers/providerKeySafety";
@@ -12,25 +14,35 @@ export type DependencyHealth = {
   error?: string;
 };
 
+export type StorageHealth = {
+  configured: boolean;
+  writable: boolean;
+  root: string;
+  error?: string;
+};
+
 export type AppHealthSnapshot = {
   status: "ok" | "degraded";
   database: DependencyHealth & { provider: "postgresql" };
   redis: DependencyHealth;
+  storage: StorageHealth;
   providerEnv: Record<LiveProviderSlug, { configured: boolean; envVar: string }>;
   storageRoot: string;
 };
 
 export async function getAppHealthSnapshot(): Promise<AppHealthSnapshot> {
   const config = getConfig();
-  const [database, redis] = await Promise.all([
+  const [database, redis, storage] = await Promise.all([
     checkDatabase(Boolean(config.DATABASE_URL)),
     checkRedis(config.REDIS_URL),
+    checkStorage(config.STORAGE_ROOT),
   ]);
 
   return {
-    status: database.reachable && redis.reachable ? "ok" : "degraded",
+    status: database.reachable && redis.reachable && storage.writable ? "ok" : "degraded",
     database: { provider: "postgresql", ...database },
     redis,
+    storage,
     providerEnv: checkProviderEnv(),
     storageRoot: config.STORAGE_ROOT,
   };
@@ -92,6 +104,28 @@ async function checkRedis(redisUrl: string): Promise<DependencyHealth> {
     };
   } finally {
     redis.disconnect();
+  }
+}
+
+async function checkStorage(storageRoot: string): Promise<StorageHealth> {
+  if (!storageRoot) {
+    return { configured: false, writable: false, root: "", error: "STORAGE_ROOT is not configured." };
+  }
+  const root = path.resolve(storageRoot);
+  const probePath = path.join(root, `.assemblyline-health-${process.pid}-${Date.now()}.tmp`);
+  try {
+    await mkdir(root, { recursive: true });
+    await writeFile(probePath, "ok", { flag: "wx" });
+    await rm(probePath, { force: true });
+    return { configured: true, writable: true, root };
+  } catch (error) {
+    await rm(probePath, { force: true }).catch(() => undefined);
+    return {
+      configured: true,
+      writable: false,
+      root,
+      error: healthErrorMessage(error, "Storage health check failed."),
+    };
   }
 }
 
