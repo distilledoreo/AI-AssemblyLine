@@ -1,5 +1,8 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { evaluateProductionPreflight } from "../../scripts/production-preflight";
+import { checkStorageRoot, evaluateProductionPreflight } from "../../scripts/production-preflight";
 
 const validEnv = {
   DATABASE_URL: "postgresql://assemblyline:assemblyline@localhost:5432/assemblyline",
@@ -44,7 +47,6 @@ describe("production preflight", () => {
         "REDIS_URL",
         "NEXTAUTH_SECRET length",
         "ENCRYPTION_KEY length",
-        "STORAGE_ROOT",
         "OPENAI_API_KEY",
         "STABILITY_API_KEY",
         "RUNWAYML_API_SECRET",
@@ -86,5 +88,30 @@ describe("production preflight", () => {
       ok: false,
       detail: "must be unset or redis for production",
     });
+  });
+
+  it("verifies the storage root is configured and writable", async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "assemblyline-preflight-"));
+    try {
+      await expect(checkStorageRoot(tempRoot)).resolves.toMatchObject({
+        name: "STORAGE_ROOT",
+        ok: true,
+      });
+
+      await expect(checkStorageRoot("")).resolves.toEqual({
+        name: "STORAGE_ROOT",
+        ok: false,
+        detail: "missing",
+      });
+
+      const filePath = path.join(tempRoot, "not-a-directory");
+      await writeFile(filePath, "already a file");
+      await expect(checkStorageRoot(filePath)).resolves.toMatchObject({
+        name: "STORAGE_ROOT",
+        ok: false,
+      });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
   });
 });

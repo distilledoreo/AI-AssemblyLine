@@ -31,7 +31,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 | Storyboard drawing library | Fabric.js is installed and the storyboard page exposes a canvas with draw/select/rectangle/text/clear/save controls. E2E saves rectangle markup through the storyboard API. | Passing for local workflow |
 | OAuth for app sign-in, OpenAI/ChatGPT, and Google AI Pro | Google/GitHub OAuth sign-in buttons now render on `/signin` when provider credentials are configured. Official OpenAI docs support OAuth for GPT Actions where ChatGPT authenticates to this app's API, not as a general way for this app to spend a user's ChatGPT subscription quota. Google Vertex AI supports Google Cloud authentication such as Application Default Credentials for production; Google sign-in and Google AI Pro subscriptions are not treated as model API quota. | App OAuth implemented; provider-quota boundaries documented |
 | OAuth production preflight | `npm run preflight:production` accepts omitted optional Google/GitHub OAuth providers but fails when only a client ID or only a client secret is configured, preventing half-configured OAuth sign-in from reaching production. `productionPreflight.test.ts` covers both omitted and partial OAuth configuration. | Passing |
-| Queue/storage production preflight | `npm run preflight:production` now requires `STORAGE_ROOT` and rejects `QUEUE_MODE=inline` or unknown queue modes for production. Leaving `QUEUE_MODE` unset is accepted because production defaults to Redis-backed queues. `productionPreflight.test.ts` covers redis, unset, and inline queue-mode cases. | Passing |
+| Queue/storage production preflight | `npm run preflight:production` now verifies that `STORAGE_ROOT` is configured and writable, and rejects `QUEUE_MODE=inline` or unknown queue modes for production. Leaving `QUEUE_MODE` unset is accepted because production defaults to Redis-backed queues. `productionPreflight.test.ts` covers writable, missing, and invalid storage roots plus redis, unset, and inline queue-mode cases. | Passing |
 | Production runtime verification | Postgres and Redis are not currently reachable on local default ports. | Blocked |
 
 ## Latest verification
@@ -72,7 +72,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Runway repeatable provider-poll processing now persists per-video GenerationJob failures and emits final project events instead of leaving the original video job stuck after the scheduler job catches a provider result error.
 - Runway repeatable provider-poll processing now leaves retriable rate-limit, timeout, and provider `5xx` failures in `polling` state so the next scheduled poll can retry instead of prematurely terminal-failing the video job.
 - `npm run smoke:providers` now runs OpenAI, Stability, and Runway live smoke checks as a single release gate while preserving the individual provider smoke commands for debugging.
-- `npm run preflight:production` now requires `STORAGE_ROOT` and rejects production `QUEUE_MODE=inline`; unset `QUEUE_MODE` remains valid because production defaults to Redis.
+- `npm run preflight:production` now verifies `STORAGE_ROOT` with a real mkdir/write/delete probe and rejects production `QUEUE_MODE=inline`; unset `QUEUE_MODE` remains valid because production defaults to Redis.
 - Workspace provider-key lookup and decryption failures now surface during OpenAI, Stability, and Runway credential resolution instead of falling back to server environment keys; fallback is reserved for genuinely absent workspace keys.
 - Storyboard frame, frame-version, review-note, shot-status, and related generation-job persistence now surface Prisma write failures instead of silently continuing after a missed production database write.
 - Video clip, clip-version, superseded-version, and related generation-job persistence now surface Prisma write failures instead of silently continuing after a missed production database write.
@@ -92,7 +92,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Project deletes now distinguish Prisma not-found records from real write failures, surfacing production database errors instead of misreporting every delete failure as `not_found`.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 36 files and 174 tests.
+- `npm test`: passing, 36 files and 175 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
@@ -100,7 +100,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - `prisma validate`: passing when `DATABASE_URL` is set for schema validation.
 - `npm run test:e2e`: passing, 1 Chromium workflow test.
 - `QUEUE_MODE=inline npm run worker`: exits cleanly with Redis disabled message.
-- `npm run preflight:production`: fails in this environment with 15 explicit blockers: missing production env vars including `STORAGE_ROOT`, missing real OpenAI/Stability/Runway keys, missing FFmpeg/ffprobe, and missing Postgres/Redis URLs. `QUEUE_MODE` passes because it is unset and production defaults to Redis.
+- `npm run preflight:production`: fails in this environment with 15 explicit blockers: missing production env vars, missing writable `STORAGE_ROOT`, missing real OpenAI/Stability/Runway keys, missing FFmpeg/ffprobe, and missing Postgres/Redis URLs. `QUEUE_MODE` passes because it is unset and production defaults to Redis.
 - `GET /api/health` against the live local dev server returns `503` with `status: "degraded"` and local dependency diagnostics. The current local server process still lacks `DATABASE_URL`, cannot reach Redis, and reports OpenAI/Stability/Runway fallback keys as unconfigured. Production responses redact raw dependency exception details by default.
 - Docker preflight: `docker --version` and `docker compose version` fail because Docker is not installed in this environment.
 - Local Postgres TCP check: failed on `127.0.0.1:5432`.

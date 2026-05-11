@@ -1,6 +1,8 @@
 import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
+import path from "node:path";
 
 type Env = Record<string, string | undefined>;
 type CheckResult = {
@@ -9,7 +11,7 @@ type CheckResult = {
   detail: string;
 };
 
-const requiredEnv = ["DATABASE_URL", "REDIS_URL", "NEXTAUTH_URL", "NEXTAUTH_SECRET", "ENCRYPTION_KEY", "STORAGE_ROOT"] as const;
+const requiredEnv = ["DATABASE_URL", "REDIS_URL", "NEXTAUTH_URL", "NEXTAUTH_SECRET", "ENCRYPTION_KEY"] as const;
 
 export function evaluateProductionPreflight(
   env: Env,
@@ -110,6 +112,7 @@ function oauthPairCheck(name: string, env: Env, clientIdKeys: string[], clientSe
 
 export async function runProductionPreflight(env: Env = process.env) {
   const results = evaluateProductionPreflight(env);
+  results.push(await checkStorageRoot(env.STORAGE_ROOT));
   results.push(await checkTcpUrl("Postgres TCP", env.DATABASE_URL));
   results.push(await checkTcpUrl("Redis TCP", env.REDIS_URL));
   return results;
@@ -145,6 +148,28 @@ async function checkTcpUrl(name: string, value: string | undefined): Promise<Che
     ok: reachable,
     detail: reachable ? `${host}:${port} reachable` : `${host}:${port} unreachable`,
   };
+}
+
+export async function checkStorageRoot(value: string | undefined): Promise<CheckResult> {
+  const configured = value?.trim();
+  if (!configured) {
+    return { name: "STORAGE_ROOT", ok: false, detail: "missing" };
+  }
+  const root = path.resolve(configured);
+  const probePath = path.join(root, `.assemblyline-preflight-${process.pid}-${Date.now()}.tmp`);
+  try {
+    await mkdir(root, { recursive: true });
+    await writeFile(probePath, "ok", { flag: "wx" });
+    await rm(probePath, { force: true });
+    return { name: "STORAGE_ROOT", ok: true, detail: `${root} writable` };
+  } catch (error) {
+    await rm(probePath, { force: true }).catch(() => undefined);
+    return {
+      name: "STORAGE_ROOT",
+      ok: false,
+      detail: error instanceof Error ? `not writable: ${error.message}` : "not writable",
+    };
+  }
 }
 
 function canConnect(host: string, port: number, timeoutMs: number) {
