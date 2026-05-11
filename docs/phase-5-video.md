@@ -20,7 +20,9 @@ Phase 5 adds video clip generation from approved storyboard frames.
 ## Provider, polling, and media behavior
 
 - Runway and Kling adapters implement the video provider contract and declare async polling capability.
-- Local verification uses deterministic mock video bytes; no real provider calls are made.
+- Local verification uses deterministic mock video bytes when no real provider keys are configured.
+- With a workspace Runway key or `RUNWAYML_API_SECRET`, shot and scene video generation can submit live Runway async video tasks, persist the returned provider task id, and finalize completed output through the Runway polling processor. Run `npm run smoke:runway` before enabling live Runway generation in production.
+- Kling remains development/test-only until a live Kling client and credentials are implemented; production use fails through the mock-provider guard instead of silently producing placeholder video.
 - Generation jobs store polling metadata matching `job-queue-design.md` defaults: 15 second interval and 120 max attempts.
 - Media inspection checks FFmpeg availability and falls back to placeholder metadata when FFmpeg is unavailable in local development.
 - Clip versions record source frame version IDs so downstream staleness can be tracked when storyboard frames are superseded.
