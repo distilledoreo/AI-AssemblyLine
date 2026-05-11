@@ -330,6 +330,24 @@ describe("Prisma repository mode", () => {
     expect(await repository.listProviderKeys(createdWorkspace.id)).toHaveLength(1);
   });
 
+  it("surfaces project update write failures that are not Prisma not-found errors", async () => {
+    const repository = await import("@/server/repository");
+    prismaMock.project.update.mockRejectedValue(new Error("project update write failed"));
+
+    await expect(
+      repository.updateProject("33333333-3333-4333-8333-333333333333", { title: "Retitled Project" }),
+    ).rejects.toThrow("project update write failed");
+  });
+
+  it("maps Prisma not-found project updates to the repository not-found error", async () => {
+    const repository = await import("@/server/repository");
+    prismaMock.project.update.mockRejectedValue({ code: "P2025" });
+
+    await expect(
+      repository.updateProject("33333333-3333-4333-8333-333333333333", { title: "Missing Project" }),
+    ).rejects.toMatchObject({ code: "not_found" });
+  });
+
   it("mirrors generation jobs and job events into Prisma in production repository mode", async () => {
     prismaMock.generationJob.create.mockResolvedValue({});
     prismaMock.generationJob.update.mockResolvedValue({});

@@ -3081,11 +3081,14 @@ export async function updateProject(
   input: Partial<Pick<Project, "title" | "targetFormat" | "aspectRatio" | "estimatedRuntime" | "rightsPolicy">>,
 ) {
   if (isPrismaRepositoryEnabled()) {
-    const project = await prisma.project.update({ where: { id: projectId }, data: input }).catch(() => undefined);
-    if (!project) {
+    try {
+      return mapProject(await prisma.project.update({ where: { id: projectId }, data: input }));
+    } catch (error) {
+      if (!isPrismaRecordNotFound(error)) {
+        throw error;
+      }
       throw new NotFoundError("Project not found.");
     }
-    return mapProject(project);
   }
   const project = await getProject(projectId);
   if (!project) {
@@ -3093,6 +3096,10 @@ export async function updateProject(
   }
   Object.assign(project, input, { updatedAt: nowIso() });
   return project;
+}
+
+function isPrismaRecordNotFound(error: unknown) {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: unknown }).code === "P2025");
 }
 
 export async function deleteProject(projectId: string) {
