@@ -124,6 +124,49 @@ describe("phase 7 export, import, operations, and adapters", () => {
     });
   });
 
+  it("rejects bundle manifests with broken graph references before importing records", async () => {
+    const { user } = await signInWithCredentials({ email: "broken-reference-import@example.com", password: "assemblyline" });
+    const bundleDir = projectFolderPath("broken-reference-project", "exports");
+    await mkdir(bundleDir, { recursive: true });
+    const brokenReferencePath = path.join(bundleDir, "broken-reference.assemblyline-bundle.json");
+    await writeFile(
+      brokenReferencePath,
+      JSON.stringify({
+        bundleVersion: 1,
+        exportedAt: new Date().toISOString(),
+        project: {
+          title: "Broken Reference",
+          targetFormat: "short",
+          aspectRatio: "16:9",
+          rightsPolicy: {},
+        },
+        graph: {
+          scripts: [],
+          scenes: [{ id: "scene-1", scriptVersionId: "version-1" }],
+          shots: [{ id: "shot-1", sceneId: "missing-scene" }],
+          assets: [],
+          assetDetails: [],
+          assetVersions: [],
+          assetReferences: [],
+          storyboardFrames: [],
+          frameVersions: [],
+          reviewNotes: [],
+          videoClips: [],
+          clipVersions: [],
+          sceneAssetRequirements: [],
+          shotAssetRequirements: [],
+        },
+        media: [],
+        importInstructions: [],
+      }),
+    );
+
+    await expect(importProjectBundle({ userId: user.id, manifestPath: brokenReferencePath })).rejects.toMatchObject({
+      code: "invalid_import_bundle",
+      status: 400,
+    });
+  });
+
   it("rejects import manifests outside storage or with the wrong extension", async () => {
     const { user } = await signInWithCredentials({ email: "unsafe-import@example.com", password: "assemblyline" });
 

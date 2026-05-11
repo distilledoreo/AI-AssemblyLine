@@ -182,6 +182,59 @@ function mapId(map: Map<string, string>, id: string | undefined) {
   return id ? map.get(id) ?? id : undefined;
 }
 
+function requireKnownId(knownIds: Set<string>, id: string | undefined, label: string) {
+  if (id && !knownIds.has(id)) {
+    throw new AppError(`Import bundle has an invalid ${label} reference.`, 400, "invalid_import_bundle");
+  }
+}
+
+function validateImportManifestReferences(manifest: ExportManifest) {
+  const graph = manifest.graph;
+  const scriptVersionIds = new Set<string>();
+  if (graph.activeVersion) {
+    scriptVersionIds.add(graph.activeVersion.id);
+  }
+  graph.scenes.forEach((scene) => scriptVersionIds.add(scene.scriptVersionId));
+  const sceneIds = new Set(graph.scenes.map((scene) => scene.id));
+  const shotIds = new Set(graph.shots.map((shot) => shot.id));
+  const assetIds = new Set(graph.assets.map((asset) => asset.id));
+  const assetVersionIds = new Set(graph.assetVersions.map((version) => version.id));
+  const frameIds = new Set(graph.storyboardFrames.map((frame) => frame.id));
+  const frameVersionIds = new Set(graph.frameVersions.map((version) => version.id));
+  const clipIds = new Set(graph.videoClips.map((clip) => clip.id));
+  const clipVersionIds = new Set(graph.clipVersions.map((version) => version.id));
+
+  graph.shots.forEach((shot) => requireKnownId(sceneIds, shot.sceneId, "shot scene"));
+  graph.assetDetails.forEach((detail) => requireKnownId(assetIds, detail.assetId, "asset detail asset"));
+  graph.assetVersions.forEach((version) => requireKnownId(assetIds, version.assetId, "asset version asset"));
+  graph.assetReferences.forEach((reference) => requireKnownId(assetVersionIds, reference.assetVersionId, "asset reference version"));
+  graph.sceneAssetRequirements.forEach((requirement) => {
+    requireKnownId(sceneIds, requirement.sceneId, "scene requirement scene");
+    requireKnownId(assetIds, requirement.assetId, "scene requirement asset");
+  });
+  graph.shotAssetRequirements.forEach((requirement) => {
+    requireKnownId(shotIds, requirement.shotId, "shot requirement shot");
+    requireKnownId(assetIds, requirement.assetId, "shot requirement asset");
+  });
+  graph.storyboardFrames.forEach((frame) => requireKnownId(shotIds, frame.shotId, "storyboard frame shot"));
+  graph.frameVersions.forEach((version) => requireKnownId(frameIds, version.frameId, "frame version frame"));
+  graph.videoClips.forEach((clip) => {
+    requireKnownId(shotIds, clip.shotId, "video clip shot");
+    requireKnownId(sceneIds, clip.sceneId, "video clip scene");
+  });
+  graph.clipVersions.forEach((version) => requireKnownId(clipIds, version.clipId, "clip version clip"));
+  graph.reviewNotes.forEach((note) => {
+    if (
+      !frameVersionIds.has(note.targetId) &&
+      !clipVersionIds.has(note.targetId) &&
+      !assetVersionIds.has(note.targetId)
+    ) {
+      throw new AppError("Import bundle has an invalid review note target reference.", 400, "invalid_import_bundle");
+    }
+  });
+  graph.scenes.forEach((scene) => requireKnownId(scriptVersionIds, scene.scriptVersionId, "scene script version"));
+}
+
 function resolveImportManifestPath(manifestPath: string) {
   const resolvedPath = path.resolve(manifestPath);
   const storageRoot = getStorageRoot();
@@ -224,6 +277,7 @@ export async function processImportProjectBundleJob(input: { userId: string; man
   if (manifest.bundleVersion !== BUNDLE_VERSION) {
     throw new AppError(`Unsupported bundle version ${manifest.bundleVersion}.`, 400, "unsupported_bundle_version");
   }
+  validateImportManifestReferences(manifest);
 
   const workspace = await createWorkspaceForUser(input.userId, { name: `Imported ${manifest.project.title}` });
   const project = await createProjectForWorkspace(input.userId, {
