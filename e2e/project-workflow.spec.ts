@@ -7,6 +7,11 @@ test("creator can run the core project workflow and export a bundle", async ({ p
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
   await expect(page.getByLabel("API key")).toHaveValue("");
+  const providerSelect = page.getByLabel("Provider", { exact: true });
+  await expect(providerSelect).toContainText("OpenAI");
+  await expect(providerSelect).toContainText("Stability");
+  await expect(providerSelect).toContainText("Runway");
+  await expect(providerSelect).not.toContainText("Replicate");
 
   const projectId = await page.evaluate(async () => {
     async function api(path: string, options: RequestInit = {}) {

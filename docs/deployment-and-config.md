@@ -49,7 +49,7 @@ Google and GitHub sign-in are optional. Configure both a client ID and client se
 
 ## API key encryption
 
-Provider API keys entered by users are encrypted before storage and decrypted only server-side when making provider API calls.
+Provider API keys entered by users are encrypted before storage and decrypted only server-side when making provider API calls. The key UI and API currently accept live credentials for OpenAI, Stability, and Runway only; development-only placeholder adapters do not accept saved production keys until a live client is implemented for that provider.
 
 ### Encryption scheme
 

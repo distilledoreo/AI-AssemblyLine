@@ -9,6 +9,7 @@ import type { Prisma } from "@prisma/client";
 import { emitProjectEvent } from "@/server/queue";
 import { submitGenerationJob } from "@/server/queue";
 import { prisma } from "@/server/prisma";
+import { isLiveProviderSlug } from "@/providers/liveProviderCatalog";
 import { ensureProjectStorage, projectStoragePath } from "@/server/storage";
 import type {
   GenerationJob,
@@ -3316,6 +3317,13 @@ export async function saveProviderKey(
   input: { providerSlug: string; apiKey: string; label?: string },
 ) {
   const providerSlug = input.providerSlug.trim().toLowerCase();
+  if (!isLiveProviderSlug(providerSlug)) {
+    throw new AppError(
+      "Provider keys are supported for OpenAI, Stability, and Runway.",
+      400,
+      "unsupported_provider",
+    );
+  }
   const apiKey = input.apiKey.trim();
   if (!providerSlug || apiKey.length < 3) {
     throw new AppError("Provider slug and API key are required.");

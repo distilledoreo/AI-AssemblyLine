@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LIVE_PROVIDER_SLUGS } from "@/providers/liveProviderCatalog";
 import { toErrorResponse } from "@/server/errors";
 import {
   getWorkspaceRole,
@@ -10,7 +11,7 @@ import { requireCurrentUser } from "@/server/session";
 
 const saveProviderKeySchema = z.object({
   workspaceId: z.string().uuid(),
-  providerSlug: z.string().min(2),
+  providerSlug: z.enum(LIVE_PROVIDER_SLUGS),
   apiKey: z.string().min(3),
   label: z.string().optional(),
 });

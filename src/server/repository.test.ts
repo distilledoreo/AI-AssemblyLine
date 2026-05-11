@@ -100,6 +100,21 @@ describe("foundation repository flows", () => {
     ).rejects.toMatchObject({ code: "provider_key_missing" });
   });
 
+  it("rejects provider keys for adapters that are not live-wired", async () => {
+    const { user } = await signInWithCredentials({
+      email: "unsupported-provider@example.com",
+      password: "assemblyline",
+    });
+    const workspace = await createWorkspaceForUser(user.id, { name: "Provider Guard" });
+
+    await expect(
+      saveProviderKey(workspace.id, {
+        providerSlug: "replicate",
+        apiKey: "r8-live-test",
+      }),
+    ).rejects.toMatchObject({ code: "unsupported_provider" });
+  });
+
   it("normalizes a hot-reloaded store created before later phase fields existed", () => {
     globalThis.__assemblyLineStore = { ...getStore(), scripts: undefined } as unknown as ReturnType<typeof getStore>;
 

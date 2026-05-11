@@ -207,7 +207,7 @@ export function DashboardClient({
               >
                 <option value="openai">OpenAI</option>
                 <option value="stability">Stability</option>
-                <option value="replicate">Replicate</option>
+                <option value="runway">Runway</option>
               </select>
             </div>
             <div className="field">
