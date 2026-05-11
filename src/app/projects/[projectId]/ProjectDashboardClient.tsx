@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { StoryboardMarkupCanvas } from "@/app/projects/[projectId]/StoryboardMarkupCanvas";
+import { formatOperationsLoadError } from "@/app/projects/[projectId]/operationsStatus";
 import { Activity, Archive, Brush, FileUp, Film, Gauge, GitBranch, HardDrive, Images, Lock, Radio, RefreshCw, Save, Sparkles } from "lucide-react";
 import type {
   Asset,
@@ -82,6 +83,7 @@ export function ProjectDashboardClient({
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [operations, setOperations] = useState<OperationsPayload | null>(null);
+  const [operationsError, setOperationsError] = useState("");
 
   useEffect(() => {
     const source = new EventSource(`/api/projects/${project.id}/events`);
@@ -110,11 +112,22 @@ export function ProjectDashboardClient({
 
   useEffect(() => {
     fetch(`/api/projects/${project.id}/operations`)
-      .then((response) => (response.ok ? response.json() : null))
-      .then((body) => {
-        if (body) setOperations(body);
+      .then(async (response) => {
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          throw new Error(formatOperationsLoadError(response.status, body?.error?.message));
+        }
+        return response.json();
       })
-      .catch(() => undefined);
+      .then((body) => {
+        setOperations(body);
+        setOperationsError("");
+      })
+      .catch((loadError) => {
+        setOperations(null);
+        const message = loadError instanceof Error ? loadError.message : "Request failed.";
+        setOperationsError(message.startsWith("Operations panel unavailable.") ? message : formatOperationsLoadError(undefined, message));
+      });
   }, [project.id]);
 
   async function uploadScript() {
@@ -779,7 +792,7 @@ export function ProjectDashboardClient({
             <li className="list-item">
               <span>Storage</span>
               <span className="meta">
-                {operations ? `${operations.storage.fileCount} files · ${operations.storage.warningLevel}` : "calculating"}
+                {operationsError || (operations ? `${operations.storage.fileCount} files · ${operations.storage.warningLevel}` : "calculating")}
               </span>
             </li>
             <li className="list-item">

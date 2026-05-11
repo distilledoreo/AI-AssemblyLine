@@ -62,6 +62,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Worker failure persistence now surfaces GenerationJob lookup failures instead of treating production database read errors as absent job state.
 - Queue health now reports per-queue `healthError` values when BullMQ count/failure reads fail, and the operations panel displays those errors instead of presenting fallback zeros as healthy data.
 - `GET /api/health/workers` now returns `503` with `status: "degraded"` when any queue reports a health error.
+- The operations panel now surfaces `/api/projects/{projectId}/operations` load failures in the UI instead of silently hiding storage, queue, and adapter diagnostics.
 - Queue health now reports delayed/completed counts and up to 10 recent failed BullMQ jobs per Redis-backed queue; the operations panel surfaces queue health and recent failure summaries.
 - Redis workers now support optional BullMQ worker rate limiters through global `QUEUE_RATE_LIMIT_MAX`/`QUEUE_RATE_LIMIT_DURATION_MS` settings or per-queue overrides such as `IMAGE_QUEUE_RATE_LIMIT_MAX`/`IMAGE_QUEUE_RATE_LIMIT_DURATION_MS`; queue health and the operations panel expose configured limits.
 - Job lifecycle repository calls now await Prisma `GenerationJob` and `JobEvent` writes before queue submission, completion returns, or SSE publication, so production failures surface instead of creating orphaned queue work or unpublished persisted events.
@@ -85,7 +86,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Project deletes now distinguish Prisma not-found records from real write failures, surfacing production database errors instead of misreporting every delete failure as `not_found`.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 34 files and 165 tests.
+- `npm test`: passing, 35 files and 167 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
