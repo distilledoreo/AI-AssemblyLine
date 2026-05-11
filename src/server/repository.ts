@@ -2967,7 +2967,7 @@ export async function persistAssetVersionState(version: AssetVersion) {
       status: version.status,
       createdAt: new Date(version.createdAt),
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistAssetVersionAndReference(input: {
@@ -2998,7 +2998,7 @@ export async function persistAssetVersionAndReference(input: {
       thumbnailPath: input.reference.thumbnailPath,
       generationJobId: input.reference.generationJobId,
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistSceneAssetRequirement(input: SceneAssetRequirement) {

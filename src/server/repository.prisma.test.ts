@@ -1323,6 +1323,34 @@ describe("Prisma repository mode", () => {
     });
   });
 
+  it("rejects Asset Bible reference persistence when the reference write fails", async () => {
+    const repository = await import("@/server/repository");
+    const version = {
+      id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      assetId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      versionNumber: 1,
+      description: "Uploaded reference.",
+      status: "draft" as const,
+      createdAt: timestamp.toISOString(),
+    };
+    const reference = {
+      id: "abababab-abab-4aba-8aba-abababababab",
+      assetVersionId: version.id,
+      referenceType: "front" as const,
+      filePath: "storage/projects/project/assets/reference.png",
+      mimeType: "image/png",
+      thumbnailPath: "storage/projects/project/assets/reference.png",
+      createdAt: timestamp.toISOString(),
+    };
+
+    prismaMock.assetVersion.create.mockResolvedValue(version);
+    prismaMock.assetReference.create.mockRejectedValue(new Error("asset reference write failed"));
+
+    await expect(repository.persistAssetVersionAndReference({ version, reference })).rejects.toThrow(
+      "asset reference write failed",
+    );
+  });
+
   it("persists typed Asset Bible details through Prisma", async () => {
     const repository = await import("@/server/repository");
     const asset = {
