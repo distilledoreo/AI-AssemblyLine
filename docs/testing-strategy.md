@@ -78,6 +78,8 @@ The checked-in GitHub Actions workflow at `.github/workflows/ci.yml` runs on pul
 
 The workflow also includes a production infrastructure preflight job with real GitHub Actions Postgres 16 and Redis 7 service containers. That job installs dependencies, generates the Prisma client, applies checked-in Prisma migrations with `npm run prisma:migrate:deploy`, runs `NODE_ENV=production npm run preflight:production` against the live service ports and writable CI storage, and then runs `npm run smoke:redis-queue`. The Redis smoke submits a script-analysis job through BullMQ, reads the Redis-backed queue health snapshot, publishes a project event, and confirms that the same Redis pub/sub path used by the SSE endpoint receives it. It uses synthetic non-secret provider-key strings only to exercise the production preflight key-shape gate; live OpenAI, Stability, Runway, and Google AI API calls remain restricted to the explicit smoke commands outside automated CI.
 
+Live provider API verification is available as the manual GitHub Actions workflow `.github/workflows/live-provider-smoke.yml`. It is intentionally `workflow_dispatch` only, sources provider credentials from repository secrets, and runs `npm run smoke:providers`. The normal pull-request and `main` workflows remain keyless and never call provider APIs.
+
 ## What to test per phase
 
 | Phase               | Test focus                                                                                       |

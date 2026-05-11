@@ -136,6 +136,8 @@ Run `NODE_ENV=production npm run preflight:production` before release. The prefl
 
 Run `npm run smoke:providers` with real provider keys before enabling providers in production. Like the production preflight, provider smoke commands load `.env`, `.env.production`, `.env.local`, and `.env.production.local` while preserving exported shell overrides. The combined command runs the OpenAI, Stability, Runway, and Google AI / Veo smoke checks in one release gate and prints only non-secret result metadata. You can also run `npm run smoke:openai`, `npm run smoke:stability`, `npm run smoke:runway`, or `npm run smoke:google-veo` individually while debugging a provider. These commands make small live API calls. The Runway and Google AI smoke commands submit short async video tasks and print the returned provider task or operation id; they do not wait for final video output.
 
+The repository also includes a manual GitHub Actions workflow named **Live Provider Smoke**. Configure `OPENAI_API_KEY`, `STABILITY_API_KEY`, `RUNWAYML_API_SECRET`, and either `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY` as GitHub Actions secrets, then run that workflow from the Actions tab or with `gh workflow run live-provider-smoke.yml`. Optional model overrides can be set as Actions variables: `OPENAI_SMOKE_MODEL`, `STABILITY_SMOKE_MODEL`, `RUNWAY_SMOKE_MODEL`, and `GOOGLE_VEO_SMOKE_MODEL`.
+
 To exercise BullMQ locally, set `QUEUE_MODE=redis`, make sure Redis is reachable at `REDIS_URL`, and run the worker in a second terminal:
 
 ```bash

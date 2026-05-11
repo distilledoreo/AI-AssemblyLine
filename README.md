@@ -60,7 +60,7 @@ Phase 7 export/import and polish implementation is underway. The repository now 
 
 The [implementation roadmap](docs/implementation-roadmap.md) remains the build order across seven phases. Each phase must be implemented, documented, tested, run, verified, committed, and pushed before the next phase begins.
 
-GitHub Actions runs the non-secret verification gates on pull requests and pushes to `main`: dependency installation, Prisma generation and schema validation, dependency audit, Vitest, lint, production build, and Playwright E2E. Live provider smoke tests and production preflight still require real deployment secrets and external services.
+GitHub Actions runs the non-secret verification gates on pull requests and pushes to `main`: dependency installation, Prisma generation and schema validation, dependency audit, Vitest, lint, production build, and Playwright E2E. The manual **Live Provider Smoke** workflow runs `npm run smoke:providers` with `OPENAI_API_KEY`, `STABILITY_API_KEY`, `RUNWAYML_API_SECRET`, and `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY` from GitHub secrets. Production preflight still requires real deployment secrets and external services.
 
 ## Local development
 
