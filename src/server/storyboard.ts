@@ -8,7 +8,6 @@ import {
   getFrameVersionById,
   getProjectDashboard,
   getScriptAnalysisGraphForProject,
-  getStore,
   markGenerationJobRunning,
   persistClipVersionState,
   persistFrameVersionState,
@@ -21,7 +20,7 @@ import { resolveOpenAiApiKeyForProject } from "@/server/providerKeys";
 import { composeStoryboardPrompt } from "@/server/promptEngine";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
-import type { ClipVersion, FrameVersion, ReviewNote, StoryboardFrame } from "@/server/types";
+import type { FrameVersion, ReviewNote } from "@/server/types";
 
 export async function generateStoryboardFrame(input: {
   projectId: string;
@@ -72,7 +71,6 @@ export async function processStoryboardFrameJob(input: {
   userDirection?: string;
   jobId: string;
 }) {
-  const store = getStore();
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const shot = graph.shots.find((candidate) => candidate.id === input.shotId);
   if (!shot) throw new NotFoundError("Shot not found.");
@@ -83,18 +81,17 @@ export async function processStoryboardFrameJob(input: {
   if (!scene) throw new NotFoundError("Scene not found.");
   const job = await markGenerationJobRunning(input.jobId);
   if (!job) throw new NotFoundError("Generation job not found.");
-  let frame =
-    graph.storyboardFrames.find((candidate) => candidate.shotId === shot.id && candidate.keyframeIndex === input.keyframeIndex) ??
-    store.storyboardFrames.find((candidate) => candidate.shotId === shot.id && candidate.keyframeIndex === input.keyframeIndex);
+  let frame = graph.storyboardFrames.find(
+    (candidate) => candidate.shotId === shot.id && candidate.keyframeIndex === input.keyframeIndex,
+  );
   const timestamp = nowIso();
   if (!frame) {
     frame = { id: createId(), shotId: shot.id, keyframeIndex: input.keyframeIndex, createdAt: timestamp, updatedAt: timestamp };
   }
-  mirrorStoryboardFrameForLegacyState(frame);
   const requiredAssetIds = new Set(graph.shotAssetRequirements.filter((req) => req.shotId === shot.id).map((req) => req.assetId));
   const dashboard = await getProjectDashboard(input.projectId);
   const prompt = composeStoryboardPrompt({
-    style: dashboard?.style ?? store.projectStyles.find((style) => style.projectId === input.projectId),
+    style: dashboard.style,
     scene,
     shot,
     assets: graph.assets.filter((asset) => requiredAssetIds.has(asset.id)),
@@ -106,7 +103,7 @@ export async function processStoryboardFrameJob(input: {
     height: 576,
     count: 1,
   });
-  const versionNumber = nextFrameVersionNumber(frame.id, [...store.frameVersions, ...graph.frameVersions]);
+  const versionNumber = nextFrameVersionNumber(frame.id, graph.frameVersions);
   const dir = path.join(projectFolderPath(input.projectId, "storyboards"), shot.id);
   await mkdir(dir, { recursive: true });
   const filePath = path.join(dir, `frame-${input.keyframeIndex + 1}-v${versionNumber}.png`);
@@ -123,7 +120,6 @@ export async function processStoryboardFrameJob(input: {
     generationJobId: job.id,
     createdAt: timestamp,
   };
-  store.frameVersions.push(version);
   shot.status = "storyboarded";
   await persistGeneratedFrameVersion({ frame, version, shot });
   await completeGenerationJob(job.id, { status: "complete", outputPayload: { frameId: frame.id, frameVersionId: version.id } });
@@ -136,27 +132,19 @@ export async function updateFrameVersion(input: {
   status?: FrameVersion["status"];
   annotations?: Record<string, unknown>;
 }) {
-  const store = getStore();
   const version = await getFrameVersionById(input.frameVersionId);
   if (!version) throw new NotFoundError("Frame version not found.");
-  mirrorFrameVersionForLegacyState(version);
   if (input.status === "approved") {
     const graph = await getScriptAnalysisGraphForProject(input.projectId);
-    const priorApprovedVersions = [
-      ...graph.frameVersions,
-      ...store.frameVersions.filter((candidate) => !graph.frameVersions.some((graphVersion) => graphVersion.id === candidate.id)),
-    ].filter((candidate) => candidate.id !== version.id && candidate.frameId === version.frameId && candidate.status === "approved");
-    const knownClipVersions = [
-      ...graph.clipVersions,
-      ...store.clipVersions.filter((candidate) => !graph.clipVersions.some((graphVersion) => graphVersion.id === candidate.id)),
-    ];
+    const priorApprovedVersions = graph.frameVersions.filter(
+      (candidate) => candidate.id !== version.id && candidate.frameId === version.frameId && candidate.status === "approved",
+    );
     for (const candidate of priorApprovedVersions) {
       candidate.status = "superseded";
-      mirrorFrameVersionForLegacyState(candidate);
-      for (const clipVersion of knownClipVersions.filter((known) => known.sourceFrameVersionIds.includes(candidate.id))) {
+      await persistFrameVersionState(candidate);
+      for (const clipVersion of graph.clipVersions.filter((known) => known.sourceFrameVersionIds.includes(candidate.id))) {
         clipVersion.status = "stale";
         clipVersion.isStale = true;
-        mirrorClipVersionForLegacyState(clipVersion);
         await persistClipVersionState(clipVersion);
       }
     }
@@ -176,18 +164,14 @@ export async function attachSketch(input: {
   if (!["image/png", "image/jpeg", "image/webp", "image/tiff"].includes(input.mimeType)) {
     throw new AppError("Unsupported sketch format. Use PNG, JPEG, WebP, or TIFF.", 400, "unsupported_sketch");
   }
-  const store = getStore();
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const shot = graph.shots.find((candidate) => candidate.id === input.shotId);
   if (!shot) throw new NotFoundError("Shot not found.");
   const timestamp = nowIso();
-  let frame =
-    graph.storyboardFrames.find((candidate) => candidate.shotId === input.shotId && candidate.keyframeIndex === 0) ??
-    store.storyboardFrames.find((candidate) => candidate.shotId === input.shotId && candidate.keyframeIndex === 0);
+  let frame = graph.storyboardFrames.find((candidate) => candidate.shotId === input.shotId && candidate.keyframeIndex === 0);
   if (!frame) {
     frame = { id: createId(), shotId: input.shotId, keyframeIndex: 0, createdAt: timestamp, updatedAt: timestamp };
   }
-  mirrorStoryboardFrameForLegacyState(frame);
   const dir = path.join(projectFolderPath(input.projectId, "storyboards"), input.shotId);
   await mkdir(dir, { recursive: true });
   const filePath = path.join(dir, `sketch-${input.fileName.replace(/[^a-z0-9._-]/gi, "_")}`);
@@ -217,29 +201,22 @@ export async function addFrameComment(input: {
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
-  getStore().reviewNotes.push(note);
   await persistReviewNoteState(note);
   return note;
 }
 
 export async function markFramesStaleForAsset(projectId: string, assetId: string) {
-  const store = getStore();
   const graph = await getScriptAnalysisGraphForProject(projectId);
   const affectedShotIds = new Set(
     graph.shotAssetRequirements.filter((req) => req.assetId === assetId).map((req) => req.shotId),
   );
   const affectedFrameIds = new Set(
-    [
-      ...graph.storyboardFrames,
-      ...store.storyboardFrames.filter((frame) => !graph.storyboardFrames.some((candidate) => candidate.id === frame.id)),
-    ].filter((frame) => affectedShotIds.has(frame.shotId)).map((frame) => frame.id),
+    graph.storyboardFrames.filter((frame) => affectedShotIds.has(frame.shotId)).map((frame) => frame.id),
   );
-  const staleVersions = [
-    ...graph.frameVersions,
-    ...store.frameVersions.filter((version) => !graph.frameVersions.some((candidate) => candidate.id === version.id)),
-  ].filter((version) => affectedFrameIds.has(version.frameId) && version.status === "approved");
+  const staleVersions = graph.frameVersions.filter(
+    (version) => affectedFrameIds.has(version.frameId) && version.status === "approved",
+  );
   for (const version of staleVersions) {
-    mirrorFrameVersionForLegacyState(version);
     version.status = "stale";
     version.isStale = true;
     await persistFrameVersionState(version);
@@ -250,25 +227,4 @@ function nextFrameVersionNumber(frameId: string, knownVersions: FrameVersion[]) 
   return knownVersions
     .filter((version) => version.frameId === frameId)
     .reduce((max, version) => Math.max(max, version.versionNumber), 0) + 1;
-}
-
-function mirrorStoryboardFrameForLegacyState(frame: StoryboardFrame) {
-  const store = getStore();
-  if (!store.storyboardFrames.some((candidate) => candidate.id === frame.id)) {
-    store.storyboardFrames.push(frame);
-  }
-}
-
-function mirrorFrameVersionForLegacyState(version: FrameVersion) {
-  const store = getStore();
-  if (!store.frameVersions.some((candidate) => candidate.id === version.id)) {
-    store.frameVersions.push(version);
-  }
-}
-
-function mirrorClipVersionForLegacyState(version: ClipVersion) {
-  const store = getStore();
-  if (!store.clipVersions.some((candidate) => candidate.id === version.id)) {
-    store.clipVersions.push(version);
-  }
 }

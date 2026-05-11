@@ -2382,6 +2382,14 @@ export async function persistProjectStyleState(style: ProjectStyle) {
 }
 
 export async function persistStoryboardFrameState(frame: StoryboardFrame) {
+  const store = getStore();
+  const existing = store.storyboardFrames.find((candidate) => candidate.id === frame.id);
+  if (existing) {
+    Object.assign(existing, frame);
+  } else {
+    store.storyboardFrames.push(frame);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2411,6 +2419,21 @@ export async function persistGeneratedFrameVersion(input: {
   version: FrameVersion;
   shot: Shot;
 }) {
+  const store = getStore();
+  const existingFrame = store.storyboardFrames.find((candidate) => candidate.id === input.frame.id);
+  if (existingFrame) {
+    Object.assign(existingFrame, input.frame);
+  } else {
+    store.storyboardFrames.push(input.frame);
+  }
+  const existingShot = store.shots.find((candidate) => candidate.id === input.shot.id);
+  if (existingShot) {
+    Object.assign(existingShot, input.shot);
+  }
+  if (!store.frameVersions.some((candidate) => candidate.id === input.version.id)) {
+    store.frameVersions.push(input.version);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2444,6 +2467,21 @@ export async function persistGeneratedFrameVersion(input: {
 }
 
 export async function persistFrameVersionState(version: FrameVersion) {
+  const store = getStore();
+  if (version.status === "approved") {
+    store.frameVersions
+      .filter((candidate) => candidate.frameId === version.frameId && candidate.status === "approved" && candidate.id !== version.id)
+      .forEach((candidate) => {
+        candidate.status = "superseded";
+      });
+  }
+  const existing = store.frameVersions.find((candidate) => candidate.id === version.id);
+  if (existing) {
+    Object.assign(existing, version);
+  } else {
+    store.frameVersions.push(version);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2464,6 +2502,11 @@ export async function persistFrameVersionState(version: FrameVersion) {
 }
 
 export async function persistReviewNoteState(note: ReviewNote) {
+  const store = getStore();
+  if (!store.reviewNotes.some((candidate) => candidate.id === note.id)) {
+    store.reviewNotes.push(note);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
