@@ -4,7 +4,9 @@ import { z } from "zod";
 const configSchema = z.object({
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
-  NEXTAUTH_URL: z.string().url(),
+  NEXTAUTH_URL: z.string().url().refine((value) => process.env.NODE_ENV !== "production" || isProductionAuthOrigin(value), {
+    message: "must be an https origin URL outside localhost",
+  }),
   NEXTAUTH_SECRET: z.string().min(32),
   ENCRYPTION_KEY: z.string().refine((value) => decodeBase64Length(value) === 32, {
     message: "must decode to exactly 32 bytes",
@@ -54,5 +56,17 @@ function decodeBase64Length(value: string) {
     return Buffer.from(value, "base64").length;
   } catch {
     return 0;
+  }
+}
+
+function isProductionAuthOrigin(value: string) {
+  try {
+    const url = new URL(value);
+    const localHosts = new Set(["localhost", "127.0.0.1", "::1"]);
+    const isLocal = localHosts.has(url.hostname);
+    const hasOnlyOriginPath = !url.pathname || url.pathname === "/";
+    return (url.protocol === "https:" || isLocal) && hasOnlyOriginPath && !url.search && !url.hash;
+  } catch {
+    return false;
   }
 }

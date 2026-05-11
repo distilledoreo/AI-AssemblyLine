@@ -33,4 +33,22 @@ describe("runtime config", () => {
 
     expect(() => getConfig()).toThrow(/ENCRYPTION_KEY/);
   });
+
+  it("rejects insecure or deep-link NEXTAUTH_URL values in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    for (const [key, value] of Object.entries({ ...validEnv, NEXTAUTH_URL: "http://assemblyline.example.com/signin" })) {
+      vi.stubEnv(key, value);
+    }
+
+    expect(() => getConfig()).toThrow(/NEXTAUTH_URL/);
+  });
+
+  it("allows localhost HTTP NEXTAUTH_URL values for local production verification", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    for (const [key, value] of Object.entries({ ...validEnv, NEXTAUTH_URL: "http://localhost:3000" })) {
+      vi.stubEnv(key, value);
+    }
+
+    expect(getConfig().NEXTAUTH_URL).toBe("http://localhost:3000");
+  });
 });
