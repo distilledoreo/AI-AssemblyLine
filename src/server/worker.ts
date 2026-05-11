@@ -133,7 +133,7 @@ async function processMediaJob(job: Job<WorkerJobData>) {
   });
 }
 
-export function startGenerationWorkers() {
+export async function startGenerationWorkers() {
   if (!isRedisQueueEnabled()) {
     return { started: false, workers: [] };
   }
@@ -144,8 +144,8 @@ export function startGenerationWorkers() {
     createGenerationWorker("media", withFailurePersistence(processMediaJob)),
     createGenerationWorker("project", withFailurePersistence(processProjectJob)),
   ].filter(Boolean);
-  void scheduleProviderPollJob("video", Number(process.env.PROVIDER_POLL_INTERVAL_MS) || 15000);
-  return { started: workers.length > 0, workers };
+  const providerPollSchedule = await scheduleProviderPollJob("video", Number(process.env.PROVIDER_POLL_INTERVAL_MS) || 15000);
+  return { started: workers.length > 0, workers, providerPollSchedule };
 }
 
 function withFailurePersistence<T extends WorkerJobData>(processor: Processor<T>): Processor<T> {
@@ -226,10 +226,16 @@ function readStatus(error: unknown) {
 }
 
 if (process.argv[1]?.endsWith("worker.ts")) {
-  const result = startGenerationWorkers();
-  if (!result.started) {
-    console.warn("AI AssemblyLine workers did not start because Redis queue mode is disabled.");
-  } else {
-    console.log(`AI AssemblyLine workers started: ${result.workers.length}`);
-  }
+  startGenerationWorkers()
+    .then((result) => {
+      if (!result.started) {
+        console.warn("AI AssemblyLine workers did not start because Redis queue mode is disabled.");
+      } else {
+        console.log(`AI AssemblyLine workers started: ${result.workers.length}`);
+      }
+    })
+    .catch((error) => {
+      console.error(error);
+      process.exitCode = 1;
+    });
 }

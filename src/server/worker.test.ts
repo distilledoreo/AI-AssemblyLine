@@ -35,12 +35,13 @@ describe("worker bootstrap", () => {
     vi.resetModules();
     vi.clearAllMocks();
     workerMocks.isRedisQueueEnabled.mockReturnValue(true);
+    workerMocks.scheduleProviderPollJob.mockResolvedValue({ scheduled: true, queueName: "assemblyline-video" });
     workerMocks.getGenerationJob.mockResolvedValue(undefined);
   });
 
   it("starts a BullMQ worker for every executable queue, including media utilities", async () => {
     const { startGenerationWorkers } = await import("@/server/worker");
-    const result = startGenerationWorkers();
+    const result = await startGenerationWorkers();
 
     expect(result.started).toBe(true);
     expect(workerMocks.createGenerationWorker.mock.calls.map((call) => call[0])).toEqual([
@@ -51,11 +52,19 @@ describe("worker bootstrap", () => {
       "project",
     ]);
     expect(workerMocks.scheduleProviderPollJob).toHaveBeenCalledWith("video", 15000);
+    expect(result.providerPollSchedule).toEqual({ scheduled: true, queueName: "assemblyline-video" });
+  });
+
+  it("surfaces provider poll scheduler failures during worker startup", async () => {
+    workerMocks.scheduleProviderPollJob.mockRejectedValue(new Error("provider poll schedule failed"));
+    const { startGenerationWorkers } = await import("@/server/worker");
+
+    await expect(startGenerationWorkers()).rejects.toThrow("provider poll schedule failed");
   });
 
   it("routes media BullMQ jobs to the media utility processor", async () => {
     const { startGenerationWorkers } = await import("@/server/worker");
-    startGenerationWorkers();
+    await startGenerationWorkers();
     const mediaProcessor = workerMocks.createGenerationWorker.mock.calls.find((call) => call[0] === "media")?.[1];
     if (!mediaProcessor) {
       throw new Error("Expected media processor registration.");
@@ -87,7 +96,7 @@ describe("worker bootstrap", () => {
 
   it("persists GenerationJob failure state when a worker processor throws", async () => {
     const { startGenerationWorkers } = await import("@/server/worker");
-    startGenerationWorkers();
+    await startGenerationWorkers();
     const analysisProcessor = workerMocks.createGenerationWorker.mock.calls.find((call) => call[0] === "analysis")?.[1];
     if (!analysisProcessor) {
       throw new Error("Expected analysis processor registration.");
@@ -125,7 +134,7 @@ describe("worker bootstrap", () => {
 
   it("surfaces GenerationJob lookup failures before persisting worker failure state", async () => {
     const { startGenerationWorkers } = await import("@/server/worker");
-    startGenerationWorkers();
+    await startGenerationWorkers();
     const analysisProcessor = workerMocks.createGenerationWorker.mock.calls.find((call) => call[0] === "analysis")?.[1];
     if (!analysisProcessor) {
       throw new Error("Expected analysis processor registration.");
