@@ -2519,7 +2519,7 @@ export async function persistAssetDetailState(asset: Asset, detail: AssetDetail)
         movementNotes: detail.movementNotes,
         textureDetails: detail.textureDetails,
       },
-    }).catch(() => undefined);
+    });
   }
   if (asset.type === "prop") {
     await prisma.propDetail.upsert({
@@ -2537,7 +2537,7 @@ export async function persistAssetDetailState(asset: Asset, detail: AssetDetail)
         scaleReference: detail.scaleReference,
         interactionNotes: detail.interactionNotes,
       },
-    }).catch(() => undefined);
+    });
   }
 }
 

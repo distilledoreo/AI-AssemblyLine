@@ -1399,6 +1399,32 @@ describe("Prisma repository mode", () => {
     });
   });
 
+  it("rejects typed Asset Bible detail persistence when the Prisma detail write fails", async () => {
+    const repository = await import("@/server/repository");
+    const asset = {
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      type: "prop" as const,
+      canonicalName: "Key",
+      aliases: [],
+      status: "draft" as const,
+      isUserEdited: true,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const detail = {
+      assetId: asset.id,
+      ownerOrScene: "Anna",
+      materialAndWear: "Brass with worn teeth.",
+      updatedAt: timestamp.toISOString(),
+    };
+
+    prismaMock.asset.update.mockResolvedValue(asset);
+    prismaMock.propDetail.upsert.mockRejectedValue(new Error("prop detail write failed"));
+
+    await expect(repository.persistAssetDetailState(asset, detail)).rejects.toThrow("prop detail write failed");
+  });
+
   it("persists project style updates through Prisma", async () => {
     const repository = await import("@/server/repository");
     const style = {
