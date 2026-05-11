@@ -17,6 +17,7 @@ import {
   persistAssetVersionState,
   persistAssetVersionAndReference,
   persistProjectStyleState,
+  refreshLocalReadiness,
   refreshPrismaReadiness,
 } from "@/server/repository";
 import { isRedisQueueEnabled } from "@/server/queue";
@@ -218,7 +219,7 @@ export async function transitionAssetStatus(assetId: string, status: AssetStatus
   if (wasApproved && !["approved", "locked"].includes(status)) {
     await markFramesStaleForAsset(asset.projectId, asset.id);
   }
-  refreshReadiness(asset.projectId);
+  refreshLocalReadiness(asset.projectId);
   await persistAssetState(asset);
   await refreshPrismaReadiness(asset.projectId);
   return asset;
@@ -233,7 +234,7 @@ export async function mergeAssets(sourceAssetId: string, targetAssetId: string) 
   target.aliases = Array.from(new Set([...target.aliases, source.canonicalName, ...source.aliases]));
   source.status = "superseded";
   source.updatedAt = nowIso();
-  refreshReadiness(target.projectId);
+  refreshLocalReadiness(target.projectId);
   await persistAssetMergeState({ source, target });
   await refreshPrismaReadiness(target.projectId);
   return target;
@@ -298,22 +299,4 @@ async function resolveProjectAsset(projectId: string, assetId: string, graph: Sc
     throw new NotFoundError("Asset not found.");
   }
   return asset;
-}
-
-function refreshReadiness(projectId: string) {
-  const store = globalThis.__assemblyLineStore;
-  if (!store) {
-    return;
-  }
-  const approvedAssetIds = new Set(
-    store.assets.filter((asset) => asset.projectId === projectId && ["approved", "locked"].includes(asset.status)).map((asset) => asset.id),
-  );
-  for (const scene of store.scenes) {
-    const reqs = store.sceneAssetRequirements.filter((req) => req.sceneId === scene.id && !req.isOptional);
-    scene.status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
-  }
-  for (const shot of store.shots) {
-    const reqs = store.shotAssetRequirements.filter((req) => req.shotId === shot.id && !req.isOptional);
-    shot.status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
-  }
 }

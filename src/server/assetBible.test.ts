@@ -56,6 +56,20 @@ describe("asset bible lifecycle", () => {
     expect(updated.assets.find((candidate) => candidate.id === asset.id)?.status).toBe("approved");
   });
 
+  it("refreshes scene and shot readiness when required assets are approved", async () => {
+    const graph = await analyzedProject();
+    expect(graph.scenes.map((scene) => scene.status)).toContain("blocked");
+    expect(graph.shots.map((shot) => shot.status)).toContain("blocked");
+
+    for (const asset of graph.assets) {
+      await transitionAssetStatus(asset.id, "approved");
+    }
+
+    const updated = getScriptAnalysisGraph(graph.assets[0].projectId);
+    expect(updated.scenes.every((scene) => scene.status === "ready")).toBe(true);
+    expect(updated.shots.every((shot) => shot.status === "ready")).toBe(true);
+  });
+
   it("validates reference uploads and supports split/merge corrections", async () => {
     const graph = await analyzedProject();
     const asset = graph.assets[0];
