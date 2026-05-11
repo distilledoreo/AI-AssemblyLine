@@ -1,9 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { OpenAIAdapter } from "@/providers/openai";
 import { createMockAdapter } from "@/providers/mockFactory";
 import { StabilityAdapter } from "@/providers/stability";
 
 describe("provider adapters", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("implements the OpenAI text and image adapter contracts in mock verification mode", async () => {
     const adapter = new OpenAIAdapter("mock");
     const text = await adapter.generateStructuredOutput("Break down this script.", {}, {
@@ -95,6 +99,27 @@ describe("provider adapters", () => {
       errorClass: "rate_limit",
       status: 429,
     });
+  });
+
+  it("rejects direct OpenAI mock adapter usage in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const adapter = new OpenAIAdapter("mock");
+
+    await expect(adapter.generateStructuredOutput("{}", {}, { modelId: "gpt-4o" })).rejects.toMatchObject({
+      code: "provider_not_configured",
+    });
+    await expect(
+      adapter.generateImage(
+        {
+          positivePrompt: "Storyboard frame",
+          negativePrompt: "",
+          referenceImages: [],
+          generationSettings: { width: 1024, height: 576 },
+          metadata: { sourceIds: [], conflictWarnings: [], truncationWarnings: [] },
+        },
+        { modelId: "gpt-image-1", width: 1024, height: 576 },
+      ),
+    ).rejects.toMatchObject({ code: "provider_not_configured" });
   });
 
   it("provides a second image adapter for Asset Bible generation variety", async () => {

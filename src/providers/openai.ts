@@ -9,6 +9,7 @@ import type {
   TextOptions,
   TextResult,
 } from "@/providers/types";
+import { assertMockProviderAllowed } from "@/providers/productionGuard";
 
 const oneByOnePng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
@@ -29,6 +30,7 @@ export class OpenAIAdapter implements TextAdapter, ImageAdapter {
 
   async generateStructuredOutput(prompt: string, schema: unknown, options: TextOptions): Promise<TextResult> {
     if (!this.apiKey || this.apiKey === "mock") {
+      assertMockProviderAllowed(this.slug);
       return {
         content: JSON.stringify({
           provider: this.slug,
@@ -99,6 +101,7 @@ export class OpenAIAdapter implements TextAdapter, ImageAdapter {
       };
     }
 
+    assertMockProviderAllowed(this.slug);
     return {
       images: Array.from({ length: options.count ?? 1 }, () => ({
         data: oneByOnePng,
