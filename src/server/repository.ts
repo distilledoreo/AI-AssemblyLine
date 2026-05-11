@@ -2488,6 +2488,17 @@ export async function persistGeneratedClipVersion(input: {
   clip: VideoClip;
   version: ClipVersion;
 }) {
+  const store = getStore();
+  const existingClip = store.videoClips.find((candidate) => candidate.id === input.clip.id);
+  if (existingClip) {
+    Object.assign(existingClip, input.clip);
+  } else {
+    store.videoClips.push(input.clip);
+  }
+  if (!store.clipVersions.some((candidate) => candidate.id === input.version.id)) {
+    store.clipVersions.push(input.version);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2535,6 +2546,21 @@ export async function persistGeneratedClipVersion(input: {
 }
 
 export async function persistClipVersionState(version: ClipVersion) {
+  const store = getStore();
+  if (version.status === "approved") {
+    store.clipVersions
+      .filter((candidate) => candidate.clipId === version.clipId && candidate.status === "approved" && candidate.id !== version.id)
+      .forEach((candidate) => {
+        candidate.status = "superseded";
+      });
+  }
+  const existing = store.clipVersions.find((candidate) => candidate.id === version.id);
+  if (existing) {
+    Object.assign(existing, version);
+  } else {
+    store.clipVersions.push(version);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }

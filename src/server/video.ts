@@ -9,7 +9,6 @@ import {
   getClipVersionById,
   getGenerationJob,
   getScriptAnalysisGraphForProject,
-  getStore,
   getVideoClipForScene,
   getVideoClipForShot,
   listSubmittedProviderJobs,
@@ -215,7 +214,6 @@ async function persistVideoClipBytes(input: {
   data: Buffer;
   mimeType: string;
 }) {
-  const store = getStore();
   let clip =
     input.mode === "shot" && input.shotId
       ? await getVideoClipForShot(input.shotId)
@@ -228,15 +226,9 @@ async function persistVideoClipBytes(input: {
   } else {
     clip.updatedAt = timestamp;
   }
-  if (!store.videoClips.some((candidate) => candidate.id === clip.id)) {
-    store.videoClips.push(clip);
-  }
   const dir = path.join(projectFolderPath(input.projectId, "videos"), clip.id);
   await mkdir(dir, { recursive: true });
-  const knownClipVersions = [
-    ...store.clipVersions.filter((version) => version.clipId === clip.id),
-    ...input.graph.clipVersions.filter((version) => version.clipId === clip.id),
-  ];
+  const knownClipVersions = input.graph.clipVersions.filter((version) => version.clipId === clip.id);
   const versionNumber = knownClipVersions.reduce((max, version) => Math.max(max, version.versionNumber), 0) + 1;
   const filePath = path.join(dir, `clip-v${versionNumber}.mp4`);
   await writeFile(filePath, input.data);
@@ -255,7 +247,6 @@ async function persistVideoClipBytes(input: {
     generationJobId: input.job.id,
     createdAt: timestamp,
   };
-  store.clipVersions.push(version);
   await persistGeneratedClipVersion({ clip, version });
   await completeGenerationJob(input.job.id, {
     status: "complete",
@@ -267,25 +258,9 @@ async function persistVideoClipBytes(input: {
 export async function updateClipVersion(input: { projectId: string; clipVersionId: string; status: ClipVersion["status"] }) {
   const version = await getClipVersionById(input.clipVersionId);
   if (!version) throw new NotFoundError("Clip version not found.");
-  mirrorClipVersionForLegacyState(version);
-  const store = getStore();
-  if (input.status === "approved") {
-    store.clipVersions
-      .filter((candidate) => candidate.clipId === version.clipId && candidate.status === "approved")
-      .forEach((candidate) => {
-        candidate.status = "superseded";
-      });
-  }
   version.status = input.status;
   await persistClipVersionState(version);
   return getScriptAnalysisGraphForProject(input.projectId);
-}
-
-function mirrorClipVersionForLegacyState(version: ClipVersion) {
-  const store = getStore();
-  if (!store.clipVersions.some((candidate) => candidate.id === version.id)) {
-    store.clipVersions.push(version);
-  }
 }
 
 function approvedFrameVersionsForShot(graph: ScriptAnalysisGraph, shotId?: string) {
