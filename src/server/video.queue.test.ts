@@ -86,6 +86,26 @@ describe("video clip queue handoff", () => {
       isStale: false,
       createdAt: timestamp,
     };
+    const clip = {
+      id: "77777777-7777-4777-8777-777777777777",
+      shotId: shot.id,
+      sceneId: undefined,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const clipVersion = {
+      id: "88888888-8888-4888-8888-888888888888",
+      clipId: clip.id,
+      versionNumber: 3,
+      prompt: "Existing video prompt.",
+      filePath: "storage/projects/queued/videos/clip-v3.mp4",
+      thumbnailPath: "storage/projects/queued/videos/clip-v3.mp4",
+      durationMs: 3000,
+      status: "approved" as const,
+      isStale: false,
+      sourceFrameVersionIds: [frameVersion.id],
+      createdAt: timestamp,
+    };
     const store = repository.getStore();
     store.scripts.push(script);
     store.scriptVersions.push(version);
@@ -93,6 +113,8 @@ describe("video clip queue handoff", () => {
     store.shots.push(shot);
     store.storyboardFrames.push(frame);
     store.frameVersions.push(frameVersion);
+    store.videoClips.push(clip);
+    store.clipVersions.push(clipVersion);
 
     const queued = await generateVideoClip({
       projectId: project.id,
@@ -101,7 +123,7 @@ describe("video clip queue handoff", () => {
       providerSlug: "runway",
     });
 
-    expect(queued.clipVersions).toHaveLength(0);
+    expect(queued.clipVersions).toHaveLength(1);
     expect(queued.jobs[0]).toMatchObject({
       type: "video_clip",
       status: "queued",
@@ -117,7 +139,8 @@ describe("video clip queue handoff", () => {
     });
 
     expect(completed.videoClips).toHaveLength(1);
-    expect(completed.clipVersions).toHaveLength(1);
+    expect(completed.clipVersions).toHaveLength(2);
+    expect(completed.clipVersions.at(-1)?.versionNumber).toBe(4);
     expect(completed.jobs[0].status).toBe("complete");
   });
 });

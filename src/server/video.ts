@@ -5,7 +5,6 @@ import { AppError, NotFoundError } from "@/server/errors";
 import {
   completeGenerationJob,
   createGenerationJob,
-  getScriptAnalysisGraph,
   getScriptAnalysisGraphForProject,
   getStore,
   markGenerationJobRunning,
@@ -16,7 +15,7 @@ import { isRedisQueueEnabled } from "@/server/queue";
 import { inspectClip } from "@/server/media";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
-import type { ClipVersion, VideoClip } from "@/server/types";
+import type { ClipVersion, ScriptAnalysisGraph, VideoClip } from "@/server/types";
 
 export async function generateVideoClip(input: {
   projectId: string;
@@ -135,7 +134,7 @@ export async function processVideoClipJob(input: {
   };
   store.clipVersions.push(version);
   await persistGeneratedClipVersion({ clip, version });
-  completeGenerationJob(job.id, { status: "complete", outputPayload: { clipId: clip.id, clipVersionId: version.id, media: info } });
+  await completeGenerationJob(job.id, { status: "complete", outputPayload: { clipId: clip.id, clipVersionId: version.id, media: info } });
   return getScriptAnalysisGraphForProject(input.projectId);
 }
 
@@ -158,12 +157,12 @@ export async function updateClipVersion(input: { projectId: string; clipVersionI
   return getScriptAnalysisGraphForProject(input.projectId);
 }
 
-function approvedFrameVersionsForShot(graph: ReturnType<typeof getScriptAnalysisGraph>, shotId?: string) {
+function approvedFrameVersionsForShot(graph: ScriptAnalysisGraph, shotId?: string) {
   const frameIds = new Set(graph.storyboardFrames.filter((frame) => frame.shotId === shotId).map((frame) => frame.id));
   return graph.frameVersions.filter((version) => frameIds.has(version.frameId) && version.status === "approved");
 }
 
-function approvedFrameVersionsForScene(graph: ReturnType<typeof getScriptAnalysisGraph>, sceneId?: string) {
+function approvedFrameVersionsForScene(graph: ScriptAnalysisGraph, sceneId?: string) {
   const shotIds = new Set(graph.shots.filter((shot) => shot.sceneId === sceneId).map((shot) => shot.id));
   const frameIds = new Set(graph.storyboardFrames.filter((frame) => shotIds.has(frame.shotId)).map((frame) => frame.id));
   return graph.frameVersions.filter((version) => frameIds.has(version.frameId) && version.status === "approved");
@@ -171,7 +170,7 @@ function approvedFrameVersionsForScene(graph: ReturnType<typeof getScriptAnalysi
 
 function composeVideoPrompt(
   mode: "shot" | "scene",
-  graph: ReturnType<typeof getScriptAnalysisGraph>,
+  graph: ScriptAnalysisGraph,
   shotId?: string,
   sceneId?: string,
 ) {
