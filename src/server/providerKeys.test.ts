@@ -22,6 +22,15 @@ describe("provider key resolution", () => {
     });
   });
 
+  it("rejects mock OpenAI credentials in production", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "mock");
+    vi.stubEnv("NODE_ENV", "production");
+
+    await expect(resolveOpenAiApiKeyForProject("00000000-0000-4000-8000-000000000000")).rejects.toMatchObject({
+      code: "provider_key_missing",
+    });
+  });
+
   it("uses OPENAI_API_KEY when no workspace key is configured", async () => {
     vi.stubEnv("OPENAI_API_KEY", "sk-live-test");
     vi.stubEnv("NODE_ENV", "production");
