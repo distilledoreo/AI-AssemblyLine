@@ -107,6 +107,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Workspace provider-key lookup and decryption failures now surface during OpenAI, Stability, and Runway credential resolution instead of falling back to server environment keys; fallback is reserved for genuinely absent workspace keys.
 - OpenAI, Stability, and Runway adapters now trim direct API key inputs before mock/live classification and Authorization header construction, preventing whitespace-padded `mock` values from bypassing the production mock-provider guard.
 - Queued script-analysis job metadata now resolves OpenAI credentials before job creation, labeling live-key analysis as `openai` and reserving `local-mock` for deterministic local fallback.
+- Queued script upload and re-analysis responses now read the pending graph through the async repository graph helper, so Redis-mode production responses use Prisma readback instead of the synchronous local in-memory graph helper.
 - Storyboard frame, frame-version, review-note, shot-status, and related generation-job persistence now surface Prisma write failures instead of silently continuing after a missed production database write.
 - Video clip, clip-version, superseded-version, and related generation-job persistence now surface Prisma write failures instead of silently continuing after a missed production database write.
 - Collaboration invitation, project-member, assignment, and activity-event persistence now surface Prisma write failures instead of silently continuing after a missed production database write.

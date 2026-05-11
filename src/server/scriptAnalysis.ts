@@ -98,10 +98,10 @@ export async function uploadScriptForProject(input: {
   await supersedeScriptVersionScenes(previousVersionIds);
   const job = await createScriptAnalysisJob(input.projectId, version.id);
   if (isRedisQueueEnabled()) {
-    return getScriptAnalysisGraph(input.projectId);
+    return getScriptAnalysisGraphForProject(input.projectId);
   }
   await processScriptAnalysisJob({ projectId: input.projectId, scriptVersionId: version.id, jobId: job.id });
-  return getScriptAnalysisGraph(input.projectId);
+  return getScriptAnalysisGraphForProject(input.projectId);
 }
 
 export async function runScriptAnalysis(projectId: string, scriptVersionId?: string) {
@@ -114,7 +114,7 @@ export async function runScriptAnalysis(projectId: string, scriptVersionId?: str
 
   const job = await createScriptAnalysisJob(projectId, version.id);
   if (isRedisQueueEnabled()) {
-    return getScriptAnalysisGraph(projectId);
+    return getScriptAnalysisGraphForProject(projectId);
   }
   return processScriptAnalysisJob({ projectId, scriptVersionId: version.id, jobId: job.id });
 }
