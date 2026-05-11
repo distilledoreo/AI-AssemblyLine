@@ -1583,6 +1583,35 @@ describe("Prisma repository mode", () => {
     });
   });
 
+  it("rejects generated video persistence when the clip-version write fails", async () => {
+    const repository = await import("@/server/repository");
+    const clip = {
+      id: "16161616-1616-4161-8161-161616161616",
+      shotId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const version = {
+      id: "17171717-1717-4171-8171-171717171717",
+      clipId: clip.id,
+      versionNumber: 1,
+      prompt: "Shot-by-shot video clip.",
+      filePath: "storage/projects/project/videos/clip.mp4",
+      thumbnailPath: "storage/projects/project/videos/clip.mp4",
+      durationMs: 3000,
+      status: "draft" as const,
+      isStale: false,
+      sourceFrameVersionIds: ["14141414-1414-4141-8141-141414141414"],
+      generationJobId: "99999999-9999-4999-8999-999999999999",
+      createdAt: timestamp.toISOString(),
+    };
+    prismaMock.videoClip.upsert.mockResolvedValue(clip);
+    prismaMock.clipVersion.create.mockRejectedValue(new Error("clip version write failed"));
+
+    await expect(repository.persistGeneratedClipVersion({ clip, version })).rejects.toThrow("clip version write failed");
+    expect(prismaMock.generationJob.update).not.toHaveBeenCalled();
+  });
+
   it("persists collaboration records through Prisma", async () => {
     const repository = await import("@/server/repository");
     const invitation = {

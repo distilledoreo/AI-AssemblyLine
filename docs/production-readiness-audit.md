@@ -59,9 +59,10 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Redis workers now support optional BullMQ worker rate limiters through global `QUEUE_RATE_LIMIT_MAX`/`QUEUE_RATE_LIMIT_DURATION_MS` settings or per-queue overrides such as `IMAGE_QUEUE_RATE_LIMIT_MAX`/`IMAGE_QUEUE_RATE_LIMIT_DURATION_MS`; queue health and the operations panel expose configured limits.
 - Job lifecycle repository calls now await Prisma `GenerationJob` and `JobEvent` writes before queue submission, completion returns, or SSE publication, so production failures surface instead of creating orphaned queue work or unpublished persisted events.
 - Storyboard frame, frame-version, review-note, shot-status, and related generation-job persistence now surface Prisma write failures instead of silently continuing after a missed production database write.
+- Video clip, clip-version, superseded-version, and related generation-job persistence now surface Prisma write failures instead of silently continuing after a missed production database write.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 33 files and 119 tests.
+- `npm test`: passing, 33 files and 120 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.

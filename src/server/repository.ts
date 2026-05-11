@@ -2099,7 +2099,7 @@ export async function persistSceneState(scene: Scene) {
       warnings: toPrismaJson(scene.warnings ?? []) ?? [],
       updatedAt: new Date(scene.updatedAt),
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistShotState(shot: Shot) {
@@ -2127,7 +2127,7 @@ export async function persistShotState(shot: Shot) {
       isUserEdited: shot.isUserEdited ?? false,
       updatedAt: new Date(shot.updatedAt),
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistCreatedAssetState(asset: Asset) {
@@ -2158,7 +2158,7 @@ export async function persistCreatedAssetState(asset: Asset) {
       createdAt: new Date(asset.createdAt),
       updatedAt: new Date(asset.updatedAt),
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistAssetMergeState(input: { source: Asset; target: Asset }) {
@@ -2240,7 +2240,7 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       createdAt: new Date(script.createdAt),
     })),
     skipDuplicates: true,
-  }).catch(() => undefined);
+  });
   if (graph.activeVersion) {
     await prisma.scriptVersion.createMany({
       data: [
@@ -2256,7 +2256,7 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
         },
       ],
       skipDuplicates: true,
-    }).catch(() => undefined);
+    });
   }
   await prisma.scene.createMany({
     data: graph.scenes.map((scene) => ({
@@ -2459,7 +2459,7 @@ export async function persistAssetDetailState(asset: Asset, detail: AssetDetail)
         performanceNotes: detail.performanceNotes,
         scaleReference: detail.scaleReference,
       },
-    }).catch(() => undefined);
+    });
   }
   if (asset.type === "wardrobe") {
     await prisma.wardrobeDetail.upsert({
@@ -2479,7 +2479,7 @@ export async function persistAssetDetailState(asset: Asset, detail: AssetDetail)
         accessories: toPrismaJson(detail.accessories ?? []) ?? [],
         colorPalette: toPrismaJson(detail.colorPalette ?? []) ?? [],
       },
-    }).catch(() => undefined);
+    });
   }
   if (asset.type === "location") {
     await prisma.locationDetail.upsert({
@@ -2499,7 +2499,7 @@ export async function persistAssetDetailState(asset: Asset, detail: AssetDetail)
         lightingStates: toPrismaJson(detail.lightingStates),
         cameraSafeZones: detail.cameraSafeZones,
       },
-    }).catch(() => undefined);
+    });
   }
   if (asset.type === "creature") {
     await prisma.creatureDetail.upsert({
@@ -2566,7 +2566,7 @@ export async function persistProjectStyleState(style: ProjectStyle) {
       modelPromptFragments: toPrismaJson(style.modelPromptFragments) ?? {},
       approvalStatus: style.approvalStatus,
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistStoryboardFrameState(frame: StoryboardFrame) {
@@ -2599,7 +2599,7 @@ export async function persistStoryboardFrameState(frame: StoryboardFrame) {
       createdAt: new Date(frame.createdAt),
       updatedAt: new Date(frame.updatedAt),
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function persistGeneratedFrameVersion(input: {
@@ -2747,7 +2747,7 @@ export async function persistGeneratedClipVersion(input: {
       createdAt: new Date(input.clip.createdAt),
       updatedAt: new Date(input.clip.updatedAt),
     },
-  }).catch(() => undefined);
+  });
   await prisma.clipVersion.create({
     data: {
       id: input.version.id,
@@ -2763,7 +2763,7 @@ export async function persistGeneratedClipVersion(input: {
       generationJobId: input.version.generationJobId,
       createdAt: new Date(input.version.createdAt),
     },
-  }).catch(() => undefined);
+  });
   if (input.version.generationJobId) {
     await prisma.generationJob.update({
       where: { id: input.version.generationJobId },
@@ -2772,7 +2772,7 @@ export async function persistGeneratedClipVersion(input: {
         outputPayload: toPrismaJson({ clipId: input.clip.id, clipVersionId: input.version.id }),
         completedAt: new Date(),
       },
-    }).catch(() => undefined);
+    });
   }
 }
 
@@ -2799,7 +2799,7 @@ export async function persistClipVersionState(version: ClipVersion) {
     await prisma.clipVersion.updateMany({
       where: { clipId: version.clipId, status: "approved", id: { not: version.id } },
       data: { status: "superseded" },
-    }).catch(() => undefined);
+    });
   }
   await prisma.clipVersion.update({
     where: { id: version.id },
@@ -2807,7 +2807,7 @@ export async function persistClipVersionState(version: ClipVersion) {
       status: version.status,
       isStale: version.isStale,
     },
-  }).catch(() => undefined);
+  });
 }
 
 export async function findInvitationByTokenHash(tokenHash: string) {
