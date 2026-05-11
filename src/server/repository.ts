@@ -3177,12 +3177,9 @@ export async function completeGenerationJob(
     retryCount?: number;
   },
 ) {
-  const job = getStore().generationJobs.find((candidate) => candidate.id === jobId);
-  if (!job) {
-    if (!isPrismaRepositoryEnabled()) {
-      throw new NotFoundError("Generation job not found.");
-    }
-    await prisma.generationJob.update({
+  if (isPrismaRepositoryEnabled()) {
+    const completedAt = nowIso();
+    const updated = await prisma.generationJob.update({
       where: { id: jobId },
       data: {
         status: input.status,
@@ -3190,10 +3187,26 @@ export async function completeGenerationJob(
         errorMessage: input.errorMessage,
         errorClass: input.errorClass,
         retryCount: input.retryCount,
-        completedAt: new Date(),
+        completedAt: new Date(completedAt),
       },
     });
-    return undefined;
+    const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
+    if (local) {
+      Object.assign(local, {
+        status: input.status,
+        outputPayload: input.outputPayload,
+        errorMessage: input.errorMessage,
+        errorClass: input.errorClass,
+        retryCount: input.retryCount ?? local.retryCount,
+        completedAt,
+      });
+    }
+    return isMappableJobRecord(updated) ? mapJob(updated) : getGenerationJob(jobId);
+  }
+
+  const job = getStore().generationJobs.find((candidate) => candidate.id === jobId);
+  if (!job) {
+    throw new NotFoundError("Generation job not found.");
   }
   Object.assign(job, {
     status: input.status,
@@ -3203,19 +3216,6 @@ export async function completeGenerationJob(
     retryCount: input.retryCount ?? job.retryCount,
     completedAt: nowIso(),
   });
-  if (isPrismaRepositoryEnabled()) {
-    await prisma.generationJob.update({
-      where: { id: jobId },
-      data: {
-        status: input.status,
-        outputPayload: toPrismaJson(input.outputPayload),
-        errorMessage: input.errorMessage,
-        errorClass: input.errorClass,
-        retryCount: input.retryCount,
-        completedAt: new Date(job.completedAt!),
-      },
-    });
-  }
   return job;
 }
 
@@ -3223,18 +3223,9 @@ export async function markGenerationJobProviderSubmitted(
   jobId: string,
   input: { providerJobId: string; outputPayload?: unknown },
 ) {
-  const job = getStore().generationJobs.find((candidate) => candidate.id === jobId);
   const submittedAt = nowIso();
-  if (job) {
-    Object.assign(job, {
-      status: "provider_submitted" as const,
-      providerJobId: input.providerJobId,
-      outputPayload: input.outputPayload,
-      completedAt: undefined,
-    });
-  }
   if (isPrismaRepositoryEnabled()) {
-    await prisma.generationJob.update({
+    const updated = await prisma.generationJob.update({
       where: { id: jobId },
       data: {
         status: "provider_submitted",
@@ -3242,6 +3233,26 @@ export async function markGenerationJobProviderSubmitted(
         outputPayload: toPrismaJson(input.outputPayload),
         startedAt: new Date(submittedAt),
       },
+    });
+    const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
+    if (local) {
+      Object.assign(local, {
+        status: "provider_submitted" as const,
+        providerJobId: input.providerJobId,
+        outputPayload: input.outputPayload,
+        completedAt: undefined,
+      });
+    }
+    return isMappableJobRecord(updated) ? mapJob(updated) : getGenerationJob(jobId);
+  }
+
+  const job = getStore().generationJobs.find((candidate) => candidate.id === jobId);
+  if (job) {
+    Object.assign(job, {
+      status: "provider_submitted" as const,
+      providerJobId: input.providerJobId,
+      outputPayload: input.outputPayload,
+      completedAt: undefined,
     });
   }
   return job;
@@ -3281,20 +3292,38 @@ export async function listSubmittedProviderJobs(input: {
 
 export async function markGenerationJobRunning(jobId: string, status: GenerationJob["status"] = "running") {
   const startedAt = nowIso();
-  const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
-  if (local) {
-    Object.assign(local, { status, startedAt });
-  }
   if (isPrismaRepositoryEnabled()) {
-    await prisma.generationJob.update({
+    const updated = await prisma.generationJob.update({
       where: { id: jobId },
       data: { status, startedAt: new Date(startedAt) },
     });
+    const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
+    if (local) {
+      Object.assign(local, { status, startedAt });
+    }
+    return isMappableJobRecord(updated) ? mapJob(updated) : getGenerationJob(jobId);
   }
-  if (!local && !isPrismaRepositoryEnabled()) {
+
+  const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
+  if (!local) {
     throw new NotFoundError("Generation job not found.");
   }
-  return local ?? getGenerationJob(jobId);
+  Object.assign(local, { status, startedAt });
+  return local;
+}
+
+function isMappableJobRecord(value: unknown): value is Parameters<typeof mapJob>[0] {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      "id" in value &&
+      "projectId" in value &&
+      "type" in value &&
+      "status" in value &&
+      "inputPayload" in value &&
+      "retryCount" in value &&
+      "createdAt" in value,
+  );
 }
 
 export async function saveProviderKey(

@@ -629,8 +629,9 @@ describe("Prisma repository mode", () => {
       startedAt: timestamp,
       completedAt: null,
     };
-    prismaMock.generationJob.findUnique.mockResolvedValue(job);
-    prismaMock.generationJob.update.mockResolvedValue(job);
+    prismaMock.generationJob.update
+      .mockResolvedValueOnce({ ...job, status: "running" })
+      .mockResolvedValueOnce({ ...job, status: "complete", outputPayload: { manifestPath: "storage/projects/project/export.json" }, retryCount: 2, completedAt: timestamp });
 
     const repository = await import("@/server/repository");
     repository.resetStoreForTests();
@@ -643,7 +644,7 @@ describe("Prisma repository mode", () => {
       status: "complete",
       outputPayload: { manifestPath: "storage/projects/project/export.json" },
       retryCount: 2,
-    })).resolves.toBeUndefined();
+    })).resolves.toMatchObject({ id: job.id, status: "complete", retryCount: 2 });
 
     expect(prismaMock.generationJob.update).toHaveBeenCalledTimes(2);
     expect(prismaMock.generationJob.update).toHaveBeenNthCalledWith(1, {
@@ -661,7 +662,6 @@ describe("Prisma repository mode", () => {
     });
 
     vi.clearAllMocks();
-    prismaMock.generationJob.findUnique.mockResolvedValue({ ...job, status: "polling" });
     prismaMock.generationJob.update.mockResolvedValue({ ...job, status: "polling" });
 
     await expect(repository.markGenerationJobRunning(job.id, "polling")).resolves.toMatchObject({
@@ -671,6 +671,50 @@ describe("Prisma repository mode", () => {
     expect(prismaMock.generationJob.update).toHaveBeenCalledWith({
       where: { id: job.id },
       data: expect.objectContaining({ status: "polling", startedAt: expect.any(Date) }),
+    });
+  });
+
+  it("returns Prisma job lifecycle writes instead of stale local mirrors", async () => {
+    const repository = await import("@/server/repository");
+    repository.resetStoreForTests();
+    repository.getStore().generationJobs.push({
+      id: "job-stale-lifecycle",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      type: "video_clip",
+      status: "queued",
+      inputPayload: {},
+      retryCount: 0,
+      createdAt: timestamp,
+    });
+    const persisted = {
+      id: "job-stale-lifecycle",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      type: "video_clip" as const,
+      providerSlug: "runway",
+      modelId: "gen4.5",
+      status: "provider_submitted" as const,
+      inputPayload: {},
+      outputPayload: { providerJobId: "task-live" },
+      errorMessage: null,
+      errorClass: null,
+      retryCount: 4,
+      providerJobId: "task-live",
+      createdAt: timestamp,
+      startedAt: timestamp,
+      completedAt: null,
+    };
+    prismaMock.generationJob.update.mockResolvedValue(persisted);
+
+    await expect(
+      repository.markGenerationJobProviderSubmitted("job-stale-lifecycle", {
+        providerJobId: "task-live",
+        outputPayload: { providerJobId: "task-live" },
+      }),
+    ).resolves.toMatchObject({
+      status: "provider_submitted",
+      providerSlug: "runway",
+      providerJobId: "task-live",
+      retryCount: 4,
     });
   });
 
