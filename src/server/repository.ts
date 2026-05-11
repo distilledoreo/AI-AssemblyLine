@@ -1621,7 +1621,7 @@ export async function updateScriptVersionAnalysisStatus(scriptVersionId: string,
     version.analysisStatus = status;
   }
   if (isPrismaRepositoryEnabled()) {
-    await prisma.scriptVersion.update({ where: { id: scriptVersionId }, data: { analysisStatus: status } }).catch(() => undefined);
+    await prisma.scriptVersion.update({ where: { id: scriptVersionId }, data: { analysisStatus: status } });
   }
   return version;
 }

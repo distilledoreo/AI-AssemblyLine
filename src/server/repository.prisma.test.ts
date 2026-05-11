@@ -728,6 +728,15 @@ describe("Prisma repository mode", () => {
     });
   });
 
+  it("rejects script analysis status updates when the Prisma write fails", async () => {
+    const repository = await import("@/server/repository");
+    prismaMock.scriptVersion.update.mockRejectedValue(new Error("script status write failed"));
+
+    await expect(
+      repository.updateScriptVersionAnalysisStatus("88888888-8888-4888-8888-888888888888", "failed"),
+    ).rejects.toThrow("script status write failed");
+  });
+
   it("reads and persists scene, shot, and asset editor mutations through Prisma", async () => {
     const repository = await import("@/server/repository");
     const scene = {

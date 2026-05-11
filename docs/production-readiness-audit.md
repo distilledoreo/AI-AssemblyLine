@@ -64,9 +64,10 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Asset Bible asset-version and asset-reference persistence now surface Prisma write failures instead of silently continuing after a missed production database write.
 - Export bundle persistence now surfaces Prisma write failures instead of silently continuing after a manifest is written without a matching production database record.
 - Asset Bible media writes now compose runtime storage paths through the storage helper instead of direct dynamic `path.join` calls, removing the Turbopack broad file-pattern warning from `next build`.
+- Script analysis status updates now surface Prisma write failures instead of silently continuing after a missed production database write.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 33 files and 124 tests.
+- `npm test`: passing, 33 files and 125 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
