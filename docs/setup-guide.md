@@ -49,6 +49,18 @@ npm run smoke:openai
 
 Optionally set `OPENAI_SMOKE_MODEL` to override the default `gpt-4.1-mini`. The smoke command performs a small Responses API structured-output request and prints the provider response id, model, short content preview, and token usage.
 
+To run the live Stability and Runway smoke tests manually:
+
+```bash
+set STABILITY_API_KEY=sk-...
+npm run smoke:stability
+
+set RUNWAYML_API_SECRET=key_...
+npm run smoke:runway
+```
+
+Optionally set `STABILITY_SMOKE_MODEL` or `RUNWAY_SMOKE_MODEL` to override the defaults. The Runway smoke command submits a short async video task and prints the provider task id without waiting for final output.
+
 ## Verification commands
 
 Run these before committing substantive changes:

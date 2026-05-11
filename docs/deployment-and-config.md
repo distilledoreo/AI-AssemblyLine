@@ -37,6 +37,7 @@ All configuration is driven by environment variables loaded from `.env` files (v
 | `STABILITY_API_KEY` | Optional server fallback Stability AI key when a workspace Stability key is not saved. Enables live Stable Image Core/Ultra image generation and `npm run smoke:stability`. | None |
 | `STABILITY_SMOKE_MODEL` | Optional model override for `npm run smoke:stability`. | `stable-image-core` |
 | `RUNWAYML_API_SECRET` | Optional server fallback Runway key when a workspace Runway key is not saved. Enables live Runway video task submission. | None |
+| `RUNWAY_SMOKE_MODEL` | Optional model override for `npm run smoke:runway`. | `gen4.5` |
 
 ### OAuth sign-in variables
 
@@ -119,7 +120,7 @@ The checked-in `compose.yaml` starts PostgreSQL 16 on `localhost:5432` and Redis
 
 Run `npm run preflight:production` before release. The preflight checks required production environment variables, `NEXTAUTH_SECRET` length, decoded `ENCRYPTION_KEY` length, real non-mock `OPENAI_API_KEY`, `STABILITY_API_KEY`, and `RUNWAYML_API_SECRET` values for live provider verification, FFmpeg/ffprobe availability, and TCP reachability for the configured Postgres and Redis URLs.
 
-Run `npm run smoke:openai` and `npm run smoke:stability` with real provider keys before enabling those providers in production. These commands make small live API calls and print only non-secret result metadata.
+Run `npm run smoke:openai`, `npm run smoke:stability`, and `npm run smoke:runway` with real provider keys before enabling those providers in production. These commands make small live API calls and print only non-secret result metadata. The Runway smoke command submits a short async video task and prints the returned provider task id; it does not wait for final video output.
 
 To exercise BullMQ locally, set `QUEUE_MODE=redis`, make sure Redis is reachable at `REDIS_URL`, and run the worker in a second terminal:
 
