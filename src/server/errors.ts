@@ -29,6 +29,10 @@ export class NotFoundError extends AppError {
   }
 }
 
+function isJsonParseSyntaxError(error: unknown) {
+  return error instanceof SyntaxError && /\bJSON\b/i.test(error.message);
+}
+
 export function toErrorResponse(error: unknown, context: Record<string, unknown> = {}) {
   if (error instanceof AppError) {
     return Response.json(
@@ -52,6 +56,18 @@ export function toErrorResponse(error: unknown, context: Record<string, unknown>
             path: issue.path.join("."),
             message: issue.message,
           })),
+        },
+      },
+      { status: 400 },
+    );
+  }
+
+  if (isJsonParseSyntaxError(error)) {
+    return Response.json(
+      {
+        error: {
+          code: "invalid_json",
+          message: "Request body must be valid JSON.",
         },
       },
       { status: 400 },

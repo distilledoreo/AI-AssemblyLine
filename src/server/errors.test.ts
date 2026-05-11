@@ -56,4 +56,29 @@ describe("error responses", () => {
     expect(response.status).toBe(400);
     expect(captureErrorMock).not.toHaveBeenCalled();
   });
+
+  it("returns invalid JSON errors without reporting them as unexpected failures", async () => {
+    const request = new Request("http://localhost/api/projects", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{",
+    });
+    let parseError: unknown;
+    try {
+      await request.json();
+    } catch (error) {
+      parseError = error;
+    }
+
+    const response = toErrorResponse(parseError, { route: "/api/projects" });
+
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "invalid_json",
+        message: "Request body must be valid JSON.",
+      },
+    });
+    expect(response.status).toBe(400);
+    expect(captureErrorMock).not.toHaveBeenCalled();
+  });
 });
