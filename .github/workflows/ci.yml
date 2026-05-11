@@ -23,8 +23,6 @@ jobs:
       NEXTAUTH_SECRET: ci-nextauth-secret-with-at-least-32-chars
       ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       STORAGE_ROOT: ./storage
-      QUEUE_MODE: inline
-      REPOSITORY_MODE: memory
 
     steps:
       - name: Check out repository
@@ -62,3 +60,6 @@ jobs:
 
       - name: Run Playwright E2E tests
         run: npm run test:e2e
+        env:
+          QUEUE_MODE: inline
+          REPOSITORY_MODE: memory
