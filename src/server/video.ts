@@ -22,7 +22,7 @@ import { inspectClip } from "@/server/media";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
 import { resolveRunwayApiKeyForProject } from "@/server/providerKeys";
-import type { ClipVersion, GenerationJob, ScriptAnalysisGraph, VideoClip } from "@/server/types";
+import type { ClipVersion, ErrorClass, GenerationJob, ScriptAnalysisGraph, VideoClip } from "@/server/types";
 
 export async function generateVideoClip(input: {
   projectId: string;
@@ -211,15 +211,43 @@ export async function processSubmittedVideoProviderJobs(input: { fetchImpl?: typ
   const jobs = await listSubmittedProviderJobs({ type: "video_clip", providerSlug: "runway" });
   const results = [];
   for (const job of jobs) {
-    results.push(
-      await processVideoProviderResult({
-        projectId: job.projectId,
+    try {
+      results.push(
+        await processVideoProviderResult({
+          projectId: job.projectId,
+          jobId: job.id,
+          fetchImpl: input.fetchImpl,
+        }),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Runway provider polling failed.";
+      await completeGenerationJob(job.id, {
+        status: "failed",
+        errorMessage: message,
+        errorClass: classifyVideoProviderPollError(error),
+      });
+      await addJobEvent({
         jobId: job.id,
-        fetchImpl: input.fetchImpl,
-      }),
-    );
+        projectId: job.projectId,
+        eventType: "status_change",
+        message,
+        progressPct: 100,
+      });
+      results.push({ jobId: job.id, status: "failed", errorMessage: message });
+    }
   }
   return { processed: jobs.length, results };
+}
+
+function classifyVideoProviderPollError(error: unknown): ErrorClass {
+  if (error instanceof AppError && error.code === "provider_output_missing") {
+    return "fatal";
+  }
+  const status = error && typeof error === "object" && "status" in error ? (error as { status?: unknown }).status : undefined;
+  if (status === 429) return "rate_limit";
+  if (status === 408 || status === 504) return "timeout";
+  if (typeof status === "number" && status >= 500 && status !== 501 && status !== 503) return "retriable";
+  return "fatal";
 }
 
 async function persistVideoClipBytes(input: {

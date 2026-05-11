@@ -9,7 +9,7 @@ import {
 import { transitionAssetStatus } from "@/server/assetBible";
 import { uploadScriptForProject } from "@/server/scriptAnalysis";
 import { generateStoryboardFrame, updateFrameVersion } from "@/server/storyboard";
-import { generateVideoClip, processVideoProviderResult, updateClipVersion } from "@/server/video";
+import { generateVideoClip, processSubmittedVideoProviderJobs, processVideoProviderResult, updateClipVersion } from "@/server/video";
 import { checkFfmpegAvailability } from "@/server/media";
 import { KlingAdapter, RunwayAdapter } from "@/providers/videoProviders";
 
@@ -212,6 +212,47 @@ describe("video workflow", () => {
     expect(failedGraph.clipVersions).toHaveLength(0);
     expect(failedGraph.jobs.find((candidate) => candidate.id === job.id)).toMatchObject({
       status: "processing_output",
+    });
+  });
+
+  it("persists submitted Runway poll failures instead of leaving jobs processing", async () => {
+    const { project, graph } = await projectWithApprovedFrame();
+    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    const submitFetch = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-live-poll-failure", status: "PENDING" }));
+    vi.stubGlobal("fetch", submitFetch);
+    const submitted = await generateVideoClip({
+      projectId: project.id,
+      mode: "shot",
+      shotId: graph.shots[0].id,
+      providerSlug: "runway",
+    });
+    const job = submitted.jobs.at(-1)!;
+    const pollFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ id: "task-runway-live-poll-failure", status: "SUCCEEDED", output: ["https://example.com/empty.mp4"] }),
+      )
+      .mockResolvedValueOnce(new Response(new Uint8Array(), { status: 200, headers: { "content-type": "video/mp4" } }));
+
+    const result = await processSubmittedVideoProviderJobs({ fetchImpl: pollFetch });
+
+    expect(result).toMatchObject({
+      processed: 1,
+      results: [{ jobId: job.id, status: "failed", errorMessage: "Runway output download did not include video bytes." }],
+    });
+    const failedGraph = getScriptAnalysisGraph(project.id);
+    expect(failedGraph.videoClips).toHaveLength(0);
+    expect(failedGraph.clipVersions).toHaveLength(0);
+    expect(failedGraph.jobs.find((candidate) => candidate.id === job.id)).toMatchObject({
+      status: "failed",
+      errorClass: "fatal",
+      errorMessage: "Runway output download did not include video bytes.",
+    });
+    expect(failedGraph.events.at(-1)).toMatchObject({
+      jobId: job.id,
+      eventType: "status_change",
+      message: "Runway output download did not include video bytes.",
+      progressPct: 100,
     });
   });
 });
