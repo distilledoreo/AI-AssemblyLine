@@ -28,6 +28,8 @@ export function evaluateProductionPreflight(
   }
 
   const secret = env.NEXTAUTH_SECRET?.trim() ?? "";
+  results.push(checkNextAuthUrl(env.NEXTAUTH_URL));
+
   results.push({
     name: "NEXTAUTH_SECRET length",
     ok: secret.length >= 32,
@@ -96,6 +98,25 @@ export function evaluateProductionPreflight(
   }
 
   return results;
+}
+
+function checkNextAuthUrl(value: string | undefined): CheckResult {
+  const configured = value?.trim();
+  if (!configured) {
+    return { name: "NEXTAUTH_URL format", ok: false, detail: "missing" };
+  }
+  let url: URL;
+  try {
+    url = new URL(configured);
+  } catch {
+    return { name: "NEXTAUTH_URL format", ok: false, detail: "must be a valid absolute URL" };
+  }
+  const localHosts = new Set(["localhost", "127.0.0.1", "::1"]);
+  const isLocal = localHosts.has(url.hostname);
+  if (url.protocol !== "https:" && !isLocal) {
+    return { name: "NEXTAUTH_URL format", ok: false, detail: "must use https outside localhost" };
+  }
+  return { name: "NEXTAUTH_URL format", ok: true, detail: isLocal ? "local URL allowed" : "https URL" };
 }
 
 function oauthPairCheck(name: string, env: Env, clientIdKeys: string[], clientSecretKeys: string[]): CheckResult {

@@ -90,6 +90,32 @@ describe("production preflight", () => {
     });
   });
 
+  it("requires NEXTAUTH_URL to be an absolute https URL outside localhost", () => {
+    const https = evaluateProductionPreflight(validEnv, () => true);
+    expect(https.find((result) => result.name === "NEXTAUTH_URL format")).toMatchObject({
+      ok: true,
+      detail: "https URL",
+    });
+
+    const localhost = evaluateProductionPreflight({ ...validEnv, NEXTAUTH_URL: "http://localhost:3000" }, () => true);
+    expect(localhost.find((result) => result.name === "NEXTAUTH_URL format")).toMatchObject({
+      ok: true,
+      detail: "local URL allowed",
+    });
+
+    const insecure = evaluateProductionPreflight({ ...validEnv, NEXTAUTH_URL: "http://assemblyline.example.com" }, () => true);
+    expect(insecure.find((result) => result.name === "NEXTAUTH_URL format")).toMatchObject({
+      ok: false,
+      detail: "must use https outside localhost",
+    });
+
+    const invalid = evaluateProductionPreflight({ ...validEnv, NEXTAUTH_URL: "assemblyline.example.com" }, () => true);
+    expect(invalid.find((result) => result.name === "NEXTAUTH_URL format")).toMatchObject({
+      ok: false,
+      detail: "must be a valid absolute URL",
+    });
+  });
+
   it("verifies the storage root is configured and writable", async () => {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), "assemblyline-preflight-"));
     try {
