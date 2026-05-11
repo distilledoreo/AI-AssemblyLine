@@ -196,3 +196,4 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Local Redis TCP check: failed on `127.0.0.1:6379`.
 - Real OpenAI smoke-test preflight: `OPENAI_API_KEY` is not set in this environment.
 - Prisma-mode generation job creation, job events, and lifecycle transitions now avoid seeding or updating the process-local job/event store; `repository.prisma.test.ts` covers the no-local-mirror contract while the CI Prisma repository smoke covers the same persistence path against real Postgres.
+- `npm run smoke:prisma-repository` now extends the real Postgres smoke beyond auth/workspace/project/key/job/event records to include script-analysis graph records, storyboard frame/version persistence, video clip/version persistence, collaboration invitation/assignment/activity rows, and export bundle listing.

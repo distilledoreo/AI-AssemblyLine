@@ -1,4 +1,15 @@
 import { rm } from "node:fs/promises";
+import { createId, nowIso } from "../src/server/ids";
+import type {
+  ActivityEvent,
+  Assignment,
+  ClipVersion,
+  ExportBundle,
+  FrameVersion,
+  Invitation,
+  StoryboardFrame,
+  VideoClip,
+} from "../src/server/types";
 
 type SmokeCheck = {
   name: string;
@@ -142,6 +153,195 @@ export async function runPrismaRepositorySmoke() {
         events.some((candidate) => candidate.id === event.id) &&
         eventsAfterQueued.every((candidate) => candidate.id !== event.id),
       detail: `job ${job.id} ended as ${completedJob?.status ?? "missing"} with ${events.length} event(s)`,
+    });
+
+    const scriptUpload = await repository.createScriptVersionForProject({
+      projectId: project.id,
+      filename: "prisma-smoke.txt",
+      filePath: `${project.storagePath}/scripts/prisma-smoke.txt`,
+      rawText: "INT. ATRIUM - DAY\nA producer reviews a glowing storyboard wall.",
+    });
+    await repository.persistGeneratedScriptAnalysis({
+      projectId: project.id,
+      scriptVersionId: scriptUpload.version.id,
+      scenes: [
+        {
+          sceneNumber: 1,
+          heading: "INT. ATRIUM - DAY",
+          summary: "A producer reviews a glowing storyboard wall.",
+          scriptStartLine: 1,
+          scriptEndLine: 2,
+          locationHint: "Atrium",
+        },
+      ],
+      shotBreakdowns: [
+        {
+          sceneNumber: 1,
+          shots: [
+            {
+              shotNumber: 1,
+              action: "The producer studies the boards.",
+              cameraAngle: "Wide",
+              cameraMovement: "Slow push",
+              lensNotes: "35mm",
+              lightingNotes: "Soft skylight",
+            },
+          ],
+        },
+      ],
+      assets: [
+        {
+          canonicalName: "Atrium",
+          type: "location",
+          aliases: ["Storyboard Atrium"],
+          description: "A bright production atrium lined with storyboard panels.",
+          firstAppearance: { sceneNumber: 1, shotNumber: 1 },
+        },
+      ],
+      sceneAssetLinks: [{ sceneNumber: 1, assetName: "Atrium" }],
+      shotAssetLinks: [{ sceneNumber: 1, shotNumber: 1, assetName: "Atrium" }],
+      warnings: [],
+    });
+    await repository.updateScriptVersionAnalysisStatus(scriptUpload.version.id, "complete");
+    const graph = await repository.getScriptAnalysisGraphForProject(project.id);
+    checks.push({
+      name: "Script analysis graph persistence",
+      ok:
+        graph.activeVersion?.id === scriptUpload.version.id &&
+        graph.scenes.some((candidate) => candidate.heading === "INT. ATRIUM - DAY") &&
+        graph.shots.some((candidate) => candidate.action.includes("producer studies")) &&
+        graph.assets.some((candidate) => candidate.canonicalName === "Atrium") &&
+        graph.sceneAssetRequirements.length === 1 &&
+        graph.shotAssetRequirements.length === 1,
+      detail: `graph has ${graph.scenes.length} scene(s), ${graph.shots.length} shot(s), ${graph.assets.length} asset(s)`,
+    });
+
+    const scene = graph.scenes.find((candidate) => candidate.heading === "INT. ATRIUM - DAY");
+    const shot = graph.shots.find((candidate) => candidate.action.includes("producer studies"));
+    if (!scene || !shot) {
+      throw new Error("Script analysis graph did not return the smoke scene and shot.");
+    }
+
+    const frame: StoryboardFrame = {
+      id: createId(),
+      shotId: shot.id,
+      keyframeIndex: 0,
+      sketchFilePath: `${project.storagePath}/storyboards/prisma-smoke-sketch.png`,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    const frameVersion: FrameVersion = {
+      id: createId(),
+      frameId: frame.id,
+      versionNumber: 1,
+      prompt: "Wide storyboard frame of a bright atrium.",
+      filePath: `${project.storagePath}/storyboards/prisma-smoke-frame.png`,
+      thumbnailPath: `${project.storagePath}/storyboards/prisma-smoke-frame-thumb.png`,
+      status: "approved",
+      isStale: false,
+      annotations: { smoke: true },
+      createdAt: nowIso(),
+    };
+    await repository.persistGeneratedFrameVersion({
+      frame,
+      version: frameVersion,
+      shot: { ...shot, status: "storyboarded", updatedAt: nowIso() },
+    });
+
+    const clip: VideoClip = {
+      id: createId(),
+      shotId: shot.id,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    const clipVersion: ClipVersion = {
+      id: createId(),
+      clipId: clip.id,
+      versionNumber: 1,
+      prompt: "Short video clip of the atrium storyboard wall.",
+      filePath: `${project.storagePath}/videos/prisma-smoke-clip.mp4`,
+      thumbnailPath: `${project.storagePath}/videos/prisma-smoke-clip-thumb.png`,
+      durationMs: 3000,
+      status: "approved",
+      isStale: false,
+      sourceFrameVersionIds: [frameVersion.id],
+      createdAt: nowIso(),
+    };
+    await repository.persistGeneratedClipVersion({ clip, version: clipVersion });
+    const mediaGraph = await repository.getScriptAnalysisGraphForProject(project.id);
+    checks.push({
+      name: "Storyboard and video persistence",
+      ok:
+        mediaGraph.storyboardFrames.some((candidate) => candidate.id === frame.id) &&
+        mediaGraph.frameVersions.some((candidate) => candidate.id === frameVersion.id && candidate.status === "approved") &&
+        mediaGraph.videoClips.some((candidate) => candidate.id === clip.id) &&
+        mediaGraph.clipVersions.some((candidate) => candidate.id === clipVersion.id && candidate.status === "approved"),
+      detail: `graph has ${mediaGraph.storyboardFrames.length} frame(s) and ${mediaGraph.videoClips.length} clip(s)`,
+    });
+
+    const invitation: Invitation = {
+      id: createId(),
+      workspaceId: workspace.id,
+      projectId: project.id,
+      email: `artist-${suffix}@example.test`,
+      tokenHash: `token-hash-${suffix}`,
+      scope: "project",
+      role: "artist",
+      status: "pending",
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      invitedById: auth.user.id,
+      createdAt: nowIso(),
+    };
+    const assignment: Assignment = {
+      id: createId(),
+      projectId: project.id,
+      userId: auth.user.id,
+      targetType: "scene",
+      sceneId: scene.id,
+      status: "open",
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    const activity: ActivityEvent = {
+      id: createId(),
+      projectId: project.id,
+      actorId: auth.user.id,
+      eventType: "assignment_created",
+      message: "Prisma smoke assignment created.",
+      metadata: { assignmentId: assignment.id },
+      createdAt: nowIso(),
+    };
+    await repository.persistInvitationState(invitation);
+    await repository.persistAssignmentState(assignment);
+    await repository.persistActivityEventState(activity);
+    const foundInvitation = await repository.findInvitationByTokenHash(invitation.tokenHash);
+    const collaborationGraph = await repository.getScriptAnalysisGraphForProject(project.id);
+    checks.push({
+      name: "Collaboration persistence",
+      ok:
+        foundInvitation?.id === invitation.id &&
+        collaborationGraph.invitations.some((candidate) => candidate.id === invitation.id) &&
+        collaborationGraph.assignments.some((candidate) => candidate.id === assignment.id) &&
+        collaborationGraph.activityEvents.some((candidate) => candidate.id === activity.id),
+      detail: `graph has ${collaborationGraph.invitations.length} invitation(s), ${collaborationGraph.assignments.length} assignment(s), ${collaborationGraph.activityEvents.length} activity event(s)`,
+    });
+
+    const bundle: ExportBundle = {
+      id: createId(),
+      projectId: project.id,
+      bundleVersion: 1,
+      manifestPath: `${project.storagePath}/exports/prisma-smoke.assemblyline-bundle.json`,
+      mediaFileCount: 2,
+      metadataRecordCount: 12,
+      createdById: auth.user.id,
+      createdAt: nowIso(),
+    };
+    await repository.addExportBundle(bundle);
+    const bundles = await repository.listExportBundles(project.id);
+    checks.push({
+      name: "Export bundle persistence",
+      ok: bundles.some((candidate) => candidate.id === bundle.id && candidate.manifestPath === bundle.manifestPath),
+      detail: `listed ${bundles.length} export bundle(s) for ${project.id}`,
     });
   } finally {
     await closeQueueConnections();
