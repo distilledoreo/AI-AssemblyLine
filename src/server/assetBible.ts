@@ -9,6 +9,7 @@ import {
   createGenerationJob,
   decryptProjectProviderKey,
   getAssetById,
+  getProjectDashboard,
   getScriptAnalysisGraphForProject,
   getStore,
   markGenerationJobRunning,
@@ -42,16 +43,19 @@ async function openAiApiKeyForProject(projectId: string) {
 
 export async function upsertAssetDetail(assetId: string, input: Partial<AssetDetail>) {
   const store = getStore();
-  const asset = store.assets.find((candidate) => candidate.id === assetId);
-  if (!asset) {
-    throw new NotFoundError("Asset not found.");
-  }
+  const asset = await getAssetById(assetId);
+  if (!asset) throw new NotFoundError("Asset not found.");
+  mirrorAssetForLegacyState(asset);
   if (asset.status === "locked") {
     throw new AppError("This asset is locked. Unlock it before editing continuity details.", 409, "asset_locked");
   }
+  const graph = await getScriptAnalysisGraphForProject(asset.projectId);
   const timestamp = nowIso();
-  const existing = store.assetDetails.find((detail) => detail.assetId === assetId);
+  const existing =
+    store.assetDetails.find((detail) => detail.assetId === assetId) ??
+    graph.assetDetails.find((detail) => detail.assetId === assetId);
   if (existing) {
+    mirrorAssetDetailForLegacyState(existing);
     Object.assign(existing, input, { updatedAt: timestamp });
     asset.updatedAt = timestamp;
     await persistAssetDetailState(asset, existing);
@@ -91,10 +95,9 @@ export async function uploadAssetReference(input: {
 }) {
   validateImageMime(input.mimeType);
   const store = getStore();
-  const asset = store.assets.find((candidate) => candidate.id === input.assetId && candidate.projectId === input.projectId);
-  if (!asset) {
-    throw new NotFoundError("Asset not found.");
-  }
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
+  const asset = await resolveProjectAsset(input.projectId, input.assetId, graph);
+  mirrorAssetForLegacyState(asset);
   const version = createAssetVersion(input.assetId, { description: `Uploaded reference: ${input.filename}` });
   const dir = path.join(projectFolderPath(input.projectId, "assets"), input.assetId);
   await mkdir(dir, { recursive: true });
@@ -215,11 +218,9 @@ export async function processAssetReferenceJob(input: {
 }
 
 export async function transitionAssetStatus(assetId: string, status: AssetStatus) {
-  const store = getStore();
-  const asset = store.assets.find((candidate) => candidate.id === assetId);
-  if (!asset) {
-    throw new NotFoundError("Asset not found.");
-  }
+  const asset = await getAssetById(assetId);
+  if (!asset) throw new NotFoundError("Asset not found.");
+  mirrorAssetForLegacyState(asset);
   if (asset.status === "locked" && status !== "locked") {
     asset.continuityNotes = `${asset.continuityNotes ?? ""}\nUnlocked after warning acknowledgement.`.trim();
   }
@@ -237,11 +238,13 @@ export async function transitionAssetStatus(assetId: string, status: AssetStatus
 
 export async function mergeAssets(sourceAssetId: string, targetAssetId: string) {
   const store = getStore();
-  const source = store.assets.find((asset) => asset.id === sourceAssetId);
-  const target = store.assets.find((asset) => asset.id === targetAssetId);
+  const source = await getAssetById(sourceAssetId);
+  const target = await getAssetById(targetAssetId);
   if (!source || !target || source.projectId !== target.projectId) {
     throw new NotFoundError("Assets to merge were not found.");
   }
+  mirrorAssetForLegacyState(source);
+  mirrorAssetForLegacyState(target);
   store.sceneAssetRequirements.forEach((req) => {
     if (req.assetId === source.id) req.assetId = target.id;
   });
@@ -259,10 +262,9 @@ export async function mergeAssets(sourceAssetId: string, targetAssetId: string) 
 
 export async function splitAsset(assetId: string, input: { canonicalName: string; type?: AssetType }) {
   const store = getStore();
-  const source = store.assets.find((asset) => asset.id === assetId);
-  if (!source) {
-    throw new NotFoundError("Asset not found.");
-  }
+  const source = await getAssetById(assetId);
+  if (!source) throw new NotFoundError("Asset not found.");
+  mirrorAssetForLegacyState(source);
   const timestamp = nowIso();
   const asset: Asset = {
     ...source,
@@ -280,10 +282,12 @@ export async function splitAsset(assetId: string, input: { canonicalName: string
 }
 
 export async function updateProjectStyle(projectId: string, input: Partial<ProjectStyle>) {
-  const style = getStore().projectStyles.find((candidate) => candidate.projectId === projectId);
+  const store = getStore();
+  const style = (await getProjectDashboard(projectId))?.style ?? store.projectStyles.find((candidate) => candidate.projectId === projectId);
   if (!style) {
     throw new NotFoundError("Project style not found.");
   }
+  mirrorProjectStyleForLegacyState(style);
   const wasLocked = style.approvalStatus === "locked";
   Object.assign(style, input, { updatedAt: nowIso() });
   await persistProjectStyleState(style);
@@ -326,6 +330,20 @@ function mirrorAssetForLegacyState(asset: Asset) {
   const store = getStore();
   if (!store.assets.some((candidate) => candidate.id === asset.id)) {
     store.assets.push(asset);
+  }
+}
+
+function mirrorAssetDetailForLegacyState(detail: AssetDetail) {
+  const store = getStore();
+  if (!store.assetDetails.some((candidate) => candidate.assetId === detail.assetId)) {
+    store.assetDetails.push(detail);
+  }
+}
+
+function mirrorProjectStyleForLegacyState(style: ProjectStyle) {
+  const store = getStore();
+  if (!store.projectStyles.some((candidate) => candidate.projectId === style.projectId)) {
+    store.projectStyles.push(style);
   }
 }
 
