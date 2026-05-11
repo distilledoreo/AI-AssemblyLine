@@ -238,7 +238,7 @@ describe("queue and SSE foundation", () => {
     resetConfigForTests();
 
     const { emitProjectEvent } = await importQueueModule();
-    const event = emitProjectEvent({
+    const event = await emitProjectEvent({
       projectId: "project-1",
       jobId: "job-1",
       eventType: "progress",
@@ -247,6 +247,35 @@ describe("queue and SSE foundation", () => {
     });
 
     expect(redisInstances[0].publish).toHaveBeenCalledWith("project:project-1:events", JSON.stringify(event));
+  });
+
+  it("surfaces Redis publish failures for project events", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("QUEUE_MODE", "redis");
+    vi.stubEnv("REDIS_URL", "redis://events.test:6379");
+    resetConfigForTests();
+
+    const { emitProjectEvent } = await importQueueModule();
+    RedisConstructorMock.mockImplementationOnce(function Redis() {
+      const instance = {
+        publish: vi.fn().mockRejectedValue(new Error("redis publish failed")),
+        subscribe: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn(),
+        disconnect: vi.fn(),
+      };
+      redisInstances.push(instance);
+      return instance;
+    });
+
+    await expect(
+      emitProjectEvent({
+        projectId: "project-1",
+        jobId: "job-1",
+        eventType: "progress",
+        message: "Working",
+        progressPct: 20,
+      }),
+    ).rejects.toThrow("redis publish failed");
   });
 
   it("subscribes to the project Redis channel and ignores malformed or unrelated messages", async () => {

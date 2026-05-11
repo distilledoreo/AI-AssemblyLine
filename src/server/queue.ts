@@ -111,14 +111,14 @@ export function subscribeToProjectEvents(projectId: string, listener: Listener) 
   };
 }
 
-export function emitProjectEvent(event: Omit<JobEvent, "id" | "createdAt"> & Partial<Pick<JobEvent, "id" | "createdAt">>) {
+export async function emitProjectEvent(event: Omit<JobEvent, "id" | "createdAt"> & Partial<Pick<JobEvent, "id" | "createdAt">>) {
   const fullEvent: JobEvent = {
     ...event,
     id: event.id ?? createId(),
     createdAt: event.createdAt ?? nowIso(),
   };
   listeners.get(fullEvent.projectId)?.forEach((listener) => listener(fullEvent));
-  getRedisPublisher()?.publish(projectEventChannel(fullEvent.projectId), JSON.stringify(fullEvent)).catch(() => undefined);
+  await getRedisPublisher()?.publish(projectEventChannel(fullEvent.projectId), JSON.stringify(fullEvent));
   return fullEvent;
 }
 

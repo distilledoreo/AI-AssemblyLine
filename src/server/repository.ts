@@ -3496,7 +3496,7 @@ export async function addJobEvent(input: Omit<JobEvent, "id" | "createdAt">) {
     });
   }
   getStore().jobEvents.push(event);
-  emitProjectEvent(event);
+  await emitProjectEvent(event);
   return event;
 }
 
