@@ -1658,41 +1658,170 @@ export async function persistGeneratedScriptAnalysis(input: {
   shotAssetLinks: Array<{ sceneNumber: number; shotNumber: number; assetName: string }>;
   warnings: string[];
 }) {
+  const store = getStore();
+  const timestamp = nowIso();
+  const previousScenes = store.scenes.filter((scene) => scene.scriptVersionId === input.scriptVersionId);
+  const previousSceneIds = new Set(previousScenes.map((scene) => scene.id));
+  const previousShots = store.shots.filter((shot) => previousSceneIds.has(shot.sceneId));
+  const previousShotIds = new Set(previousShots.map((shot) => shot.id));
+  const previousSceneNumberById = new Map(previousScenes.map((scene) => [scene.id, scene.sceneNumber]));
+  store.sceneAssetRequirements = store.sceneAssetRequirements.filter((req) => !previousSceneIds.has(req.sceneId));
+  store.shotAssetRequirements = store.shotAssetRequirements.filter((req) => !previousShotIds.has(req.shotId));
+  store.shots = store.shots.filter((shot) => !previousShotIds.has(shot.id) || shot.isUserEdited);
+  store.scenes = store.scenes.filter((scene) => !previousSceneIds.has(scene.id) || scene.isUserEdited);
+
+  const localSceneByNumber = new Map<number, Scene>();
+  for (const output of input.scenes) {
+    const existing = previousScenes.find((scene) => scene.sceneNumber === output.sceneNumber && scene.isUserEdited);
+    const scene: Scene =
+      existing ??
+      ({
+        id: createId(),
+        scriptVersionId: input.scriptVersionId,
+        sceneNumber: output.sceneNumber,
+        heading: output.heading,
+        summary: output.summary,
+        scriptStartLine: output.scriptStartLine,
+        scriptEndLine: output.scriptEndLine,
+        locationHint: output.locationHint,
+        status: "blocked",
+        warnings: input.warnings,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      } satisfies Scene);
+    localSceneByNumber.set(output.sceneNumber, scene);
+    if (!store.scenes.some((candidate) => candidate.id === scene.id)) {
+      store.scenes.push(scene);
+    }
+  }
+
+  const localShotBySceneAndNumber = new Map<string, Shot>();
+  for (const sceneShots of input.shotBreakdowns) {
+    const scene = localSceneByNumber.get(sceneShots.sceneNumber);
+    if (!scene) {
+      continue;
+    }
+    for (const output of sceneShots.shots) {
+      const existing = previousShots.find(
+        (shot) =>
+          shot.isUserEdited &&
+          previousSceneNumberById.get(shot.sceneId) === sceneShots.sceneNumber &&
+          shot.shotNumber === output.shotNumber,
+      );
+      const shot: Shot =
+        existing ??
+        ({
+          id: createId(),
+          sceneId: scene.id,
+          shotNumber: output.shotNumber,
+          action: output.action,
+          cameraAngle: output.cameraAngle,
+          cameraMovement: output.cameraMovement,
+          lensNotes: output.lensNotes,
+          lightingNotes: output.lightingNotes,
+          status: "blocked",
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        } satisfies Shot);
+      shot.sceneId = scene.id;
+      if (!store.shots.some((candidate) => candidate.id === shot.id)) {
+        store.shots.push(shot);
+      }
+      localShotBySceneAndNumber.set(`${sceneShots.sceneNumber}:${output.shotNumber}`, shot);
+    }
+  }
+
+  const localAssetByName = new Map<string, Asset>();
+  for (const output of input.assets) {
+    const existing = store.assets.find(
+      (asset) => asset.projectId === input.projectId && asset.canonicalName.toLowerCase() === output.canonicalName.toLowerCase(),
+    );
+    const asset: Asset =
+      existing ??
+      ({
+        id: createId(),
+        projectId: input.projectId,
+        type: output.type,
+        canonicalName: output.canonicalName,
+        aliases: output.aliases ?? [],
+        status: "missing",
+        description: output.description,
+        firstAppearance: output.firstAppearance,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      } satisfies Asset);
+    asset.aliases = Array.from(new Set([...(asset.aliases ?? []), ...(output.aliases ?? [])]));
+    localAssetByName.set(output.canonicalName.toLowerCase(), asset);
+    if (!store.assets.some((candidate) => candidate.id === asset.id)) {
+      store.assets.push(asset);
+    }
+  }
+
+  for (const link of input.sceneAssetLinks) {
+    const scene = localSceneByNumber.get(link.sceneNumber);
+    const asset = localAssetByName.get(link.assetName.toLowerCase());
+    if (scene && asset && !store.sceneAssetRequirements.some((req) => req.sceneId === scene.id && req.assetId === asset.id)) {
+      store.sceneAssetRequirements.push({
+        id: createId(),
+        sceneId: scene.id,
+        assetId: asset.id,
+        isOptional: false,
+        detectedBy: "ai",
+        createdAt: timestamp,
+      });
+    }
+  }
+
+  for (const link of input.shotAssetLinks) {
+    const shot = localShotBySceneAndNumber.get(`${link.sceneNumber}:${link.shotNumber}`);
+    const asset = localAssetByName.get(link.assetName.toLowerCase());
+    if (shot && asset && !store.shotAssetRequirements.some((req) => req.shotId === shot.id && req.assetId === asset.id)) {
+      store.shotAssetRequirements.push({
+        id: createId(),
+        shotId: shot.id,
+        assetId: asset.id,
+        isOptional: false,
+        detectedBy: "ai",
+        createdAt: timestamp,
+      });
+    }
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
 
-  const previousScenes = await prisma.scene.findMany({
+  const previousPrismaScenes = await prisma.scene.findMany({
     where: { scriptVersionId: input.scriptVersionId },
     select: { id: true, sceneNumber: true, isUserEdited: true },
   });
-  const previousSceneIds = previousScenes.map((scene) => scene.id);
-  const previousShots = previousSceneIds.length
+  const previousPrismaSceneIds = previousPrismaScenes.map((scene) => scene.id);
+  const previousPrismaShots = previousPrismaSceneIds.length
     ? await prisma.shot.findMany({
-        where: { sceneId: { in: previousSceneIds } },
+        where: { sceneId: { in: previousPrismaSceneIds } },
         select: { id: true, sceneId: true, shotNumber: true, isUserEdited: true },
       })
     : [];
-  const previousShotIds = previousShots.map((shot) => shot.id);
+  const previousPrismaShotIds = previousPrismaShots.map((shot) => shot.id);
 
-  if (previousSceneIds.length) {
-    await prisma.sceneAssetReq.deleteMany({ where: { sceneId: { in: previousSceneIds } } });
+  if (previousPrismaSceneIds.length) {
+    await prisma.sceneAssetReq.deleteMany({ where: { sceneId: { in: previousPrismaSceneIds } } });
   }
-  if (previousShotIds.length) {
-    await prisma.shotAssetReq.deleteMany({ where: { shotId: { in: previousShotIds } } });
+  if (previousPrismaShotIds.length) {
+    await prisma.shotAssetReq.deleteMany({ where: { shotId: { in: previousPrismaShotIds } } });
   }
-  const generatedShotIds = previousShots.filter((shot) => !shot.isUserEdited).map((shot) => shot.id);
+  const generatedShotIds = previousPrismaShots.filter((shot) => !shot.isUserEdited).map((shot) => shot.id);
   if (generatedShotIds.length) {
     await prisma.shot.deleteMany({ where: { id: { in: generatedShotIds } } });
   }
-  const generatedSceneIds = previousScenes.filter((scene) => !scene.isUserEdited).map((scene) => scene.id);
+  const generatedSceneIds = previousPrismaScenes.filter((scene) => !scene.isUserEdited).map((scene) => scene.id);
   if (generatedSceneIds.length) {
     await prisma.scene.deleteMany({ where: { id: { in: generatedSceneIds } } });
   }
 
   const sceneByNumber = new Map<number, { id: string; sceneNumber: number }>();
   for (const scene of input.scenes) {
-    const existing = previousScenes.find((candidate) => candidate.sceneNumber === scene.sceneNumber && candidate.isUserEdited);
+    const existing = previousPrismaScenes.find((candidate) => candidate.sceneNumber === scene.sceneNumber && candidate.isUserEdited);
     const persisted = existing
       ? await prisma.scene.update({
           where: { id: existing.id },
@@ -1716,17 +1845,17 @@ export async function persistGeneratedScriptAnalysis(input: {
   }
 
   const shotBySceneAndNumber = new Map<string, { id: string; sceneId: string; shotNumber: number }>();
-  const previousSceneNumberById = new Map(previousScenes.map((scene) => [scene.id, scene.sceneNumber]));
+  const previousPrismaSceneNumberById = new Map(previousPrismaScenes.map((scene) => [scene.id, scene.sceneNumber]));
   for (const breakdown of input.shotBreakdowns) {
     const scene = sceneByNumber.get(breakdown.sceneNumber);
     if (!scene) {
       continue;
     }
     for (const shot of breakdown.shots) {
-      const existing = previousShots.find(
+      const existing = previousPrismaShots.find(
         (candidate) =>
           candidate.isUserEdited &&
-          previousSceneNumberById.get(candidate.sceneId) === breakdown.sceneNumber &&
+          previousPrismaSceneNumberById.get(candidate.sceneId) === breakdown.sceneNumber &&
           candidate.shotNumber === shot.shotNumber,
       );
       const persisted = existing
@@ -1945,6 +2074,14 @@ export async function getSceneAssetRequirementById(requirementId: string) {
 }
 
 export async function persistSceneState(scene: Scene) {
+  const store = getStore();
+  const existing = store.scenes.find((candidate) => candidate.id === scene.id);
+  if (existing) {
+    Object.assign(existing, scene);
+  } else {
+    store.scenes.push(scene);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -1965,6 +2102,14 @@ export async function persistSceneState(scene: Scene) {
 }
 
 export async function persistShotState(shot: Shot) {
+  const store = getStore();
+  const existing = store.shots.find((candidate) => candidate.id === shot.id);
+  if (existing) {
+    Object.assign(existing, shot);
+  } else {
+    store.shots.push(shot);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2856,6 +3001,14 @@ export async function persistAssetVersionAndReference(input: {
 }
 
 export async function persistSceneAssetRequirement(input: SceneAssetRequirement) {
+  const store = getStore();
+  const existing = store.sceneAssetRequirements.find((candidate) => candidate.id === input.id);
+  if (existing) {
+    Object.assign(existing, input);
+  } else {
+    store.sceneAssetRequirements.push(input);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2874,6 +3027,9 @@ export async function persistSceneAssetRequirement(input: SceneAssetRequirement)
 }
 
 export async function deleteSceneAssetRequirement(requirementId: string) {
+  const store = getStore();
+  store.sceneAssetRequirements = store.sceneAssetRequirements.filter((req) => req.id !== requirementId);
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2902,6 +3058,21 @@ export async function refreshPrismaReadiness(projectId: string) {
       return prisma.shot.update({ where: { id: shot.id }, data: { status } }).catch(() => undefined);
     }),
   );
+}
+
+export function refreshLocalReadiness(projectId: string) {
+  const store = getStore();
+  const approvedAssetIds = new Set(
+    store.assets.filter((asset) => asset.projectId === projectId && ["approved", "locked"].includes(asset.status)).map((asset) => asset.id),
+  );
+  for (const scene of store.scenes) {
+    const reqs = store.sceneAssetRequirements.filter((req) => req.sceneId === scene.id && !req.isOptional);
+    scene.status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
+  }
+  for (const shot of store.shots) {
+    const reqs = store.shotAssetRequirements.filter((req) => req.shotId === shot.id && !req.isOptional);
+    shot.status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
+  }
 }
 
 export async function updateProject(

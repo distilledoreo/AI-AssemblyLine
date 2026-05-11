@@ -15,7 +15,6 @@ import {
   getSceneAssetRequirementById,
   getSceneAssetRequirementBySceneAndAsset,
   getScriptVersionById,
-  getStore,
   supersedeScriptVersionScenes,
   deleteSceneAssetRequirement,
   getAssetById,
@@ -26,6 +25,7 @@ import {
   persistSceneAssetRequirement,
   persistSceneState,
   persistShotState,
+  refreshLocalReadiness,
   refreshPrismaReadiness,
   markGenerationJobRunning,
   updateScriptVersionAnalysisStatus,
@@ -482,134 +482,6 @@ async function persistAnalysis(
   shotOutputs: ScriptShotOutput[],
   assetOutput: ScriptAssetOutput,
 ) {
-  const store = getStore();
-  const timestamp = nowIso();
-  const previousScenes = store.scenes.filter((scene) => scene.scriptVersionId === scriptVersionId);
-  const previousSceneIds = new Set(previousScenes.map((scene) => scene.id));
-  const previousShots = store.shots.filter((shot) => previousSceneIds.has(shot.sceneId));
-  const previousShotIds = new Set(previousShots.map((shot) => shot.id));
-  const previousSceneNumberById = new Map(previousScenes.map((scene) => [scene.id, scene.sceneNumber]));
-  store.sceneAssetRequirements = store.sceneAssetRequirements.filter((req) => !previousSceneIds.has(req.sceneId));
-  store.shotAssetRequirements = store.shotAssetRequirements.filter((req) => !previousShotIds.has(req.shotId));
-  store.shots = store.shots.filter((shot) => !previousShotIds.has(shot.id) || shot.isUserEdited);
-  store.scenes = store.scenes.filter((scene) => !previousSceneIds.has(scene.id) || scene.isUserEdited);
-
-  const sceneByNumber = new Map<number, Scene>();
-  for (const output of sceneOutputs) {
-    const existing = previousScenes.find((scene) => scene.sceneNumber === output.sceneNumber && scene.isUserEdited);
-    const scene: Scene =
-      existing ??
-      ({
-        id: createId(),
-        scriptVersionId,
-        sceneNumber: output.sceneNumber,
-        heading: output.heading,
-        summary: output.summary,
-        scriptStartLine: output.scriptStartLine,
-        scriptEndLine: output.scriptEndLine,
-        locationHint: output.locationHint,
-        status: "blocked",
-        warnings: assetOutput.warnings,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      } satisfies Scene);
-    sceneByNumber.set(output.sceneNumber, scene);
-    if (!store.scenes.some((candidate) => candidate.id === scene.id)) {
-      store.scenes.push(scene);
-    }
-  }
-
-  const shotBySceneAndNumber = new Map<string, Shot>();
-  for (const sceneShots of shotOutputs) {
-    const scene = sceneByNumber.get(sceneShots.sceneNumber);
-    if (!scene) {
-      continue;
-    }
-    for (const output of sceneShots.shots) {
-      const existing = previousShots.find(
-        (shot) =>
-          shot.isUserEdited &&
-          previousSceneNumberById.get(shot.sceneId) === sceneShots.sceneNumber &&
-          shot.shotNumber === output.shotNumber,
-      );
-      const shot: Shot =
-        existing ??
-        ({
-          id: createId(),
-          sceneId: scene.id,
-          shotNumber: output.shotNumber,
-          action: output.action,
-          cameraAngle: output.cameraAngle,
-          cameraMovement: output.cameraMovement,
-          lensNotes: output.lensNotes,
-          lightingNotes: output.lightingNotes,
-          status: "blocked",
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        } satisfies Shot);
-      shot.sceneId = scene.id;
-      if (!store.shots.some((candidate) => candidate.id === shot.id)) {
-        store.shots.push(shot);
-      }
-      shotBySceneAndNumber.set(`${sceneShots.sceneNumber}:${output.shotNumber}`, shot);
-    }
-  }
-
-  const assetByName = new Map<string, Asset>();
-  for (const output of assetOutput.assets) {
-    const existing = store.assets.find(
-      (asset) => asset.projectId === projectId && asset.canonicalName.toLowerCase() === output.canonicalName.toLowerCase(),
-    );
-    const asset: Asset =
-      existing ??
-      ({
-        id: createId(),
-        projectId,
-        type: output.type,
-        canonicalName: output.canonicalName,
-        aliases: output.aliases ?? [],
-        status: "missing",
-        description: output.description,
-        firstAppearance: output.firstAppearance,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      } satisfies Asset);
-    asset.aliases = Array.from(new Set([...(asset.aliases ?? []), ...(output.aliases ?? [])]));
-    assetByName.set(output.canonicalName.toLowerCase(), asset);
-    if (!store.assets.some((candidate) => candidate.id === asset.id)) {
-      store.assets.push(asset);
-    }
-  }
-
-  for (const link of assetOutput.sceneAssetLinks) {
-    const scene = sceneByNumber.get(link.sceneNumber);
-    const asset = assetByName.get(link.assetName.toLowerCase());
-    if (scene && asset && !store.sceneAssetRequirements.some((req) => req.sceneId === scene.id && req.assetId === asset.id)) {
-      store.sceneAssetRequirements.push({
-        id: createId(),
-        sceneId: scene.id,
-        assetId: asset.id,
-        isOptional: false,
-        detectedBy: "ai",
-        createdAt: timestamp,
-      });
-    }
-  }
-
-  for (const link of assetOutput.shotAssetLinks) {
-    const shot = shotBySceneAndNumber.get(`${link.sceneNumber}:${link.shotNumber}`);
-    const asset = assetByName.get(link.assetName.toLowerCase());
-    if (shot && asset && !store.shotAssetRequirements.some((req) => req.shotId === shot.id && req.assetId === asset.id)) {
-      store.shotAssetRequirements.push({
-        id: createId(),
-        shotId: shot.id,
-        assetId: asset.id,
-        isOptional: false,
-        detectedBy: "ai",
-        createdAt: timestamp,
-      });
-    }
-  }
   await persistGeneratedScriptAnalysis({
     projectId,
     scriptVersionId,
@@ -620,7 +492,7 @@ async function persistAnalysis(
     shotAssetLinks: assetOutput.shotAssetLinks,
     warnings: assetOutput.warnings,
   });
-  refreshReadiness(projectId);
+  refreshLocalReadiness(projectId);
 }
 
 export async function updateScene(sceneId: string, input: Partial<Pick<Scene, "heading" | "summary" | "locationHint" | "status">>) {
@@ -649,25 +521,20 @@ export async function updateAsset(assetId: string, input: Partial<Pick<Asset, "c
     throw new NotFoundError("Asset not found.");
   }
   Object.assign(asset, input, { isUserEdited: true, updatedAt: nowIso() });
-  refreshReadiness(asset.projectId);
+  refreshLocalReadiness(asset.projectId);
   await persistAssetState(asset);
   await refreshPrismaReadiness(asset.projectId);
   return asset;
 }
 
 export async function addSceneAssetRequirement(sceneId: string, assetId: string) {
-  const store = getStore();
   const scene = await getSceneById(sceneId);
   const asset = await getAssetById(assetId);
   if (!scene || !asset) {
     throw new NotFoundError("Scene or asset not found.");
   }
-  mirrorSceneForLegacyState(scene);
-  mirrorAssetForLegacyState(asset);
   const existing = await getSceneAssetRequirementBySceneAndAsset(sceneId, assetId);
-  if (existing) {
-    mirrorSceneAssetRequirementForLegacyState(existing);
-  } else {
+  if (!existing) {
     const requirement = {
       id: createId(),
       sceneId,
@@ -676,66 +543,19 @@ export async function addSceneAssetRequirement(sceneId: string, assetId: string)
       detectedBy: "user",
       createdAt: nowIso(),
     } as const;
-    mirrorSceneAssetRequirementForLegacyState(requirement);
     await persistSceneAssetRequirement(requirement);
   }
-  refreshReadiness(asset.projectId);
+  refreshLocalReadiness(asset.projectId);
   await refreshPrismaReadiness(asset.projectId);
 }
 
 export async function removeSceneAssetRequirement(requirementId: string) {
-  const store = getStore();
   const requirement = await getSceneAssetRequirementById(requirementId);
   const asset = requirement ? await getAssetById(requirement.assetId) : undefined;
-  store.sceneAssetRequirements = store.sceneAssetRequirements.filter((req) => req.id !== requirementId);
   await deleteSceneAssetRequirement(requirementId);
   if (asset) {
-    mirrorAssetForLegacyState(asset);
-    refreshReadiness(asset.projectId);
+    refreshLocalReadiness(asset.projectId);
     await refreshPrismaReadiness(asset.projectId);
-  }
-}
-
-function mirrorSceneForLegacyState(scene: Scene) {
-  const store = getStore();
-  if (!store.scenes.some((candidate) => candidate.id === scene.id)) {
-    store.scenes.push(scene);
-  }
-}
-
-function mirrorAssetForLegacyState(asset: Asset) {
-  const store = getStore();
-  if (!store.assets.some((candidate) => candidate.id === asset.id)) {
-    store.assets.push(asset);
-  }
-}
-
-function mirrorSceneAssetRequirementForLegacyState(requirement: {
-  id: string;
-  sceneId: string;
-  assetId: string;
-  isOptional: boolean;
-  detectedBy: "ai" | "user";
-  createdAt: string;
-}) {
-  const store = getStore();
-  if (!store.sceneAssetRequirements.some((candidate) => candidate.id === requirement.id)) {
-    store.sceneAssetRequirements.push(requirement);
-  }
-}
-
-function refreshReadiness(projectId: string) {
-  const store = getStore();
-  const approvedAssetIds = new Set(
-    store.assets.filter((asset) => asset.projectId === projectId && ["approved", "locked"].includes(asset.status)).map((asset) => asset.id),
-  );
-  for (const scene of store.scenes) {
-    const reqs = store.sceneAssetRequirements.filter((req) => req.sceneId === scene.id && !req.isOptional);
-    scene.status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
-  }
-  for (const shot of store.shots) {
-    const reqs = store.shotAssetRequirements.filter((req) => req.shotId === shot.id && !req.isOptional);
-    shot.status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
   }
 }
 
