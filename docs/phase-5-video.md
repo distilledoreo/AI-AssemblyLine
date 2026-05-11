@@ -19,7 +19,7 @@ Phase 5 adds video clip generation from approved storyboard frames.
 
 ## Provider, polling, and media behavior
 
-- Runway and Kling adapters implement the video provider contract and declare async polling capability.
+- Runway and Kling adapters implement the video provider contract and declare async polling capability, but the public video generation API accepts Runway only until another live provider is wired.
 - Local verification uses deterministic mock video bytes when no real provider keys are configured.
 - The production UI routes both shot and scene video generation through Runway because it is the live-wired video provider.
 - With a workspace Runway key or `RUNWAYML_API_SECRET`, shot and scene video generation can submit live Runway async video tasks, persist the returned provider task id, and finalize completed output through the Runway polling processor. Run `npm run smoke:runway` before enabling live Runway generation in production.

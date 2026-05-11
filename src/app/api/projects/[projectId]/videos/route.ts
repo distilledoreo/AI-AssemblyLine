@@ -11,7 +11,7 @@ const videoActionSchema = z.discriminatedUnion("action", [
     mode: z.enum(["shot", "scene"]),
     shotId: z.string().uuid().optional(),
     sceneId: z.string().uuid().optional(),
-    providerSlug: z.enum(["runway", "kling"]).default("runway"),
+    providerSlug: z.enum(["runway"]).default("runway"),
   }),
   z.object({
     action: z.literal("clip"),
