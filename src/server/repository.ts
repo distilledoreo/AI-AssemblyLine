@@ -1469,6 +1469,7 @@ export async function createScriptVersionForProject(input: {
   const store = getStore();
   const timestamp = nowIso();
   let script = store.scripts.find((candidate) => candidate.projectId === input.projectId);
+  let existingVersions: ScriptVersion[] = [];
 
   if (isPrismaRepositoryEnabled()) {
     const prismaScript =
@@ -1481,6 +1482,12 @@ export async function createScriptVersionForProject(input: {
         },
       }));
     script = mapScript(prismaScript);
+    existingVersions = (
+      (await prisma.scriptVersion.findMany({
+        where: { scriptId: script.id },
+        orderBy: { versionNumber: "asc" },
+      })) ?? []
+    ).map(mapScriptVersion);
   }
 
   script ??= {
@@ -1493,7 +1500,14 @@ export async function createScriptVersionForProject(input: {
     store.scripts.push(script);
   }
 
-  const existingVersions = store.scriptVersions.filter((version) => version.scriptId === script.id);
+  if (!existingVersions.length) {
+    existingVersions = store.scriptVersions.filter((version) => version.scriptId === script.id);
+  }
+  for (const version of existingVersions) {
+    if (!store.scriptVersions.some((candidate) => candidate.id === version.id)) {
+      store.scriptVersions.push(version);
+    }
+  }
   existingVersions.forEach((version) => {
     version.isActive = false;
   });
@@ -1533,6 +1547,71 @@ export async function createScriptVersionForProject(input: {
   store.scriptVersions.push(version);
 
   return { script, version, previousVersionIds: new Set(existingVersions.map((existing) => existing.id)) };
+}
+
+export async function getNextScriptVersionNumberForProject(projectId: string) {
+  if (isPrismaRepositoryEnabled()) {
+    const script = await prisma.script.findFirst({ where: { projectId }, orderBy: { createdAt: "asc" } });
+    if (!script) {
+      return 1;
+    }
+    const versions =
+      (await prisma.scriptVersion.findMany({
+      where: { scriptId: script.id },
+      orderBy: { versionNumber: "asc" },
+    })) ?? [];
+    return (versions.at(-1)?.versionNumber ?? 0) + 1;
+  }
+
+  const store = getStore();
+  return (
+    store.scriptVersions.filter((version) =>
+      store.scripts.some((script) => script.projectId === projectId && script.id === version.scriptId),
+    ).length + 1
+  );
+}
+
+export async function supersedeScriptVersionScenes(scriptVersionIds: Iterable<string>) {
+  const versionIds = Array.from(scriptVersionIds);
+  if (!versionIds.length) {
+    return;
+  }
+
+  const store = getStore();
+  const timestamp = nowIso();
+  const previousSceneIds = new Set(
+    store.scenes
+      .filter((scene) => versionIds.includes(scene.scriptVersionId))
+      .map((scene) => {
+        scene.status = "superseded";
+        scene.updatedAt = timestamp;
+        return scene.id;
+      }),
+  );
+  store.shots
+    .filter((shot) => previousSceneIds.has(shot.sceneId))
+    .forEach((shot) => {
+      shot.status = "superseded";
+      shot.updatedAt = timestamp;
+    });
+
+  if (isPrismaRepositoryEnabled()) {
+    const previousScenes = await prisma.scene.findMany({
+      where: { scriptVersionId: { in: versionIds } },
+      select: { id: true },
+    });
+    const previousPrismaSceneIds = previousScenes.map((scene) => scene.id);
+    if (previousPrismaSceneIds.length) {
+      await prisma.scene.updateMany({
+        where: { id: { in: previousPrismaSceneIds } },
+        data: { status: "superseded", updatedAt: new Date() },
+      });
+      await prisma.shot.updateMany({
+        where: { sceneId: { in: previousPrismaSceneIds } },
+        data: { status: "superseded", updatedAt: new Date() },
+      });
+    }
+  }
 }
 
 export async function updateScriptVersionAnalysisStatus(scriptVersionId: string, status: ScriptVersion["analysisStatus"]) {

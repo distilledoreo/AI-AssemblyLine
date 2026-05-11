@@ -68,6 +68,7 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
   },
   shot: {
     create: vi.fn(),
@@ -76,6 +77,7 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
   },
   asset: {
     create: vi.fn(),
@@ -470,6 +472,7 @@ describe("Prisma repository mode", () => {
       ...data,
       createdAt: timestamp,
     }));
+    prismaMock.scriptVersion.findMany.mockResolvedValue([]);
     prismaMock.scriptVersion.updateMany.mockResolvedValue({ count: 0 });
     prismaMock.scriptVersion.create.mockImplementation(async ({ data }) => ({
       ...data,
@@ -505,6 +508,71 @@ describe("Prisma repository mode", () => {
       }),
     });
     expect(repository.getScriptAnalysisGraph(created.script.projectId).activeVersion?.id).toBe(created.version.id);
+  });
+
+  it("uses persisted Prisma script versions for upload numbering", async () => {
+    const script = {
+      id: "99999999-9999-4999-8999-999999999999",
+      projectId: "33333333-3333-4333-8333-333333333333",
+      filename: "pilot.txt",
+      createdAt: timestamp,
+    };
+    prismaMock.script.findFirst.mockResolvedValue(script);
+    prismaMock.scriptVersion.findMany.mockResolvedValue([
+      {
+        id: "77777777-7777-4777-8777-777777777777",
+        scriptId: script.id,
+        versionNumber: 1,
+        filePath: "storage/projects/project/uploads/v1-pilot.txt",
+        rawText: "INT. ROOM - DAY",
+        analysisStatus: "complete",
+        isActive: false,
+        createdAt: timestamp,
+      },
+      {
+        id: "88888888-8888-4888-8888-888888888888",
+        scriptId: script.id,
+        versionNumber: 2,
+        filePath: "storage/projects/project/uploads/v2-pilot.txt",
+        rawText: "INT. HALL - DAY",
+        analysisStatus: "complete",
+        isActive: true,
+        createdAt: timestamp,
+      },
+    ]);
+
+    const repository = await import("@/server/repository");
+    await expect(repository.getNextScriptVersionNumberForProject(script.projectId)).resolves.toBe(3);
+    expect(prismaMock.scriptVersion.findMany).toHaveBeenCalledWith({
+      where: { scriptId: script.id },
+      orderBy: { versionNumber: "asc" },
+    });
+  });
+
+  it("supersedes previous script scenes and shots through Prisma", async () => {
+    const scriptVersionId = "88888888-8888-4888-8888-888888888888";
+    prismaMock.scene.findMany.mockResolvedValue([
+      { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+      { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" },
+    ]);
+    prismaMock.scene.updateMany.mockResolvedValue({ count: 2 });
+    prismaMock.shot.updateMany.mockResolvedValue({ count: 4 });
+
+    const repository = await import("@/server/repository");
+    await repository.supersedeScriptVersionScenes([scriptVersionId]);
+
+    expect(prismaMock.scene.findMany).toHaveBeenCalledWith({
+      where: { scriptVersionId: { in: [scriptVersionId] } },
+      select: { id: true },
+    });
+    expect(prismaMock.scene.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"] } },
+      data: expect.objectContaining({ status: "superseded", updatedAt: expect.any(Date) }),
+    });
+    expect(prismaMock.shot.updateMany).toHaveBeenCalledWith({
+      where: { sceneId: { in: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"] } },
+      data: expect.objectContaining({ status: "superseded", updatedAt: expect.any(Date) }),
+    });
   });
 
   it("persists generated script analysis graph records through Prisma", async () => {

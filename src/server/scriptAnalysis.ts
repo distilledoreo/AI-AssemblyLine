@@ -9,12 +9,14 @@ import {
   completeGenerationJob,
   createScriptVersionForProject,
   getProject,
+  getNextScriptVersionNumberForProject,
   getScriptAnalysisGraph,
   getScriptAnalysisGraphForProject,
   getSceneAssetRequirementById,
   getSceneAssetRequirementBySceneAndAsset,
   getScriptVersionById,
   getStore,
+  supersedeScriptVersionScenes,
   deleteSceneAssetRequirement,
   getAssetById,
   getSceneById,
@@ -84,14 +86,10 @@ export async function uploadScriptForProject(input: {
     throw new AppError("Script text must contain at least ten characters.");
   }
 
-  const store = getStore();
-  const timestamp = nowIso();
   const uploadDir = projectFolderPath(input.projectId, "uploads");
   await mkdir(uploadDir, { recursive: true });
   const safeName = input.filename.replace(/[^a-z0-9._-]/gi, "_") || "script.txt";
-  const versionNumber = store.scriptVersions.filter((version) =>
-    store.scripts.some((script) => script.projectId === input.projectId && script.id === version.scriptId),
-  ).length + 1;
+  const versionNumber = await getNextScriptVersionNumberForProject(input.projectId);
   const filePath = path.join(uploadDir, `v${versionNumber}-${safeName}`);
   await writeFile(filePath, text, "utf8");
 
@@ -101,21 +99,7 @@ export async function uploadScriptForProject(input: {
     filePath,
     rawText: text,
   });
-  const previousSceneIds = new Set(
-    store.scenes
-      .filter((scene) => previousVersionIds.has(scene.scriptVersionId))
-      .map((scene) => {
-        scene.status = "superseded";
-        scene.updatedAt = timestamp;
-        return scene.id;
-      }),
-  );
-  store.shots
-    .filter((shot) => previousSceneIds.has(shot.sceneId))
-    .forEach((shot) => {
-      shot.status = "superseded";
-      shot.updatedAt = timestamp;
-    });
+  await supersedeScriptVersionScenes(previousVersionIds);
   const job = createScriptAnalysisJob(input.projectId, version.id);
   if (isRedisQueueEnabled()) {
     return getScriptAnalysisGraph(input.projectId);
