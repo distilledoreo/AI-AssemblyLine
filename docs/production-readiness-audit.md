@@ -134,6 +134,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - OpenAI, Stability, and Runway adapters now trim direct API key inputs before mock/live classification and Authorization header construction, preventing whitespace-padded `mock` values from bypassing the production mock-provider guard.
 - Provider-key guards, preflight checks, health reporting, smoke helpers, and live adapters now treat `mock` case-insensitively, so values such as `MOCK` or whitespace-padded mock values cannot be mistaken for live production credentials.
 - Runtime config parsing now rejects `ENCRYPTION_KEY` values unless they decode to exactly 32 bytes, matching the production preflight and AES-256-GCM provider-key encryption requirement.
+- `npm run rotate-keys` now re-encrypts stored provider keys from `ENCRYPTION_KEY_OLD` to `ENCRYPTION_KEY`, with tests covering old-key decrypt/new-key encrypt and invalid rotation-key rejection.
 - Runtime config parsing now rejects production `NEXTAUTH_URL` values that are not origin-only HTTPS URLs outside localhost, matching the production preflight callback URL gate.
 - Queued script-analysis job metadata now resolves OpenAI credentials before job creation, labeling live-key analysis as `openai` and reserving `local-mock` for deterministic local fallback.
 - Queued script upload and re-analysis responses now read the pending graph through the async repository graph helper, so Redis-mode production responses use Prisma readback instead of the synchronous local in-memory graph helper.

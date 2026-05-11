@@ -21,6 +21,7 @@
     "smoke:stability": "tsx scripts/smoke-stability.ts",
     "smoke:runway": "tsx scripts/smoke-runway.ts",
     "smoke:providers": "tsx scripts/smoke-providers.ts",
+    "rotate-keys": "tsx scripts/rotate-provider-keys.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate --schema prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev",

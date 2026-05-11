@@ -8,50 +8,50 @@ All configuration is driven by environment variables loaded from `.env` files (v
 
 ### Required variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | Postgres connection string | `postgresql://user:pass@localhost:5432/assemblyline` |
-| `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
-| `NEXTAUTH_URL` | Canonical app origin, without a path/query/fragment | `http://localhost:3000` |
-| `NEXTAUTH_SECRET` | NextAuth session signing secret (32+ chars) | Generated via `openssl rand -base64 32` |
-| `ENCRYPTION_KEY` | AES-256 key for provider API key encryption (32 bytes, base64) | Generated via `openssl rand -base64 32` |
-| `STORAGE_ROOT` | Root directory for local media storage | `./storage` |
+| Variable          | Description                                                    | Example                                              |
+| ----------------- | -------------------------------------------------------------- | ---------------------------------------------------- |
+| `DATABASE_URL`    | Postgres connection string                                     | `postgresql://user:pass@localhost:5432/assemblyline` |
+| `REDIS_URL`       | Redis connection string                                        | `redis://localhost:6379`                             |
+| `NEXTAUTH_URL`    | Canonical app origin, without a path/query/fragment            | `http://localhost:3000`                              |
+| `NEXTAUTH_SECRET` | NextAuth session signing secret (32+ chars)                    | Generated via `openssl rand -base64 32`              |
+| `ENCRYPTION_KEY`  | AES-256 key for provider API key encryption (32 bytes, base64) | Generated via `openssl rand -base64 32`              |
+| `STORAGE_ROOT`    | Root directory for local media storage                         | `./storage`                                          |
 
 ### Optional variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | App port | `3000` |
-| `QUEUE_MODE` | Queue execution mode. Use `inline` for no-worker local development or `redis` for BullMQ-backed async jobs. Production rejects `inline` and defaults to Redis mode when unset. | Production: Redis; local example: `inline` |
-| `REPOSITORY_MODE` | Repository backend override. Use `memory` only for local development or `prisma` for production-like persistence. Production rejects `memory` and defaults to Prisma when unset. | Production: Prisma; local example: `memory` |
-| `ANALYSIS_QUEUE_CONCURRENCY` | Workers for script analysis queue | `2` |
-| `IMAGE_QUEUE_CONCURRENCY` | Workers for image generation queue | `3` |
-| `VIDEO_QUEUE_CONCURRENCY` | Workers for video generation queue | `2` |
-| `MEDIA_QUEUE_CONCURRENCY` | Workers for FFmpeg media queue | `4` |
-| `PROJECT_QUEUE_CONCURRENCY` | Workers for export/import queue | `1` |
-| `QUEUE_RATE_LIMIT_MAX` | Optional global BullMQ worker limiter maximum jobs per duration window | None |
-| `QUEUE_RATE_LIMIT_DURATION_MS` | Optional global BullMQ worker limiter duration window in milliseconds | None |
-| `<QUEUE>_QUEUE_RATE_LIMIT_MAX` | Optional per-queue override for `ANALYSIS`, `IMAGE`, `VIDEO`, `MEDIA`, or `PROJECT` queue limiter maximum jobs | None |
-| `<QUEUE>_QUEUE_RATE_LIMIT_DURATION_MS` | Optional per-queue override for `ANALYSIS`, `IMAGE`, `VIDEO`, `MEDIA`, or `PROJECT` queue limiter duration in milliseconds | None |
-| `MAX_UPLOAD_SIZE_MB` | Maximum file upload size | `100` |
-| `SESSION_MAX_AGE_DAYS` | Session expiry | `30` |
-| `LOG_LEVEL` | Logging verbosity | `info` |
-| `SENTRY_DSN` | Sentry error tracking DSN | None (disabled) |
-| `OPENAI_API_KEY` | Optional server fallback OpenAI Platform key when a workspace OpenAI key is not saved. Required by `preflight:production` for live smoke verification. | None |
-| `OPENAI_SMOKE_MODEL` | Optional model override for `npm run smoke:openai`. | `gpt-4.1-mini` |
-| `STABILITY_API_KEY` | Optional server fallback Stability AI key when a workspace Stability key is not saved. Enables live Stable Image Core/Ultra image generation and `npm run smoke:stability`. | None |
-| `STABILITY_SMOKE_MODEL` | Optional model override for `npm run smoke:stability`. | `stable-image-core` |
-| `RUNWAYML_API_SECRET` | Optional server fallback Runway key when a workspace Runway key is not saved. Enables live Runway video task submission. | None |
-| `RUNWAY_SMOKE_MODEL` | Optional model override for `npm run smoke:runway`. | `gen4.5` |
+| Variable                               | Description                                                                                                                                                                      | Default                                     |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `PORT`                                 | App port                                                                                                                                                                         | `3000`                                      |
+| `QUEUE_MODE`                           | Queue execution mode. Use `inline` for no-worker local development or `redis` for BullMQ-backed async jobs. Production rejects `inline` and defaults to Redis mode when unset.   | Production: Redis; local example: `inline`  |
+| `REPOSITORY_MODE`                      | Repository backend override. Use `memory` only for local development or `prisma` for production-like persistence. Production rejects `memory` and defaults to Prisma when unset. | Production: Prisma; local example: `memory` |
+| `ANALYSIS_QUEUE_CONCURRENCY`           | Workers for script analysis queue                                                                                                                                                | `2`                                         |
+| `IMAGE_QUEUE_CONCURRENCY`              | Workers for image generation queue                                                                                                                                               | `3`                                         |
+| `VIDEO_QUEUE_CONCURRENCY`              | Workers for video generation queue                                                                                                                                               | `2`                                         |
+| `MEDIA_QUEUE_CONCURRENCY`              | Workers for FFmpeg media queue                                                                                                                                                   | `4`                                         |
+| `PROJECT_QUEUE_CONCURRENCY`            | Workers for export/import queue                                                                                                                                                  | `1`                                         |
+| `QUEUE_RATE_LIMIT_MAX`                 | Optional global BullMQ worker limiter maximum jobs per duration window                                                                                                           | None                                        |
+| `QUEUE_RATE_LIMIT_DURATION_MS`         | Optional global BullMQ worker limiter duration window in milliseconds                                                                                                            | None                                        |
+| `<QUEUE>_QUEUE_RATE_LIMIT_MAX`         | Optional per-queue override for `ANALYSIS`, `IMAGE`, `VIDEO`, `MEDIA`, or `PROJECT` queue limiter maximum jobs                                                                   | None                                        |
+| `<QUEUE>_QUEUE_RATE_LIMIT_DURATION_MS` | Optional per-queue override for `ANALYSIS`, `IMAGE`, `VIDEO`, `MEDIA`, or `PROJECT` queue limiter duration in milliseconds                                                       | None                                        |
+| `MAX_UPLOAD_SIZE_MB`                   | Maximum file upload size                                                                                                                                                         | `100`                                       |
+| `SESSION_MAX_AGE_DAYS`                 | Session expiry                                                                                                                                                                   | `30`                                        |
+| `LOG_LEVEL`                            | Logging verbosity                                                                                                                                                                | `info`                                      |
+| `SENTRY_DSN`                           | Sentry error tracking DSN                                                                                                                                                        | None (disabled)                             |
+| `OPENAI_API_KEY`                       | Optional server fallback OpenAI Platform key when a workspace OpenAI key is not saved. Required by `preflight:production` for live smoke verification.                           | None                                        |
+| `OPENAI_SMOKE_MODEL`                   | Optional model override for `npm run smoke:openai`.                                                                                                                              | `gpt-4.1-mini`                              |
+| `STABILITY_API_KEY`                    | Optional server fallback Stability AI key when a workspace Stability key is not saved. Enables live Stable Image Core/Ultra image generation and `npm run smoke:stability`.      | None                                        |
+| `STABILITY_SMOKE_MODEL`                | Optional model override for `npm run smoke:stability`.                                                                                                                           | `stable-image-core`                         |
+| `RUNWAYML_API_SECRET`                  | Optional server fallback Runway key when a workspace Runway key is not saved. Enables live Runway video task submission.                                                         | None                                        |
+| `RUNWAY_SMOKE_MODEL`                   | Optional model override for `npm run smoke:runway`.                                                                                                                              | `gen4.5`                                    |
 
 ### OAuth sign-in variables
 
 Google and GitHub sign-in are optional. Configure both a client ID and client secret to show the provider on `/signin`.
 
-| Provider | Client ID variables | Client secret variables |
-|----------|---------------------|-------------------------|
-| Google | `AUTH_GOOGLE_ID`, `GOOGLE_CLIENT_ID`, `GOOGLE_ID` | `AUTH_GOOGLE_SECRET`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_SECRET` |
-| GitHub | `AUTH_GITHUB_ID`, `GITHUB_CLIENT_ID`, `GITHUB_ID` | `AUTH_GITHUB_SECRET`, `GITHUB_CLIENT_SECRET`, `GITHUB_SECRET` |
+| Provider | Client ID variables                               | Client secret variables                                       |
+| -------- | ------------------------------------------------- | ------------------------------------------------------------- |
+| Google   | `AUTH_GOOGLE_ID`, `GOOGLE_CLIENT_ID`, `GOOGLE_ID` | `AUTH_GOOGLE_SECRET`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_SECRET` |
+| GitHub   | `AUTH_GITHUB_ID`, `GITHUB_CLIENT_ID`, `GITHUB_ID` | `AUTH_GITHUB_SECRET`, `GITHUB_CLIENT_SECRET`, `GITHUB_SECRET` |
 
 ## API key encryption
 
@@ -70,8 +70,10 @@ If `ENCRYPTION_KEY` needs to be rotated:
 
 1. Set `ENCRYPTION_KEY_OLD` to the current key.
 2. Set `ENCRYPTION_KEY` to the new key.
-3. Run the `rotate-keys` CLI command, which re-encrypts all `ProviderKey` records.
+3. Run `npm run rotate-keys`, which re-encrypts all `ProviderKey` records in Postgres with the new key.
 4. Remove `ENCRYPTION_KEY_OLD` after successful rotation.
+
+The rotation command loads `.env`, `.env.production`, `.env.local`, and `.env.production.local` with shell variables taking priority. It requires both keys to decode to exactly 32 bytes and fails if the old and new key values are identical. Run it from a trusted operator shell; it prints only record counts and never prints decrypted provider keys.
 
 ### Security rules
 
