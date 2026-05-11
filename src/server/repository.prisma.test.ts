@@ -1995,6 +1995,89 @@ describe("Prisma repository mode", () => {
     expect(prismaMock.reviewNote.createMany).toHaveBeenCalledWith(expect.objectContaining({ data: [expect.objectContaining({ authorId: note.authorId })] }));
   });
 
+  it("rejects imported project graph persistence when storyboard frame versions fail", async () => {
+    const repository = await import("@/server/repository");
+    const projectId = "33333333-3333-4333-8333-333333333333";
+    const scene = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      scriptVersionId: "88888888-8888-4888-8888-888888888888",
+      sceneNumber: 1,
+      heading: "INT. ROOM - DAY",
+      summary: "Imported room.",
+      scriptStartLine: 1,
+      scriptEndLine: 1,
+      status: "ready" as const,
+      isUserEdited: false,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const shot = {
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      sceneId: scene.id,
+      shotNumber: 1,
+      action: "Imported action.",
+      status: "storyboarded" as const,
+      isUserEdited: false,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const frame = {
+      id: "13131313-1313-4131-8131-131313131313",
+      shotId: shot.id,
+      keyframeIndex: 0,
+      createdAt: timestamp.toISOString(),
+      updatedAt: timestamp.toISOString(),
+    };
+    const frameVersion = {
+      id: "14141414-1414-4141-8141-141414141414",
+      frameId: frame.id,
+      versionNumber: 1,
+      prompt: "Imported frame.",
+      filePath: "storage/projects/import/storyboards/frame.png",
+      status: "approved" as const,
+      isStale: false,
+      createdAt: timestamp.toISOString(),
+    };
+    [
+      prismaMock.script.createMany,
+      prismaMock.scriptVersion.createMany,
+      prismaMock.scene.createMany,
+      prismaMock.shot.createMany,
+      prismaMock.asset.createMany,
+      prismaMock.assetVersion.createMany,
+      prismaMock.assetReference.createMany,
+      prismaMock.sceneAssetReq.createMany,
+      prismaMock.shotAssetReq.createMany,
+      prismaMock.storyboardFrame.createMany,
+    ].forEach((mock) => mock.mockResolvedValue({ count: 1 }));
+    prismaMock.frameVersion.createMany.mockRejectedValue(new Error("imported frame-version write failed"));
+
+    await expect(
+      repository.persistImportedProjectGraph({
+        scripts: [],
+        scenes: [scene],
+        shots: [shot],
+        assets: [],
+        assetDetails: [],
+        assetVersions: [],
+        assetReferences: [],
+        storyboardFrames: [frame],
+        frameVersions: [frameVersion],
+        reviewNotes: [],
+        videoClips: [],
+        clipVersions: [],
+        invitations: [],
+        assignments: [],
+        activityEvents: [],
+        sceneAssetRequirements: [],
+        shotAssetRequirements: [],
+        jobs: [],
+        events: [],
+      }),
+    ).rejects.toThrow("imported frame-version write failed");
+    expect(prismaMock.videoClip.createMany).not.toHaveBeenCalled();
+  });
+
   it("replays project events from Prisma after the last event id", async () => {
     const repository = await import("@/server/repository");
     const firstEvent = {

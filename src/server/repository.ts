@@ -2352,7 +2352,7 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
   await prisma.shotAssetReq.createMany({
     data: graph.shotAssetRequirements,
     skipDuplicates: true,
-  }).catch(() => undefined);
+  });
   await prisma.storyboardFrame.createMany({
     data: graph.storyboardFrames.map((frame) => ({
       id: frame.id,
@@ -2364,7 +2364,7 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       updatedAt: new Date(frame.updatedAt),
     })),
     skipDuplicates: true,
-  }).catch(() => undefined);
+  });
   await prisma.frameVersion.createMany({
     data: graph.frameVersions.map((version) => ({
       id: version.id,
@@ -2380,7 +2380,7 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       createdAt: new Date(version.createdAt),
     })),
     skipDuplicates: true,
-  }).catch(() => undefined);
+  });
   await prisma.videoClip.createMany({
     data: graph.videoClips.map((clip) => ({
       id: clip.id,
@@ -2390,7 +2390,7 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       updatedAt: new Date(clip.updatedAt),
     })),
     skipDuplicates: true,
-  }).catch(() => undefined);
+  });
   await prisma.clipVersion.createMany({
     data: graph.clipVersions.map((version) => ({
       id: version.id,
@@ -2407,7 +2407,7 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
       createdAt: new Date(version.createdAt),
     })),
     skipDuplicates: true,
-  }).catch(() => undefined);
+  });
   await prisma.reviewNote.createMany({
     data: graph.reviewNotes.map((note) => ({
       id: note.id,
