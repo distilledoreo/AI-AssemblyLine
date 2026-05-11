@@ -1812,6 +1812,14 @@ export async function persistGeneratedScriptAnalysis(input: {
 }
 
 export async function persistAssetState(asset: Asset) {
+  const store = getStore();
+  const existing = store.assets.find((candidate) => candidate.id === asset.id);
+  if (existing) {
+    Object.assign(existing, asset);
+  } else {
+    store.assets.push(asset);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -1977,6 +1985,14 @@ export async function persistShotState(shot: Shot) {
 }
 
 export async function persistCreatedAssetState(asset: Asset) {
+  const store = getStore();
+  const existing = store.assets.find((candidate) => candidate.id === asset.id);
+  if (existing) {
+    Object.assign(existing, asset);
+  } else {
+    store.assets.push(asset);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2000,6 +2016,16 @@ export async function persistCreatedAssetState(asset: Asset) {
 }
 
 export async function persistAssetMergeState(input: { source: Asset; target: Asset }) {
+  const store = getStore();
+  store.sceneAssetRequirements.forEach((req) => {
+    if (req.assetId === input.source.id) req.assetId = input.target.id;
+  });
+  store.shotAssetRequirements.forEach((req) => {
+    if (req.assetId === input.source.id) req.assetId = input.target.id;
+  });
+  await persistAssetState(input.source);
+  await persistAssetState(input.target);
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2255,6 +2281,14 @@ export async function persistImportedProjectGraph(graph: ScriptAnalysisGraph) {
 }
 
 export async function persistAssetDetailState(asset: Asset, detail: AssetDetail) {
+  const store = getStore();
+  const existing = store.assetDetails.find((candidate) => candidate.assetId === detail.assetId);
+  if (existing) {
+    Object.assign(existing, detail);
+  } else {
+    store.assetDetails.push(detail);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2362,6 +2396,14 @@ export async function persistAssetDetailState(asset: Asset, detail: AssetDetail)
 }
 
 export async function persistProjectStyleState(style: ProjectStyle) {
+  const store = getStore();
+  const existing = store.projectStyles.find((candidate) => candidate.projectId === style.projectId);
+  if (existing) {
+    Object.assign(existing, style);
+  } else {
+    store.projectStyles.push(style);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
@@ -2757,23 +2799,47 @@ export async function persistActivityEventState(event: ActivityEvent) {
   }).catch(() => undefined);
 }
 
-export async function persistAssetVersionAndReference(input: {
-  version: AssetVersion;
-  reference: AssetReference;
-}) {
+export async function persistAssetVersionState(version: AssetVersion) {
+  const store = getStore();
+  const existing = store.assetVersions.find((candidate) => candidate.id === version.id);
+  if (existing) {
+    Object.assign(existing, version);
+  } else {
+    store.assetVersions.push(version);
+  }
+
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
   await prisma.assetVersion.create({
     data: {
-      id: input.version.id,
-      assetId: input.version.assetId,
-      versionNumber: input.version.versionNumber,
-      description: input.version.description,
-      promptFragments: toPrismaJson(input.version.promptFragments),
-      status: input.version.status,
+      id: version.id,
+      assetId: version.assetId,
+      versionNumber: version.versionNumber,
+      description: version.description,
+      promptFragments: toPrismaJson(version.promptFragments),
+      status: version.status,
+      createdAt: new Date(version.createdAt),
     },
   }).catch(() => undefined);
+}
+
+export async function persistAssetVersionAndReference(input: {
+  version: AssetVersion;
+  reference: AssetReference;
+}) {
+  const store = getStore();
+  await persistAssetVersionState(input.version);
+  const existing = store.assetReferences.find((candidate) => candidate.id === input.reference.id);
+  if (existing) {
+    Object.assign(existing, input.reference);
+  } else {
+    store.assetReferences.push(input.reference);
+  }
+
+  if (!isPrismaRepositoryEnabled()) {
+    return;
+  }
   await prisma.assetReference.create({
     data: {
       id: input.reference.id,
