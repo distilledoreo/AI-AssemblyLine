@@ -49,6 +49,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
+- Script revision upload persistence now batches new script creation when needed, prior-version deactivation, and new active ScriptVersion creation into one Prisma transaction, preventing partial active-version state after late database failures.
 - Frame and clip approval persistence now batches previous-version superseding and selected-version approval into one Prisma transaction, preventing partial approval state after late database failures.
 - Generated video clip persistence now batches the Prisma clip upsert, clip-version insert, and generation-job completion into one transaction, preventing partial generated-clip state after late database failures.
 - Generated storyboard frame persistence now batches the Prisma frame upsert, frame-version insert, shot status update, and generation-job completion into one transaction, preventing partial generated-frame state after late database failures.

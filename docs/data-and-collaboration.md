@@ -136,4 +136,6 @@ When a user uploads a new script revision mid-production:
 6. Users resolve conflicts through the asset-requirement editor: new assets detected in the revised script appear as `missing`, and assets no longer referenced appear as warnings.
 7. Re-analysis of a single scene preserves user edits to that scene by default, only adding newly detected items unless the user explicitly chooses a full reset.
 
+Script revision upload persistence commits any new script row, prior-version deactivation, and new active `ScriptVersion` creation in one database transaction. A failed upload write should not leave previous script versions inactive without the replacement version.
+
 See [script-analysis.md](script-analysis.md) for the analysis pipeline details.

@@ -1480,24 +1480,34 @@ export async function createScriptVersionForProject(input: {
   const timestamp = nowIso();
   let script = store.scripts.find((candidate) => candidate.projectId === input.projectId);
   let existingVersions: ScriptVersion[] = [];
+  let prismaScript:
+    | {
+        id: string;
+        projectId: string;
+        filename: string;
+        createdAt: Date | string;
+      }
+    | null
+    | undefined;
 
   if (isPrismaRepositoryEnabled()) {
-    const prismaScript =
-      (await prisma.script.findFirst({ where: { projectId: input.projectId }, orderBy: { createdAt: "asc" } })) ??
-      (await prisma.script.create({
-        data: {
-          id: script?.id ?? createId(),
-          projectId: input.projectId,
-          filename: input.filename,
-        },
-      }));
-    script = mapScript(prismaScript);
-    existingVersions = (
-      (await prisma.scriptVersion.findMany({
-        where: { scriptId: script.id },
-        orderBy: { versionNumber: "asc" },
-      })) ?? []
-    ).map(mapScriptVersion);
+    prismaScript = await prisma.script.findFirst({ where: { projectId: input.projectId }, orderBy: { createdAt: "asc" } });
+    if (prismaScript) {
+      script = mapScript(prismaScript);
+      existingVersions = (
+        (await prisma.scriptVersion.findMany({
+          where: { scriptId: script.id },
+          orderBy: { versionNumber: "asc" },
+        })) ?? []
+      ).map(mapScriptVersion);
+    } else {
+      script = {
+        id: script?.id ?? createId(),
+        projectId: input.projectId,
+        filename: input.filename,
+        createdAt: timestamp,
+      };
+    }
   }
 
   script ??= {
@@ -1521,12 +1531,6 @@ export async function createScriptVersionForProject(input: {
   existingVersions.forEach((version) => {
     version.isActive = false;
   });
-  if (isPrismaRepositoryEnabled()) {
-    await prisma.scriptVersion.updateMany({
-      where: { scriptId: script.id },
-      data: { isActive: false },
-    });
-  }
 
   const versionNumber = existingVersions.length + 1;
   let version: ScriptVersion = {
@@ -1540,8 +1544,24 @@ export async function createScriptVersionForProject(input: {
     createdAt: timestamp,
   };
   if (isPrismaRepositoryEnabled()) {
-    version = mapScriptVersion(
-      await prisma.scriptVersion.create({
+    const operations: Prisma.PrismaPromise<unknown>[] = [];
+    if (!prismaScript) {
+      operations.push(
+        prisma.script.create({
+          data: {
+            id: script.id,
+            projectId: input.projectId,
+            filename: input.filename,
+          },
+        }),
+      );
+    }
+    operations.push(
+      prisma.scriptVersion.updateMany({
+        where: { scriptId: script.id },
+        data: { isActive: false },
+      }),
+      prisma.scriptVersion.create({
         data: {
           id: version.id,
           scriptId: script.id,
@@ -1553,6 +1573,8 @@ export async function createScriptVersionForProject(input: {
         },
       }),
     );
+    const results = await prisma.$transaction(operations);
+    version = mapScriptVersion(results[results.length - 1] as Parameters<typeof mapScriptVersion>[0]);
   }
   store.scriptVersions.push(version);
 

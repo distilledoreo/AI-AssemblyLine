@@ -1183,7 +1183,37 @@ describe("Prisma repository mode", () => {
         isActive: true,
       }),
     });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction.mock.calls[0]?.[0]).toHaveLength(3);
     expect(repository.getScriptAnalysisGraph(created.script.projectId).activeVersion?.id).toBe(created.version.id);
+  });
+
+  it("rejects uploaded script version persistence when the transaction fails", async () => {
+    prismaMock.script.findFirst.mockResolvedValue(undefined);
+    prismaMock.script.create.mockImplementation(async ({ data }) => ({
+      ...data,
+      createdAt: timestamp,
+    }));
+    prismaMock.scriptVersion.findMany.mockResolvedValue([]);
+    prismaMock.scriptVersion.updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.scriptVersion.create.mockImplementation(async ({ data }) => ({
+      ...data,
+      createdAt: timestamp,
+    }));
+    prismaMock.$transaction.mockRejectedValueOnce(new Error("script upload transaction failed"));
+
+    const repository = await import("@/server/repository");
+
+    await expect(
+      repository.createScriptVersionForProject({
+        projectId: "33333333-3333-4333-8333-333333333333",
+        filename: "pilot.txt",
+        filePath: "storage/projects/project/uploads/v1-pilot.txt",
+        rawText: "INT. ROOM - DAY\nANNA\nAnna waits.",
+      }),
+    ).rejects.toThrow("script upload transaction failed");
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction.mock.calls[0]?.[0]).toHaveLength(3);
   });
 
   it("uses persisted Prisma script versions for upload numbering", async () => {
