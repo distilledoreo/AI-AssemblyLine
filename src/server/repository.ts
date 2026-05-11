@@ -1821,6 +1821,24 @@ export async function getClipVersionById(clipVersionId: string) {
   return version ? mapClipVersion(version) : local;
 }
 
+export async function getVideoClipForShot(shotId: string) {
+  const local = getStore().videoClips.find((candidate) => candidate.shotId === shotId);
+  if (!isPrismaRepositoryEnabled()) {
+    return local;
+  }
+  const clip = await prisma.videoClip.findFirst({ where: { shotId } }).catch(() => undefined);
+  return clip ? mapVideoClip(clip) : local;
+}
+
+export async function getVideoClipForScene(sceneId: string) {
+  const local = getStore().videoClips.find((candidate) => candidate.sceneId === sceneId);
+  if (!isPrismaRepositoryEnabled()) {
+    return local;
+  }
+  const clip = await prisma.videoClip.findFirst({ where: { sceneId } }).catch(() => undefined);
+  return clip ? mapVideoClip(clip) : local;
+}
+
 export async function getSceneAssetRequirementBySceneAndAsset(sceneId: string, assetId: string) {
   const local = getStore().sceneAssetRequirements.find((candidate) => candidate.sceneId === sceneId && candidate.assetId === assetId);
   if (!isPrismaRepositoryEnabled()) {

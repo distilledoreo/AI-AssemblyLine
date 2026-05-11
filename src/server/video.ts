@@ -8,6 +8,8 @@ import {
   getClipVersionById,
   getScriptAnalysisGraphForProject,
   getStore,
+  getVideoClipForScene,
+  getVideoClipForShot,
   markGenerationJobRunning,
   persistClipVersionState,
   persistGeneratedClipVersion,
@@ -95,11 +97,12 @@ export async function processVideoClipJob(input: {
     },
     { modelId: job.modelId ?? "video-model", width: 1024, height: 576, durationSeconds: 3 },
   );
-  let clip = store.videoClips.find((candidate) =>
-    input.mode === "shot" ? candidate.shotId === input.shotId : candidate.sceneId === input.sceneId,
-  ) ?? graph.videoClips.find((candidate) =>
-    input.mode === "shot" ? candidate.shotId === input.shotId : candidate.sceneId === input.sceneId,
-  );
+  let clip =
+    input.mode === "shot" && input.shotId
+      ? await getVideoClipForShot(input.shotId)
+      : input.mode === "scene" && input.sceneId
+        ? await getVideoClipForScene(input.sceneId)
+        : undefined;
   const timestamp = nowIso();
   if (!clip) {
     clip = { id: createId(), shotId: input.shotId, sceneId: input.sceneId, createdAt: timestamp, updatedAt: timestamp };
