@@ -911,27 +911,36 @@ export async function signInWithCredentials(input: { email: string; password: st
   }
 
   if (isPrismaRepositoryEnabled()) {
+    const sessionToken = createId();
+    const sessionExpires = new Date(Date.now() + SESSION_MAX_AGE_MS);
     const user = await prisma.user.upsert({
       where: { email },
-      update: { name: input.name?.trim() || email.split("@")[0] },
+      update: {
+        name: input.name?.trim() || email.split("@")[0],
+        sessions: {
+          create: {
+            sessionToken,
+            expires: sessionExpires,
+          },
+        },
+      },
       create: {
         email,
         name: input.name?.trim() || email.split("@")[0],
-      },
-    });
-    const session = await prisma.session.create({
-      data: {
-        sessionToken: createId(),
-        userId: user.id,
-        expires: new Date(Date.now() + SESSION_MAX_AGE_MS),
+        sessions: {
+          create: {
+            sessionToken,
+            expires: sessionExpires,
+          },
+        },
       },
     });
     return {
       user: mapUser(user),
       session: {
-        token: session.sessionToken,
-        userId: session.userId,
-        expiresAt: session.expires.toISOString(),
+        token: sessionToken,
+        userId: user.id,
+        expiresAt: sessionExpires.toISOString(),
       },
     };
   }

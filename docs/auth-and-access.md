@@ -30,6 +30,8 @@ Application authorization accepts both the local credentials session cookie and 
 - A user can have multiple active sessions.
 - Workspace owners can revoke all sessions for a member.
 
+Local credentials sign-in persists the user upsert and new database session as one Prisma nested write. If the session cannot be created, the sign-in must fail instead of leaving a credential user update without an active session.
+
 ## Role hierarchy
 
 Access control operates at two levels: **workspace** and **project**.

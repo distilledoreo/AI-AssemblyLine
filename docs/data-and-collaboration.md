@@ -110,6 +110,8 @@ Provider API keys must never be included in exports.
 
 Bundle imports persist their restored project graph in one database transaction. Historical generation jobs are restored before imported media/version rows that may reference them. If any imported record fails validation or persistence, the production database should not be left with a partially restored script, storyboard, video, or review graph.
 
+Local credentials sign-in persists the user upsert and new session through one nested Prisma write. A failed sign-in write should not leave production with an updated credential user but no corresponding active session.
+
 Generated script analysis graph persistence also commits as a single database transaction. The write replaces generated scenes, shots, and requirements while preserving user-edited scenes and shots, and detected asset upserts are committed with the regenerated requirement links so a failed analysis write does not leave a partially replaced production dependency graph.
 
 Asset Bible merge persistence commits requirement reassignment and both source/target asset lifecycle updates in one database transaction. A failed merge write should not leave production requirements reassigned without the corresponding superseded source and canonical target asset updates.

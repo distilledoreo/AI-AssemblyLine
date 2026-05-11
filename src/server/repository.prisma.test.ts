@@ -390,6 +390,66 @@ describe("Prisma repository mode", () => {
     delete process.env.REPOSITORY_MODE;
   });
 
+  it("creates credential sessions with the Prisma user upsert", async () => {
+    const repository = await import("@/server/repository");
+    const user = {
+      id: "11111111-1111-4111-8111-111111111111",
+      email: "producer@example.com",
+      name: "Producer",
+      avatarUrl: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    prismaMock.user.upsert.mockResolvedValue(user);
+
+    const signedIn = await repository.signInWithCredentials({
+      email: " Producer@Example.com ",
+      password: "assemblyline",
+      name: "Producer",
+    });
+
+    expect(signedIn.user).toMatchObject({ id: user.id, email: "producer@example.com" });
+    expect(signedIn.session).toMatchObject({ userId: user.id });
+    expect(signedIn.session.token).toEqual(expect.any(String));
+    expect(prismaMock.user.upsert).toHaveBeenCalledWith({
+      where: { email: "producer@example.com" },
+      update: expect.objectContaining({
+        name: "Producer",
+        sessions: {
+          create: {
+            sessionToken: signedIn.session.token,
+            expires: expect.any(Date),
+          },
+        },
+      }),
+      create: expect.objectContaining({
+        email: "producer@example.com",
+        name: "Producer",
+        sessions: {
+          create: {
+            sessionToken: signedIn.session.token,
+            expires: expect.any(Date),
+          },
+        },
+      }),
+    });
+    expect(prismaMock.session.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects credential sign-in when the Prisma user/session upsert fails", async () => {
+    const repository = await import("@/server/repository");
+    prismaMock.user.upsert.mockRejectedValueOnce(new Error("credential session upsert failed"));
+
+    await expect(
+      repository.signInWithCredentials({
+        email: "producer@example.com",
+        password: "assemblyline",
+        name: "Producer",
+      }),
+    ).rejects.toThrow("credential session upsert failed");
+    expect(prismaMock.session.create).not.toHaveBeenCalled();
+  });
+
   it("uses Prisma for auth, ownership, dashboard, and provider key repository operations", async () => {
     const user = {
       id: "11111111-1111-4111-8111-111111111111",
