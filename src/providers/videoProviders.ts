@@ -20,7 +20,7 @@ export class RunwayAdapter implements VideoAdapter {
         duration: normalizeRunwayDuration(options.durationSeconds),
       });
       return {
-        providerJobId: String(response.id),
+        providerJobId: requireRunwayTaskId(response),
         isAsync: true,
       };
     }
@@ -122,6 +122,15 @@ function mapRunwayTaskStatus(task: Record<string, any>): AsyncJobStatus {
     return { status: "processing", progress: typeof task.progress === "number" ? task.progress : undefined };
   }
   return { status: "pending", progress: status === "THROTTLED" ? 0 : undefined };
+}
+
+function requireRunwayTaskId(response: Record<string, any>) {
+  if (typeof response.id === "string" && response.id.trim()) {
+    return response.id;
+  }
+  const error = new Error("Runway task submission succeeded without a task id.");
+  Object.assign(error, { errorClass: "fatal", status: 502 });
+  throw error;
 }
 
 function classifyRunwayStatus(status: number) {

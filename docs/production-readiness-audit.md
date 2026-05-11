@@ -53,6 +53,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Direct OpenAI adapter mock-mode calls now fail with `provider_not_configured` in production, covering callers that bypass project credential resolution.
 - Runway video generation now has a live task-submission path when a workspace Runway key or `RUNWAYML_API_SECRET` is configured, plus a result processor that polls completed tasks and downloads output media. Redis workers now register a repeatable video provider poll job that automatically invokes that processor for submitted/polling Runway jobs.
 - Video generation now fails the GenerationJob with `provider_output_missing` when a provider response contains neither video bytes nor an async provider job id, instead of writing placeholder `mock-video` bytes.
+- Runway task submission now rejects successful HTTP responses that do not include a task ID, preventing `providerJobId: "undefined"` from entering polling state.
 - Redis workers now register the `media` queue, and `thumbnail`/`media_convert` jobs invoke FFmpeg-backed processors that emit progress and completion events. Real local media utility verification is still blocked until `ffmpeg` and `ffprobe` are installed.
 - Redis workers now persist failed GenerationJob state and a final project event when a processor throws, while still rethrowing to BullMQ so queue retries and dead-letter handling remain active.
 - Worker failures now persist retry counts from BullMQ attempts, and project operations metrics report total retries, retried job count, and retries by job type.
@@ -82,7 +83,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Project deletes now distinguish Prisma not-found records from real write failures, surfacing production database errors instead of misreporting every delete failure as `not_found`.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 34 files and 161 tests.
+- `npm test`: passing, 34 files and 162 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.

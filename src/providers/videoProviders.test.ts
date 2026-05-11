@@ -72,4 +72,21 @@ describe("Runway video adapter", () => {
       }),
     ).rejects.toMatchObject({ errorClass: "rate_limit", status: 429 });
   });
+
+  it("rejects malformed successful Runway submissions without a task id", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ status: "PENDING" }));
+
+    await expect(
+      new RunwayAdapter("key_runway_live", fetchMock).generateVideo(prompt, {
+        modelId: "gen4.5",
+        width: 1024,
+        height: 576,
+        durationSeconds: 5,
+      }),
+    ).rejects.toMatchObject({
+      message: "Runway task submission succeeded without a task id.",
+      errorClass: "fatal",
+      status: 502,
+    });
+  });
 });
