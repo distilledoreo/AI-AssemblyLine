@@ -20,7 +20,7 @@ Phase 4 adds storyboard generation for shots whose required assets are approved 
   - `frame` updates frame version status or annotation data.
   - `comment` adds a threaded frame review note.
 - Inline and queued storyboard generation both reject keyframe indexes outside 0-8 with `bad_keyframe` before creating frame records.
-- The same endpoint accepts multipart sketch upload and validates PNG, JPEG, WebP, and TIFF inputs.
+- The same endpoint accepts multipart sketch upload and validates non-empty PNG, JPEG, WebP, and TIFF inputs; empty uploads fail with `empty_media`.
 
 ## Prompt and frame behavior
 

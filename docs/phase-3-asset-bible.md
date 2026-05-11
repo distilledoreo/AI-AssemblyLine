@@ -30,7 +30,7 @@ Phase 3 turns detected script assets into a reviewable Asset Bible with versione
 - Stability is available as the second image adapter for generated reference variety.
 - Automated tests and local verification use deterministic mock image bytes when no real provider keys are configured.
 - With a workspace Stability key or `STABILITY_API_KEY`, Asset Bible reference generation calls the live Stability image API. Run `npm run smoke:stability` before enabling live Stability generation in production.
-- Uploaded image references accept PNG, JPEG, WebP, TIFF, and BMP. Unsupported image formats fail with `unsupported_media_type`.
+- Uploaded image references accept non-empty PNG, JPEG, WebP, TIFF, and BMP files. Unsupported image formats fail with `unsupported_media_type`; empty uploads fail with `empty_media`.
 - Generated and uploaded references create `AssetVersion` and `AssetReference` records.
 
 ## Lifecycle and unlocking

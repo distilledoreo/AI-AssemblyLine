@@ -81,6 +81,16 @@ describe("storyboard workflow", () => {
         data: Buffer.from("bad"),
       }),
     ).rejects.toMatchObject({ code: "unsupported_sketch" });
+    await expect(
+      attachSketch({
+        projectId: project.id,
+        shotId: graph.shots[0].id,
+        fileName: "empty.png",
+        mimeType: "image/png",
+        data: Buffer.alloc(0),
+      }),
+    ).rejects.toMatchObject({ code: "empty_media" });
+    expect(getScriptAnalysisGraph(project.id).storyboardFrames).toHaveLength(0);
   });
 
   it("attaches uploaded sketches to storyboard frames", async () => {

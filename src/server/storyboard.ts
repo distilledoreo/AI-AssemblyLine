@@ -175,6 +175,9 @@ export async function attachSketch(input: {
   if (!["image/png", "image/jpeg", "image/webp", "image/tiff"].includes(input.mimeType)) {
     throw new AppError("Unsupported sketch format. Use PNG, JPEG, WebP, or TIFF.", 400, "unsupported_sketch");
   }
+  if (input.data.length === 0) {
+    throw new AppError("Sketch uploads cannot be empty.", 400, "empty_media");
+  }
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const shot = graph.shots.find((candidate) => candidate.id === input.shotId);
   if (!shot) throw new NotFoundError("Shot not found.");

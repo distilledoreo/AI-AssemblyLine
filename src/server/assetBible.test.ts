@@ -84,6 +84,17 @@ describe("asset bible lifecycle", () => {
         referenceType: "front",
       }),
     ).rejects.toMatchObject({ code: "unsupported_media_type" });
+    await expect(
+      uploadAssetReference({
+        projectId: asset.projectId,
+        assetId: asset.id,
+        filename: "empty.png",
+        data: Buffer.alloc(0),
+        mimeType: "image/png",
+        referenceType: "front",
+      }),
+    ).rejects.toMatchObject({ code: "empty_media" });
+    expect(getScriptAnalysisGraph(asset.projectId).assetVersions).toHaveLength(0);
 
     const split = await splitAsset(asset.projectId, asset.id, { canonicalName: "Duplicate Location" });
     const merged = await mergeAssets(asset.projectId, split.id, asset.id);

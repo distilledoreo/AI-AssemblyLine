@@ -81,6 +81,9 @@ export async function uploadAssetReference(input: {
   referenceType: AssetReferenceType;
 }) {
   validateImageMime(input.mimeType);
+  if (input.data.length === 0) {
+    throw new AppError("Reference image uploads cannot be empty.", 400, "empty_media");
+  }
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const asset = await resolveProjectAsset(input.projectId, input.assetId, graph);
   const version = await createAssetVersion(input.projectId, input.assetId, { description: `Uploaded reference: ${input.filename}` });
