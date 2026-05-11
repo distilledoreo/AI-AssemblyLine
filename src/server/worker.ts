@@ -1,11 +1,13 @@
-import type { Job } from "bullmq";
+import type { Job, Processor } from "bullmq";
 import { createGenerationWorker, isRedisQueueEnabled, scheduleProviderPollJob } from "@/server/queue";
 import { processAssetReferenceJob } from "@/server/assetBible";
 import { processExportProjectBundleJob, processImportProjectBundleJob } from "@/server/exportImport";
 import { processMediaUtilityJob } from "@/server/media";
+import { addJobEvent, completeGenerationJob, getGenerationJob } from "@/server/repository";
 import { processScriptAnalysisJob } from "@/server/scriptAnalysis";
 import { processStoryboardFrameJob } from "@/server/storyboard";
 import { processSubmittedVideoProviderJobs, processVideoClipJob } from "@/server/video";
+import type { ErrorClass, GenerationJobStatus } from "@/server/types";
 
 type WorkerJobData = {
   projectId?: string;
@@ -136,14 +138,86 @@ export function startGenerationWorkers() {
     return { started: false, workers: [] };
   }
   const workers = [
-    createGenerationWorker("analysis", processAnalysisJob),
-    createGenerationWorker("image", processImageJob),
-    createGenerationWorker("video", processVideoJob),
-    createGenerationWorker("media", processMediaJob),
-    createGenerationWorker("project", processProjectJob),
+    createGenerationWorker("analysis", withFailurePersistence(processAnalysisJob)),
+    createGenerationWorker("image", withFailurePersistence(processImageJob)),
+    createGenerationWorker("video", withFailurePersistence(processVideoJob)),
+    createGenerationWorker("media", withFailurePersistence(processMediaJob)),
+    createGenerationWorker("project", withFailurePersistence(processProjectJob)),
   ].filter(Boolean);
   void scheduleProviderPollJob("video", Number(process.env.PROVIDER_POLL_INTERVAL_MS) || 15000);
   return { started: workers.length > 0, workers };
+}
+
+function withFailurePersistence<T extends WorkerJobData>(processor: Processor<T>): Processor<T> {
+  return async (job, token) => {
+    try {
+      return await processor(job, token);
+    } catch (error) {
+      await persistWorkerFailure(job, error);
+      throw error;
+    }
+  };
+}
+
+async function persistWorkerFailure(job: Job<WorkerJobData>, error: unknown) {
+  if (job.name === "provider_poll" || !job.id || !job.data.projectId) {
+    return;
+  }
+  const jobId = String(job.id);
+  const existing = await getGenerationJob(jobId).catch(() => undefined);
+  if (existing && terminalStatuses.has(existing.status)) {
+    return;
+  }
+  const message = error instanceof Error ? error.message : "Worker job failed.";
+  const errorClass = classifyWorkerError(error);
+  completeGenerationJob(jobId, {
+    status: "failed",
+    errorMessage: message,
+    errorClass,
+  });
+  addJobEvent({
+    jobId,
+    projectId: job.data.projectId,
+    eventType: "status_change",
+    message,
+    progressPct: 100,
+  });
+}
+
+const terminalStatuses = new Set<GenerationJobStatus>(["complete", "failed", "canceled"]);
+
+function classifyWorkerError(error: unknown): ErrorClass {
+  const errorClass = readErrorClass(error);
+  if (errorClass) {
+    return errorClass;
+  }
+  const status = readStatus(error);
+  if (status === 429) return "rate_limit";
+  if (status === 408 || status === 504) return "timeout";
+  if (status && status >= 500 && status !== 501 && status !== 503) return "retriable";
+  return "fatal";
+}
+
+function readErrorClass(error: unknown): ErrorClass | undefined {
+  if (!error || typeof error !== "object" || !("errorClass" in error)) {
+    return undefined;
+  }
+  const value = (error as { errorClass?: unknown }).errorClass;
+  return value === "retriable" ||
+    value === "fatal" ||
+    value === "content_policy" ||
+    value === "rate_limit" ||
+    value === "timeout"
+    ? value
+    : undefined;
+}
+
+function readStatus(error: unknown) {
+  if (!error || typeof error !== "object" || !("status" in error)) {
+    return undefined;
+  }
+  const value = (error as { status?: unknown }).status;
+  return typeof value === "number" ? value : undefined;
 }
 
 if (process.argv[1]?.endsWith("worker.ts")) {

@@ -3190,7 +3190,12 @@ export async function listExportBundles(projectId: string) {
 
 export function completeGenerationJob(
   jobId: string,
-  input: { status: GenerationJob["status"]; outputPayload?: unknown; errorMessage?: string },
+  input: {
+    status: GenerationJob["status"];
+    outputPayload?: unknown;
+    errorMessage?: string;
+    errorClass?: GenerationJob["errorClass"];
+  },
 ) {
   const job = getStore().generationJobs.find((candidate) => candidate.id === jobId);
   if (!job) {
@@ -3203,6 +3208,7 @@ export function completeGenerationJob(
         status: input.status,
         outputPayload: toPrismaJson(input.outputPayload),
         errorMessage: input.errorMessage,
+        errorClass: input.errorClass,
         completedAt: new Date(),
       },
     }).catch(() => undefined);
@@ -3212,6 +3218,7 @@ export function completeGenerationJob(
     status: input.status,
     outputPayload: input.outputPayload,
     errorMessage: input.errorMessage,
+    errorClass: input.errorClass,
     completedAt: nowIso(),
   });
   if (isPrismaRepositoryEnabled()) {
@@ -3221,6 +3228,7 @@ export function completeGenerationJob(
         status: input.status,
         outputPayload: toPrismaJson(input.outputPayload),
         errorMessage: input.errorMessage,
+        errorClass: input.errorClass,
         completedAt: new Date(job.completedAt!),
       },
     }).catch(() => undefined);

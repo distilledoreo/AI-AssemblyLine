@@ -38,6 +38,8 @@ Each queue supports three priority levels:
 
 After max retries are exhausted, the job moves to the dead-letter queue and its status becomes `failed`.
 
+Worker processors also persist AssemblyLine job failures before rethrowing to BullMQ. If a processor throws after a `GenerationJob` has been created, the worker marks that GenerationJob `failed`, stores the failure message and error class, emits a final project job event, and then lets BullMQ apply the configured retry/dead-letter behavior.
+
 ## Dead-letter queue
 
 Each queue has an associated dead-letter queue (`analysis-dead`, `image-dead`, etc.). Failed jobs are preserved for debugging. Dead-letter jobs older than 30 days are automatically cleaned up.
