@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { DEVELOPMENT_ENCRYPTION_KEY, DEVELOPMENT_NEXTAUTH_SECRET } from "../src/lib/config";
@@ -14,6 +14,66 @@ type CheckResult = {
 };
 
 const requiredEnv = ["DATABASE_URL", "REDIS_URL", "NEXTAUTH_URL", "NEXTAUTH_SECRET", "ENCRYPTION_KEY"] as const;
+const productionEnvFiles = [".env", ".env.production", ".env.local", ".env.production.local"] as const;
+
+export async function loadProductionEnvFiles(cwd: string, baseEnv: Env = process.env): Promise<Env> {
+  const loaded: Env = {};
+  for (const fileName of productionEnvFiles) {
+    const values = await readEnvFile(path.join(cwd, fileName));
+    Object.assign(loaded, values);
+  }
+  for (const [key, value] of Object.entries(baseEnv)) {
+    if (value !== undefined) {
+      loaded[key] = value;
+    }
+  }
+  return loaded;
+}
+
+async function readEnvFile(filePath: string): Promise<Env> {
+  let content: string;
+  try {
+    content = await readFile(filePath, "utf8");
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return {};
+    }
+    throw error;
+  }
+  return parseEnvFile(content);
+}
+
+function parseEnvFile(content: string): Env {
+  const values: Env = {};
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+    const assignment = line.startsWith("export ") ? line.slice("export ".length).trimStart() : line;
+    const separator = assignment.indexOf("=");
+    if (separator <= 0) {
+      continue;
+    }
+    const key = assignment.slice(0, separator).trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+      continue;
+    }
+    values[key] = parseEnvValue(assignment.slice(separator + 1).trim());
+  }
+  return values;
+}
+
+function parseEnvValue(value: string) {
+  if (value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1).replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+  }
+  if (value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1);
+  }
+  const hash = value.indexOf(" #");
+  return hash >= 0 ? value.slice(0, hash).trimEnd() : value;
+}
 
 export function evaluateProductionPreflight(
   env: Env,
@@ -237,7 +297,8 @@ function canConnect(host: string, port: number, timeoutMs: number) {
 }
 
 async function main() {
-  const results = await runProductionPreflight();
+  const env = await loadProductionEnvFiles(process.cwd());
+  const results = await runProductionPreflight(env);
   for (const result of results) {
     console.log(`${result.ok ? "PASS" : "FAIL"} ${result.name}: ${result.detail}`);
   }

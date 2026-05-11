@@ -3,7 +3,12 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEVELOPMENT_ENCRYPTION_KEY, DEVELOPMENT_NEXTAUTH_SECRET } from "@/lib/config";
-import { checkStorageRoot, evaluateProductionPreflight, runProductionPreflight } from "../../scripts/production-preflight";
+import {
+  checkStorageRoot,
+  evaluateProductionPreflight,
+  loadProductionEnvFiles,
+  runProductionPreflight,
+} from "../../scripts/production-preflight";
 
 const validEnv = {
   NODE_ENV: "production",
@@ -26,6 +31,46 @@ describe("production preflight", () => {
     const results = evaluateProductionPreflight(validEnv, () => true);
 
     expect(results.every((result) => result.ok)).toBe(true);
+  });
+
+  it("loads production env files while preserving exported environment overrides", async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "assemblyline-env-"));
+    try {
+      await writeFile(
+        path.join(tempRoot, ".env"),
+        [
+          "DATABASE_URL=postgresql://from-env",
+          'NEXTAUTH_SECRET="base secret"',
+          "PLAIN_VALUE=kept # with comment",
+          "export EXPORTED_VALUE=from-export",
+          "",
+        ].join("\n"),
+      );
+      await writeFile(
+        path.join(tempRoot, ".env.production"),
+        [
+          "DATABASE_URL=postgresql://from-production",
+          "REDIS_URL='redis://from-production'",
+          "NEXTAUTH_SECRET=production secret",
+          "",
+        ].join("\n"),
+      );
+      await writeFile(
+        path.join(tempRoot, ".env.production.local"),
+        ["REDIS_URL=redis://from-production-local", "NEXTAUTH_URL=https://assemblyline.example.com", ""].join("\n"),
+      );
+
+      await expect(loadProductionEnvFiles(tempRoot, { DATABASE_URL: "postgresql://from-shell" })).resolves.toMatchObject({
+        DATABASE_URL: "postgresql://from-shell",
+        REDIS_URL: "redis://from-production-local",
+        NEXTAUTH_URL: "https://assemblyline.example.com",
+        NEXTAUTH_SECRET: "production secret",
+        PLAIN_VALUE: "kept",
+        EXPORTED_VALUE: "from-export",
+      });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
   });
 
   it("requires NODE_ENV production for release verification", () => {
