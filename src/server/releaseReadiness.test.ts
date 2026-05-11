@@ -3,6 +3,7 @@ import {
   evaluateGithubProviderSecrets,
   evaluateLocalProviderCredentials,
   parseGithubSecretList,
+  providerSecretNamesFromEnv,
   resolveGithubRepository,
 } from "../../scripts/release-readiness";
 
@@ -48,6 +49,22 @@ describe("release readiness", () => {
         "GitHub secret GEMINI_API_KEY or GOOGLE_AI_API_KEY",
       ]),
     );
+  });
+
+  it("derives provider secret names from injected workflow env without exposing values", () => {
+    const names = providerSecretNamesFromEnv({
+      OPENAI_API_KEY: "sk-prod-openai-smoke-abc123",
+      STABILITY_API_KEY: "",
+      RUNWAYML_API_SECRET: "rw-prod-runway-smoke-abc123",
+      GEMINI_API_KEY: "gemini-prod-veo-smoke-abc123",
+    });
+
+    expect(names).toEqual(new Set(["OPENAI_API_KEY", "RUNWAYML_API_SECRET", "GEMINI_API_KEY"]));
+    const results = evaluateGithubProviderSecrets(names);
+    expect(results.find((result) => result.name === "GitHub secret STABILITY_API_KEY")).toMatchObject({
+      ok: false,
+      detail: "missing from repository secrets",
+    });
   });
 
   it("resolves GitHub repository slugs from env or origin remotes", () => {

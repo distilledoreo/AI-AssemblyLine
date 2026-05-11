@@ -69,6 +69,22 @@ export function evaluateGithubProviderSecrets(secretNames: Set<string>): CheckRe
   return results;
 }
 
+export function providerSecretNamesFromEnv(env: ScriptEnv) {
+  const names = new Set<string>();
+  for (const requirement of githubSecretRequirements) {
+    if (env[requirement.name]?.trim()) {
+      names.add(requirement.name);
+    }
+  }
+  if (env.GEMINI_API_KEY?.trim()) {
+    names.add("GEMINI_API_KEY");
+  }
+  if (env.GOOGLE_AI_API_KEY?.trim()) {
+    names.add("GOOGLE_AI_API_KEY");
+  }
+  return names;
+}
+
 export function resolveGithubRepository(env: ScriptEnv, gitRemoteOutput?: string) {
   const configured = env.GITHUB_REPOSITORY?.trim();
   if (configured) {
@@ -112,13 +128,22 @@ async function main() {
       detail: "could not resolve repository from GITHUB_REPOSITORY or origin remote",
     });
   } else {
-    const secretRead = readGithubSecrets(repository);
-    checks.push({
-      name: "GitHub repository secrets",
-      ok: secretRead.ok,
-      detail: secretRead.ok ? `${repository}: ${secretRead.detail}` : secretRead.detail,
-    });
-    checks.push(...evaluateGithubProviderSecrets(secretRead.secretNames));
+    if (env.RELEASE_READINESS_GITHUB_SECRETS_MODE?.trim() === "env") {
+      checks.push({
+        name: "GitHub repository secrets",
+        ok: true,
+        detail: `${repository}: checked provider secrets injected into the workflow environment`,
+      });
+      checks.push(...evaluateGithubProviderSecrets(providerSecretNamesFromEnv(env)));
+    } else {
+      const secretRead = readGithubSecrets(repository);
+      checks.push({
+        name: "GitHub repository secrets",
+        ok: secretRead.ok,
+        detail: secretRead.ok ? `${repository}: ${secretRead.detail}` : secretRead.detail,
+      });
+      checks.push(...evaluateGithubProviderSecrets(secretRead.secretNames));
+    }
   }
 
   for (const check of checks) {
