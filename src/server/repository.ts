@@ -3285,17 +3285,7 @@ export async function persistAssetVersionState(version: AssetVersion) {
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
-  await prisma.assetVersion.create({
-    data: {
-      id: version.id,
-      assetId: version.assetId,
-      versionNumber: version.versionNumber,
-      description: version.description,
-      promptFragments: toPrismaJson(version.promptFragments),
-      status: version.status,
-      createdAt: new Date(version.createdAt),
-    },
-  });
+  await prisma.assetVersion.create(prismaAssetVersionCreateArgs(version));
 }
 
 export async function persistAssetVersionAndReference(input: {
@@ -3303,7 +3293,12 @@ export async function persistAssetVersionAndReference(input: {
   reference: AssetReference;
 }) {
   const store = getStore();
-  await persistAssetVersionState(input.version);
+  const existingVersion = store.assetVersions.find((candidate) => candidate.id === input.version.id);
+  if (existingVersion) {
+    Object.assign(existingVersion, input.version);
+  } else {
+    store.assetVersions.push(input.version);
+  }
   const existing = store.assetReferences.find((candidate) => candidate.id === input.reference.id);
   if (existing) {
     Object.assign(existing, input.reference);
@@ -3314,19 +3309,41 @@ export async function persistAssetVersionAndReference(input: {
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
-  await prisma.assetReference.create({
+  const operations: Prisma.PrismaPromise<unknown>[] = [
+    prisma.assetVersion.create(prismaAssetVersionCreateArgs(input.version)),
+    prisma.assetReference.create(prismaAssetReferenceCreateArgs(input.reference)),
+  ];
+  await prisma.$transaction(operations);
+}
+
+function prismaAssetVersionCreateArgs(version: AssetVersion): Prisma.AssetVersionCreateArgs {
+  return {
     data: {
-      id: input.reference.id,
-      assetVersionId: input.reference.assetVersionId,
-      referenceType: input.reference.referenceType,
-      filePath: input.reference.filePath,
-      mimeType: input.reference.mimeType,
-      width: input.reference.width,
-      height: input.reference.height,
-      thumbnailPath: input.reference.thumbnailPath,
-      generationJobId: input.reference.generationJobId,
+      id: version.id,
+      assetId: version.assetId,
+      versionNumber: version.versionNumber,
+      description: version.description,
+      promptFragments: toPrismaJson(version.promptFragments),
+      status: version.status,
+      createdAt: new Date(version.createdAt),
     },
-  });
+  };
+}
+
+function prismaAssetReferenceCreateArgs(reference: AssetReference): Prisma.AssetReferenceCreateArgs {
+  return {
+    data: {
+      id: reference.id,
+      assetVersionId: reference.assetVersionId,
+      referenceType: reference.referenceType,
+      filePath: reference.filePath,
+      mimeType: reference.mimeType,
+      width: reference.width,
+      height: reference.height,
+      thumbnailPath: reference.thumbnailPath,
+      generationJobId: reference.generationJobId,
+    },
+  };
 }
 
 export async function persistSceneAssetRequirement(input: SceneAssetRequirement) {

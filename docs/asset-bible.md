@@ -121,6 +121,8 @@ Users can:
 
 Merge persistence is atomic in Prisma mode: scene and shot requirement reassignment, the superseded source asset update, and the canonical target asset update commit in one database transaction. If any merge write fails, production must reject the whole merge instead of leaving requirements pointed at a different asset than the saved asset lifecycle state.
 
+Reference upload/generation persistence is also atomic in Prisma mode: the `AssetVersion` row and its attached `AssetReference` row commit in one database transaction. If either write fails, production must reject the whole reference save so downstream storyboard and video prompts cannot see an orphaned version or a reference pointing at a missing version.
+
 ## Reference generation policy
 
 The system should ask for reference images for required assets, but it should only generate missing reference images when the user explicitly requests generation. On-request generation keeps creative control with the user and prevents unnecessary API spending.

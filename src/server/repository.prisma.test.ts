@@ -2146,9 +2146,14 @@ describe("Prisma repository mode", () => {
         mimeType: "image/png",
       }),
     });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction).toHaveBeenCalledWith([
+      expect.any(Promise),
+      expect.any(Promise),
+    ]);
   });
 
-  it("rejects Asset Bible reference persistence when the reference write fails", async () => {
+  it("rejects Asset Bible reference persistence when the version/reference transaction fails", async () => {
     const repository = await import("@/server/repository");
     const version = {
       id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
@@ -2169,11 +2174,17 @@ describe("Prisma repository mode", () => {
     };
 
     prismaMock.assetVersion.create.mockResolvedValue(version);
-    prismaMock.assetReference.create.mockRejectedValue(new Error("asset reference write failed"));
+    prismaMock.assetReference.create.mockResolvedValue(reference);
+    prismaMock.$transaction.mockRejectedValueOnce(new Error("asset reference transaction failed"));
 
     await expect(repository.persistAssetVersionAndReference({ version, reference })).rejects.toThrow(
-      "asset reference write failed",
+      "asset reference transaction failed",
     );
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction).toHaveBeenCalledWith([
+      expect.any(Promise),
+      expect.any(Promise),
+    ]);
   });
 
   it("persists typed Asset Bible details through Prisma", async () => {

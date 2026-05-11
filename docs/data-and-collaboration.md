@@ -114,6 +114,8 @@ Generated script analysis graph persistence also commits as a single database tr
 
 Asset Bible merge persistence commits requirement reassignment and both source/target asset lifecycle updates in one database transaction. A failed merge write should not leave production requirements reassigned without the corresponding superseded source and canonical target asset updates.
 
+Asset Bible reference persistence commits each new `AssetVersion` and attached `AssetReference` in one database transaction. A failed reference write should not leave production with an orphaned version row or a media reference that points at a version that was not saved.
+
 Generated storyboard frame persistence commits the storyboard frame upsert, frame version insert, shot status update, and related generation-job completion in one database transaction. A failed generated-frame write should not leave a production shot marked storyboarded without the frame version and completed generation job that justify that status.
 
 Generated video clip persistence commits the video clip upsert, clip version insert, and related generation-job completion in one database transaction. A failed generated-clip write should not leave a production clip record without the version and completed generation job that justify it.
