@@ -1821,6 +1821,24 @@ export async function getClipVersionById(clipVersionId: string) {
   return version ? mapClipVersion(version) : local;
 }
 
+export async function getSceneAssetRequirementBySceneAndAsset(sceneId: string, assetId: string) {
+  const local = getStore().sceneAssetRequirements.find((candidate) => candidate.sceneId === sceneId && candidate.assetId === assetId);
+  if (!isPrismaRepositoryEnabled()) {
+    return local;
+  }
+  const requirement = await prisma.sceneAssetReq.findFirst({ where: { sceneId, assetId } }).catch(() => undefined);
+  return requirement ? mapSceneAssetRequirement(requirement) : local;
+}
+
+export async function getSceneAssetRequirementById(requirementId: string) {
+  const local = getStore().sceneAssetRequirements.find((candidate) => candidate.id === requirementId);
+  if (!isPrismaRepositoryEnabled()) {
+    return local;
+  }
+  const requirement = await prisma.sceneAssetReq.findUnique({ where: { id: requirementId } }).catch(() => undefined);
+  return requirement ? mapSceneAssetRequirement(requirement) : local;
+}
+
 export async function persistSceneState(scene: Scene) {
   if (!isPrismaRepositoryEnabled()) {
     return;

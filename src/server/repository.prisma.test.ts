@@ -166,6 +166,8 @@ const prismaMock = vi.hoisted(() => ({
   sceneAssetReq: {
     createMany: vi.fn(),
     deleteMany: vi.fn(),
+    findFirst: vi.fn(),
+    findUnique: vi.fn(),
     findMany: vi.fn(),
     updateMany: vi.fn(),
   },
@@ -1054,13 +1056,29 @@ describe("Prisma repository mode", () => {
     };
 
     prismaMock.asset.update.mockResolvedValue(asset);
+    prismaMock.sceneAssetReq.findFirst.mockResolvedValue({ ...requirement, createdAt: timestamp });
+    prismaMock.sceneAssetReq.findUnique.mockResolvedValue({ ...requirement, createdAt: timestamp });
     prismaMock.sceneAssetReq.createMany.mockResolvedValue({ count: 1 });
     prismaMock.sceneAssetReq.deleteMany.mockResolvedValue({ count: 1 });
 
+    await expect(repository.getSceneAssetRequirementBySceneAndAsset(requirement.sceneId, requirement.assetId)).resolves.toMatchObject({
+      id: requirement.id,
+      sceneId: requirement.sceneId,
+      assetId: requirement.assetId,
+    });
+    await expect(repository.getSceneAssetRequirementById(requirement.id)).resolves.toMatchObject({
+      id: requirement.id,
+      sceneId: requirement.sceneId,
+      assetId: requirement.assetId,
+    });
     await repository.persistAssetState(asset);
     await repository.persistSceneAssetRequirement(requirement);
     await repository.deleteSceneAssetRequirement(requirement.id);
 
+    expect(prismaMock.sceneAssetReq.findFirst).toHaveBeenCalledWith({
+      where: { sceneId: requirement.sceneId, assetId: requirement.assetId },
+    });
+    expect(prismaMock.sceneAssetReq.findUnique).toHaveBeenCalledWith({ where: { id: requirement.id } });
     expect(prismaMock.asset.update).toHaveBeenCalledWith({
       where: { id: asset.id },
       data: expect.objectContaining({

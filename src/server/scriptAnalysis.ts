@@ -10,6 +10,8 @@ import {
   getProject,
   getScriptAnalysisGraph,
   getScriptAnalysisGraphForProject,
+  getSceneAssetRequirementById,
+  getSceneAssetRequirementBySceneAndAsset,
   getScriptVersionById,
   getStore,
   deleteSceneAssetRequirement,
@@ -526,12 +528,17 @@ export async function updateAsset(assetId: string, input: Partial<Pick<Asset, "c
 
 export async function addSceneAssetRequirement(sceneId: string, assetId: string) {
   const store = getStore();
-  const scene = store.scenes.find((candidate) => candidate.id === sceneId);
-  const asset = store.assets.find((candidate) => candidate.id === assetId);
+  const scene = await getSceneById(sceneId);
+  const asset = await getAssetById(assetId);
   if (!scene || !asset) {
     throw new NotFoundError("Scene or asset not found.");
   }
-  if (!store.sceneAssetRequirements.some((req) => req.sceneId === sceneId && req.assetId === assetId)) {
+  mirrorSceneForLegacyState(scene);
+  mirrorAssetForLegacyState(asset);
+  const existing = await getSceneAssetRequirementBySceneAndAsset(sceneId, assetId);
+  if (existing) {
+    mirrorSceneAssetRequirementForLegacyState(existing);
+  } else {
     const requirement = {
       id: createId(),
       sceneId,
@@ -540,7 +547,7 @@ export async function addSceneAssetRequirement(sceneId: string, assetId: string)
       detectedBy: "user",
       createdAt: nowIso(),
     } as const;
-    store.sceneAssetRequirements.push(requirement);
+    mirrorSceneAssetRequirementForLegacyState(requirement);
     await persistSceneAssetRequirement(requirement);
   }
   refreshReadiness(asset.projectId);
@@ -549,13 +556,42 @@ export async function addSceneAssetRequirement(sceneId: string, assetId: string)
 
 export async function removeSceneAssetRequirement(requirementId: string) {
   const store = getStore();
-  const requirement = store.sceneAssetRequirements.find((req) => req.id === requirementId);
-  const asset = requirement ? store.assets.find((candidate) => candidate.id === requirement.assetId) : undefined;
+  const requirement = await getSceneAssetRequirementById(requirementId);
+  const asset = requirement ? await getAssetById(requirement.assetId) : undefined;
   store.sceneAssetRequirements = store.sceneAssetRequirements.filter((req) => req.id !== requirementId);
   await deleteSceneAssetRequirement(requirementId);
   if (asset) {
+    mirrorAssetForLegacyState(asset);
     refreshReadiness(asset.projectId);
     await refreshPrismaReadiness(asset.projectId);
+  }
+}
+
+function mirrorSceneForLegacyState(scene: Scene) {
+  const store = getStore();
+  if (!store.scenes.some((candidate) => candidate.id === scene.id)) {
+    store.scenes.push(scene);
+  }
+}
+
+function mirrorAssetForLegacyState(asset: Asset) {
+  const store = getStore();
+  if (!store.assets.some((candidate) => candidate.id === asset.id)) {
+    store.assets.push(asset);
+  }
+}
+
+function mirrorSceneAssetRequirementForLegacyState(requirement: {
+  id: string;
+  sceneId: string;
+  assetId: string;
+  isOptional: boolean;
+  detectedBy: "ai" | "user";
+  createdAt: string;
+}) {
+  const store = getStore();
+  if (!store.sceneAssetRequirements.some((candidate) => candidate.id === requirement.id)) {
+    store.sceneAssetRequirements.push(requirement);
   }
 }
 
