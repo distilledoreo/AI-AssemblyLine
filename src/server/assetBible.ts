@@ -228,7 +228,7 @@ export async function transitionAssetStatus(assetId: string, status: AssetStatus
   asset.status = status;
   asset.updatedAt = nowIso();
   if (wasApproved && !["approved", "locked"].includes(status)) {
-    markFramesStaleForAsset(asset.projectId, asset.id);
+    await markFramesStaleForAsset(asset.projectId, asset.id);
   }
   refreshReadiness(asset.projectId);
   await persistAssetState(asset);

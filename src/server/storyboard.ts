@@ -8,7 +8,6 @@ import {
   decryptProjectProviderKey,
   getFrameVersionById,
   getProjectDashboard,
-  getScriptAnalysisGraph,
   getScriptAnalysisGraphForProject,
   getStore,
   markGenerationJobRunning,
@@ -218,21 +217,28 @@ export async function addFrameComment(input: {
   return note;
 }
 
-export function markFramesStaleForAsset(projectId: string, assetId: string) {
+export async function markFramesStaleForAsset(projectId: string, assetId: string) {
   const store = getStore();
-  const graph = getScriptAnalysisGraph(projectId);
+  const graph = await getScriptAnalysisGraphForProject(projectId);
   const affectedShotIds = new Set(
     graph.shotAssetRequirements.filter((req) => req.assetId === assetId).map((req) => req.shotId),
   );
   const affectedFrameIds = new Set(
-    store.storyboardFrames.filter((frame) => affectedShotIds.has(frame.shotId)).map((frame) => frame.id),
+    [
+      ...graph.storyboardFrames,
+      ...store.storyboardFrames.filter((frame) => !graph.storyboardFrames.some((candidate) => candidate.id === frame.id)),
+    ].filter((frame) => affectedShotIds.has(frame.shotId)).map((frame) => frame.id),
   );
-  store.frameVersions
-    .filter((version) => affectedFrameIds.has(version.frameId) && version.status === "approved")
-    .forEach((version) => {
-      version.status = "stale";
-      version.isStale = true;
-    });
+  const staleVersions = [
+    ...graph.frameVersions,
+    ...store.frameVersions.filter((version) => !graph.frameVersions.some((candidate) => candidate.id === version.id)),
+  ].filter((version) => affectedFrameIds.has(version.frameId) && version.status === "approved");
+  for (const version of staleVersions) {
+    mirrorFrameVersionForLegacyState(version);
+    version.status = "stale";
+    version.isStale = true;
+    await persistFrameVersionState(version);
+  }
 }
 
 function nextFrameVersionNumber(frameId: string, knownVersions: FrameVersion[]) {

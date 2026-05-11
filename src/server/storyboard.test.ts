@@ -54,6 +54,12 @@ describe("storyboard workflow", () => {
     expect(updated.frameVersions[0].status).toBe("approved");
     expect(updated.frameVersions[0].annotations?.library).toBe("fabric-compatible-json");
     expect(updated.reviewNotes[0].body).toBe("Approved.");
+
+    const asset = graph.assets.find((candidate) => candidate.canonicalName === "Anna")!;
+    await transitionAssetStatus(asset.id, "missing");
+    const staleGraph = getScriptAnalysisGraph(project.id);
+    expect(staleGraph.frameVersions[0].status).toBe("stale");
+    expect(staleGraph.frameVersions[0].isStale).toBe(true);
   });
 
   it("blocks storyboard generation until assets are approved and validates sketch input", async () => {
