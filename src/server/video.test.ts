@@ -82,6 +82,39 @@ describe("video workflow", () => {
     expect(checkFfmpegAvailability().message).toBeTruthy();
   });
 
+  it("rejects invalid and cross-project video generation targets before creating jobs", async () => {
+    const first = await projectWithApprovedFrame();
+    const second = await projectWithApprovedFrame();
+
+    await expect(
+      generateVideoClip({
+        projectId: first.project.id,
+        mode: "shot",
+        sceneId: first.graph.scenes[0].id,
+        providerSlug: "runway",
+      }),
+    ).rejects.toMatchObject({ code: "invalid_video_target" });
+    await expect(
+      generateVideoClip({
+        projectId: first.project.id,
+        mode: "scene",
+        shotId: first.graph.shots[0].id,
+        providerSlug: "runway",
+      }),
+    ).rejects.toMatchObject({ code: "invalid_video_target" });
+    await expect(
+      generateVideoClip({
+        projectId: second.project.id,
+        mode: "shot",
+        shotId: first.graph.shots[0].id,
+        providerSlug: "runway",
+      }),
+    ).rejects.toMatchObject({ code: "not_found" });
+
+    expect(getScriptAnalysisGraph(first.project.id).jobs.filter((job) => job.type === "video_clip")).toHaveLength(0);
+    expect(getScriptAnalysisGraph(second.project.id).jobs.filter((job) => job.type === "video_clip")).toHaveLength(0);
+  });
+
   it("rejects clip version updates when the version belongs to another project", async () => {
     const first = await projectWithApprovedFrame();
     const second = await projectWithApprovedFrame();

@@ -33,6 +33,7 @@ export async function generateVideoClip(input: {
 }) {
   const providerSlug = requireLiveVideoProvider(input.providerSlug);
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
+  validateVideoTarget(graph, input);
   const frameVersions =
     input.mode === "shot"
       ? approvedFrameVersionsForShot(graph, input.shotId)
@@ -81,6 +82,7 @@ export async function processVideoClipJob(input: {
 }) {
   const providerSlug = requireLiveVideoProvider(input.providerSlug);
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
+  validateVideoTarget(graph, input);
   const frameVersions =
     input.mode === "shot"
       ? approvedFrameVersionsForShot(graph, input.shotId)
@@ -319,6 +321,27 @@ async function persistVideoClipBytes(input: {
     outputPayload: { clipId: clip.id, clipVersionId: version.id, media: info, mimeType: input.mimeType },
   });
   return getScriptAnalysisGraphForProject(input.projectId);
+}
+
+function validateVideoTarget(
+  graph: ScriptAnalysisGraph,
+  input: { mode: "shot" | "scene"; shotId?: string; sceneId?: string },
+) {
+  if (input.mode === "shot") {
+    if (!input.shotId || input.sceneId) {
+      throw new AppError("Shot video generation requires exactly one shotId.", 400, "invalid_video_target");
+    }
+    if (!graph.shots.some((shot) => shot.id === input.shotId)) {
+      throw new NotFoundError("Shot not found.");
+    }
+    return;
+  }
+  if (!input.sceneId || input.shotId) {
+    throw new AppError("Scene video generation requires exactly one sceneId.", 400, "invalid_video_target");
+  }
+  if (!graph.scenes.some((scene) => scene.id === input.sceneId)) {
+    throw new NotFoundError("Scene not found.");
+  }
 }
 
 export async function updateClipVersion(input: { projectId: string; clipVersionId: string; status: ClipVersion["status"] }) {

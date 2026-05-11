@@ -16,6 +16,7 @@ Phase 5 adds video clip generation from approved storyboard frames.
 - `POST /api/projects/{projectId}/videos` accepts:
   - `generate` for shot or scene video generation with `runway`.
   - `clip` for clip version status transitions.
+- Shot generation requires exactly one `shotId`; scene generation requires exactly one `sceneId`. Extra, missing, or cross-project target IDs are rejected before provider jobs are created.
 
 ## Provider, polling, and media behavior
 
