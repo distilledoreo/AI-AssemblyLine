@@ -10,7 +10,6 @@ type PrismaClientModule = typeof import("../src/server/prisma");
 type RepositoryModule = typeof import("../src/server/repository");
 
 process.env.REPOSITORY_MODE = "prisma";
-process.env.QUEUE_MODE = "inline";
 
 async function main() {
   const checks = await runPrismaRepositorySmoke();

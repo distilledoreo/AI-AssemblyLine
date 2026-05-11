@@ -82,7 +82,7 @@ The rotation command loads `.env`, `.env.production`, `.env.local`, and `.env.pr
 
 ### Prisma repository smoke
 
-Run `npm run smoke:prisma-repository` after migrations when validating a production-like Postgres environment. The command forces `REPOSITORY_MODE=prisma`, uses inline queue submission to keep the check focused on persistence, creates real repository records for sign-in, workspace/project setup, encrypted provider keys, generation jobs, and project events, verifies the data through repository reads, and deletes the smoke records afterward. It requires `DATABASE_URL`, `ENCRYPTION_KEY`, and `STORAGE_ROOT`; it does not call any external provider API.
+Run `npm run smoke:prisma-repository` after migrations when validating a production-like Postgres environment. The command forces `REPOSITORY_MODE=prisma`, uses the configured queue mode, creates real repository records for sign-in, workspace/project setup, encrypted provider keys, generation jobs, and project events, verifies the data through repository reads, and deletes the smoke records afterward. It requires `DATABASE_URL`, `ENCRYPTION_KEY`, and `STORAGE_ROOT`; production-mode runs also require Redis because production queue mode must be Redis-backed. It does not call any external provider API.
 
 ### Security rules
 
