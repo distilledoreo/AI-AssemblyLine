@@ -1,10 +1,16 @@
 import { createMockAdapter } from "@/providers/mockFactory";
-import type { ImageCapabilities, TextCapabilities, VideoCapabilities } from "@/providers/types";
+import { assertMockProviderAllowed } from "@/providers/productionGuard";
+import type { ComposedPrompt, ImageCapabilities, TextCapabilities, TextOptions, VideoCapabilities, VideoOptions } from "@/providers/types";
 
 export class SeedanceAdapter {
   readonly slug = "bytedance-seedance";
   private readonly mock = createMockAdapter(this.slug);
-  generateVideo = this.mock.generateVideo;
+
+  async generateVideo(prompt: ComposedPrompt, options: VideoOptions) {
+    assertMockProviderAllowed(this.slug);
+    return this.mock.generateVideo(prompt, options);
+  }
+
   checkJobStatus = this.mock.checkJobStatus;
   getCapabilities(): VideoCapabilities {
     return {
@@ -22,7 +28,12 @@ export class SeedanceAdapter {
 export class PikaAdapter {
   readonly slug = "pika";
   private readonly mock = createMockAdapter(this.slug);
-  generateVideo = this.mock.generateVideo;
+
+  async generateVideo(prompt: ComposedPrompt, options: VideoOptions) {
+    assertMockProviderAllowed(this.slug);
+    return this.mock.generateVideo(prompt, options);
+  }
+
   checkJobStatus = this.mock.checkJobStatus;
   getCapabilities(): VideoCapabilities {
     return {
@@ -40,7 +51,12 @@ export class PikaAdapter {
 export class LumaAdapter {
   readonly slug = "luma";
   private readonly mock = createMockAdapter(this.slug);
-  generateVideo = this.mock.generateVideo;
+
+  async generateVideo(prompt: ComposedPrompt, options: VideoOptions) {
+    assertMockProviderAllowed(this.slug);
+    return this.mock.generateVideo(prompt, options);
+  }
+
   checkJobStatus = this.mock.checkJobStatus;
   getCapabilities(): VideoCapabilities {
     return {
@@ -58,7 +74,12 @@ export class LumaAdapter {
 export class ElevenLabsAdapter {
   readonly slug = "elevenlabs";
   private readonly mock = createMockAdapter(this.slug);
-  generateStructuredOutput = this.mock.generateStructuredOutput;
+
+  async generateStructuredOutput(prompt: string, schema: unknown, options: TextOptions) {
+    assertMockProviderAllowed(this.slug);
+    return this.mock.generateStructuredOutput(prompt, schema, options);
+  }
+
   getCapabilities(): TextCapabilities & { audio: { models: string[]; supportsVoice: boolean; supportsSoundEffects: boolean } } {
     return {
       models: ["eleven_multilingual_v2"],

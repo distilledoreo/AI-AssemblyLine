@@ -1,10 +1,15 @@
 import { createMockAdapter } from "@/providers/mockFactory";
+import { assertMockProviderAllowed } from "@/providers/productionGuard";
+import type { ComposedPrompt, ImageOptions } from "@/providers/types";
 
 export class StabilityAdapter {
   readonly slug = "stability";
   private readonly mock = createMockAdapter(this.slug);
 
-  generateImage = this.mock.generateImage;
+  async generateImage(prompt: ComposedPrompt, options: ImageOptions) {
+    assertMockProviderAllowed(this.slug);
+    return this.mock.generateImage(prompt, options);
+  }
 
   getCapabilities() {
     return {

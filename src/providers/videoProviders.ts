@@ -1,9 +1,16 @@
 import { createMockAdapter } from "@/providers/mockFactory";
+import { assertMockProviderAllowed } from "@/providers/productionGuard";
+import type { ComposedPrompt, VideoOptions } from "@/providers/types";
 
 export class RunwayAdapter {
   readonly slug = "runway";
   private readonly mock = createMockAdapter(this.slug);
-  generateVideo = this.mock.generateVideo;
+
+  async generateVideo(prompt: ComposedPrompt, options: VideoOptions) {
+    assertMockProviderAllowed(this.slug);
+    return this.mock.generateVideo(prompt, options);
+  }
+
   checkJobStatus = this.mock.checkJobStatus;
   getCapabilities() {
     return {
@@ -21,7 +28,12 @@ export class RunwayAdapter {
 export class KlingAdapter {
   readonly slug = "kling";
   private readonly mock = createMockAdapter(this.slug);
-  generateVideo = this.mock.generateVideo;
+
+  async generateVideo(prompt: ComposedPrompt, options: VideoOptions) {
+    assertMockProviderAllowed(this.slug);
+    return this.mock.generateVideo(prompt, options);
+  }
+
   checkJobStatus = this.mock.checkJobStatus;
   getCapabilities() {
     return {

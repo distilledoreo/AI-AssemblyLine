@@ -127,6 +127,7 @@ In development:
 - `QUEUE_MODE=redis` submits script analysis jobs to BullMQ. Run `npm run worker` as a separate process to consume queued jobs.
 - Redis can be a local instance or Docker container.
 - Provider adapters default to mock mode in local development and tests if no API keys are configured, returning placeholder outputs so the full workflow can be tested without spend. Production generation requires an encrypted workspace provider key or `OPENAI_API_KEY`; missing or literal `mock` OpenAI credentials fail with a provider-key configuration error instead of producing mock outputs.
+- Mock-backed placeholder providers for Stability, Runway, Kling, Seedance, Pika, Luma, and ElevenLabs are development/test-only. Production calls fail with `provider_not_configured` until a live provider client and credentials are configured for that provider.
 - File storage uses `./storage` relative to the project root.
 - Phase 1 exposes a local credentials session path so the foundation UI can be exercised before a Postgres instance is available; production deployments should use the configured database-backed Auth.js sessions.
 
