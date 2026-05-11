@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { SeedanceAdapter } from "@/providers/extendedAdapters";
 import { StabilityAdapter } from "@/providers/stability";
 import { KlingAdapter, RunwayAdapter } from "@/providers/videoProviders";
 import type { ComposedPrompt } from "@/providers/types";
@@ -34,7 +35,19 @@ describe("mock-backed provider production guard", () => {
     await expect(new StabilityAdapter().generateImage(prompt, { modelId: "stable-image-core", width: 1024, height: 1024 })).rejects.toMatchObject({
       code: "provider_not_configured",
     });
+    await expect(new RunwayAdapter().generateVideo(prompt, { modelId: "gen4.5", width: 1024, height: 576, durationSeconds: 3 })).rejects.toMatchObject({
+      code: "provider_not_configured",
+    });
+    await expect(new RunwayAdapter().checkJobStatus("task-without-key")).rejects.toMatchObject({
+      code: "provider_not_configured",
+    });
     await expect(new KlingAdapter().generateVideo(prompt, { modelId: "kling-1.6", width: 1024, height: 576, durationSeconds: 3 })).rejects.toMatchObject({
+      code: "provider_not_configured",
+    });
+    await expect(new KlingAdapter().checkJobStatus("kling-task-without-key")).rejects.toMatchObject({
+      code: "provider_not_configured",
+    });
+    await expect(new SeedanceAdapter().checkJobStatus("seedance-task-without-key")).rejects.toMatchObject({
       code: "provider_not_configured",
     });
   });

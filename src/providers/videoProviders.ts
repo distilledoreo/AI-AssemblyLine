@@ -31,6 +31,7 @@ export class RunwayAdapter implements VideoAdapter {
 
   async checkJobStatus(providerJobId: string): Promise<AsyncJobStatus> {
     if (!this.apiKey || this.apiKey === "mock") {
+      assertMockProviderAllowed(this.slug);
       return this.mock.checkJobStatus?.(providerJobId) ?? { status: "complete", progress: 100 };
     }
     const response = await this.runwayRequest(`https://api.dev.runwayml.com/v1/tasks/${providerJobId}`);
@@ -79,7 +80,10 @@ export class KlingAdapter {
     return this.mock.generateVideo(prompt, options);
   }
 
-  checkJobStatus = this.mock.checkJobStatus;
+  async checkJobStatus(providerJobId: string): Promise<AsyncJobStatus> {
+    assertMockProviderAllowed(this.slug);
+    return this.mock.checkJobStatus?.(providerJobId) ?? { status: "complete", progress: 100 };
+  }
   getCapabilities() {
     return {
       models: ["kling-1.6"],

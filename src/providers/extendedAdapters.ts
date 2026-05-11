@@ -1,6 +1,6 @@
 import { createMockAdapter } from "@/providers/mockFactory";
 import { assertMockProviderAllowed } from "@/providers/productionGuard";
-import type { ComposedPrompt, ImageCapabilities, TextCapabilities, TextOptions, VideoCapabilities, VideoOptions } from "@/providers/types";
+import type { AsyncJobStatus, ComposedPrompt, ImageCapabilities, TextCapabilities, TextOptions, VideoCapabilities, VideoOptions } from "@/providers/types";
 
 export class SeedanceAdapter {
   readonly slug = "bytedance-seedance";
@@ -11,7 +11,10 @@ export class SeedanceAdapter {
     return this.mock.generateVideo(prompt, options);
   }
 
-  checkJobStatus = this.mock.checkJobStatus;
+  async checkJobStatus(providerJobId: string): Promise<AsyncJobStatus> {
+    assertMockProviderAllowed(this.slug);
+    return this.mock.checkJobStatus?.(providerJobId) ?? { status: "complete", progress: 100 };
+  }
   getCapabilities(): VideoCapabilities {
     return {
       models: ["seedance-1.0-pro", "seedance-1.0-lite"],
@@ -34,7 +37,10 @@ export class PikaAdapter {
     return this.mock.generateVideo(prompt, options);
   }
 
-  checkJobStatus = this.mock.checkJobStatus;
+  async checkJobStatus(providerJobId: string): Promise<AsyncJobStatus> {
+    assertMockProviderAllowed(this.slug);
+    return this.mock.checkJobStatus?.(providerJobId) ?? { status: "complete", progress: 100 };
+  }
   getCapabilities(): VideoCapabilities {
     return {
       models: ["pika-2.2"],
@@ -57,7 +63,10 @@ export class LumaAdapter {
     return this.mock.generateVideo(prompt, options);
   }
 
-  checkJobStatus = this.mock.checkJobStatus;
+  async checkJobStatus(providerJobId: string): Promise<AsyncJobStatus> {
+    assertMockProviderAllowed(this.slug);
+    return this.mock.checkJobStatus?.(providerJobId) ?? { status: "complete", progress: 100 };
+  }
   getCapabilities(): VideoCapabilities {
     return {
       models: ["ray-2"],
