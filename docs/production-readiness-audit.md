@@ -70,6 +70,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Redis project-event subscription failures now emit `stream_error` SSE events instead of being silently swallowed during live event setup.
 - Runway completed-task output downloads now reject empty response bodies as `provider_output_missing` instead of creating zero-byte clip versions.
 - Runway repeatable provider-poll processing now persists per-video GenerationJob failures and emits final project events instead of leaving the original video job stuck after the scheduler job catches a provider result error.
+- Runway repeatable provider-poll processing now leaves retriable rate-limit, timeout, and provider `5xx` failures in `polling` state so the next scheduled poll can retry instead of prematurely terminal-failing the video job.
 - Workspace provider-key lookup and decryption failures now surface during OpenAI, Stability, and Runway credential resolution instead of falling back to server environment keys; fallback is reserved for genuinely absent workspace keys.
 - Storyboard frame, frame-version, review-note, shot-status, and related generation-job persistence now surface Prisma write failures instead of silently continuing after a missed production database write.
 - Video clip, clip-version, superseded-version, and related generation-job persistence now surface Prisma write failures instead of silently continuing after a missed production database write.
@@ -89,7 +90,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Project deletes now distinguish Prisma not-found records from real write failures, surfacing production database errors instead of misreporting every delete failure as `not_found`.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 35 files and 170 tests.
+- `npm test`: passing, 35 files and 171 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.

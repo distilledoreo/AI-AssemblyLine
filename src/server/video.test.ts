@@ -255,4 +255,44 @@ describe("video workflow", () => {
       progressPct: 100,
     });
   });
+
+  it("keeps submitted Runway jobs polling after retriable output download failures", async () => {
+    const { project, graph } = await projectWithApprovedFrame();
+    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    const submitFetch = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-live-retry", status: "PENDING" }));
+    vi.stubGlobal("fetch", submitFetch);
+    const submitted = await generateVideoClip({
+      projectId: project.id,
+      mode: "shot",
+      shotId: graph.shots[0].id,
+      providerSlug: "runway",
+    });
+    const job = submitted.jobs.at(-1)!;
+    const pollFetch = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ id: "task-runway-live-retry", status: "SUCCEEDED", output: ["https://example.com/video.mp4"] }))
+      .mockResolvedValueOnce(new Response("gateway timeout", { status: 502 }));
+
+    const result = await processSubmittedVideoProviderJobs({ fetchImpl: pollFetch });
+
+    expect(result).toMatchObject({
+      processed: 1,
+      results: [{ jobId: job.id, status: "retrying", errorMessage: "Runway output download failed with status 502." }],
+    });
+    const retryGraph = getScriptAnalysisGraph(project.id);
+    expect(retryGraph.videoClips).toHaveLength(0);
+    expect(retryGraph.clipVersions).toHaveLength(0);
+    const retryJob = retryGraph.jobs.find((candidate) => candidate.id === job.id)!;
+    expect(retryJob).toMatchObject({
+      status: "polling",
+    });
+    expect(retryJob.errorMessage).toBeUndefined();
+    expect(retryJob.errorClass).toBeUndefined();
+    expect(retryGraph.events.at(-1)).toMatchObject({
+      jobId: job.id,
+      eventType: "status_change",
+      message: "Runway output download failed with status 502.",
+      progressPct: 100,
+    });
+  });
 });

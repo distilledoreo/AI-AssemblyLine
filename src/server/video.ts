@@ -221,11 +221,16 @@ export async function processSubmittedVideoProviderJobs(input: { fetchImpl?: typ
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Runway provider polling failed.";
-      await completeGenerationJob(job.id, {
-        status: "failed",
-        errorMessage: message,
-        errorClass: classifyVideoProviderPollError(error),
-      });
+      const errorClass = classifyVideoProviderPollError(error);
+      if (isRetryableProviderPollError(errorClass)) {
+        await markGenerationJobRunning(job.id, "polling");
+      } else {
+        await completeGenerationJob(job.id, {
+          status: "failed",
+          errorMessage: message,
+          errorClass,
+        });
+      }
       await addJobEvent({
         jobId: job.id,
         projectId: job.projectId,
@@ -233,10 +238,14 @@ export async function processSubmittedVideoProviderJobs(input: { fetchImpl?: typ
         message,
         progressPct: 100,
       });
-      results.push({ jobId: job.id, status: "failed", errorMessage: message });
+      results.push({ jobId: job.id, status: isRetryableProviderPollError(errorClass) ? "retrying" : "failed", errorMessage: message });
     }
   }
   return { processed: jobs.length, results };
+}
+
+function isRetryableProviderPollError(errorClass: ErrorClass) {
+  return errorClass === "retriable" || errorClass === "rate_limit" || errorClass === "timeout";
 }
 
 function classifyVideoProviderPollError(error: unknown): ErrorClass {
