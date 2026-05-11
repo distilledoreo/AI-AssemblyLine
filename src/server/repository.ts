@@ -1000,6 +1000,17 @@ export async function getUserBySessionToken(token: string | undefined) {
   return store.users.find((user) => user.id === session.userId);
 }
 
+export async function getUserById(userId: string | undefined) {
+  if (!userId) {
+    return undefined;
+  }
+  if (isPrismaRepositoryEnabled()) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    return user ? mapUser(user) : undefined;
+  }
+  return getStore().users.find((user) => user.id === userId);
+}
+
 export async function getOptionalSessionUser(token: string | undefined) {
   return getUserBySessionToken(token);
 }

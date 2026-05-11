@@ -74,6 +74,14 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60,
     updateAge: 24 * 60 * 60,
   },
+  callbacks: {
+    session({ session, user }) {
+      if (session.user) {
+        Object.assign(session.user, { id: user.id });
+      }
+      return session;
+    },
+  },
   providers: [
     Credentials({
       credentials: {

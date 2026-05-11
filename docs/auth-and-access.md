@@ -20,6 +20,8 @@ Google and GitHub sign-in buttons are shown on `/signin` only when the matching 
 
 This OAuth sign-in is for authenticating users into AI AssemblyLine. It is separate from provider API credentials used for model calls.
 
+Application authorization accepts both the local credentials session cookie and the database-backed Auth.js session. OAuth sessions add the Auth.js user ID to the session payload and the app reloads that user from the repository before authorizing workspace, project, and API access.
+
 ## Session model
 
 - Sessions are stored in Postgres via the Prisma adapter for NextAuth.
