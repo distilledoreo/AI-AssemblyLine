@@ -88,6 +88,8 @@ Permissions are enforced at the **API route layer** using middleware, not only i
 3. Row-level checks (e.g. "artists can only cancel their own jobs") are handled in the service layer after the role check.
 4. Provider API keys are decrypted server-side only, never sent to the client.
 
+Asset Bible mutations enforce permissions per action: reference uploads use `upload_asset_references`, provider generation uses `request_asset_generation`, approval/rejection uses `approve_reject_assets`, locking uses `lock_unlock_assets`, style updates use `edit_project_settings`, and detail/split/merge corrections use `edit_asset_requirements`.
+
 ## Invitations
 
 - Workspace owners and admins can invite users by email.

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { toErrorResponse } from "@/server/errors";
 import { getProjectRole, getScriptAnalysisGraphForProject } from "@/server/repository";
-import { assertProjectPermission } from "@/server/rbac";
+import { assertProjectPermission, type ProjectAction } from "@/server/rbac";
 import { requireCurrentUser } from "@/server/session";
 import {
   generateAssetReference,
@@ -50,9 +50,10 @@ export async function POST(request: Request, context: { params: Promise<{ projec
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(await getProjectRole(user.id, projectId), "upload_asset_references");
+    const role = await getProjectRole(user.id, projectId);
 
     if ((request.headers.get("content-type") ?? "").includes("multipart/form-data")) {
+      assertProjectPermission(role, "upload_asset_references");
       const form = await request.formData();
       const file = form.get("file");
       if (!(file instanceof File)) {
@@ -70,6 +71,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     }
 
     const body = jsonActionSchema.parse(await request.json());
+    assertProjectPermission(role, permissionForAssetBibleAction(body));
     if (body.action === "detail") await upsertAssetDetail(body.assetId, body.detail);
     if (body.action === "generate") await generateAssetReference({ projectId, assetId: body.assetId, providerSlug: body.providerSlug });
     if (body.action === "status") await transitionAssetStatus(body.assetId, body.status);
@@ -80,4 +82,11 @@ export async function POST(request: Request, context: { params: Promise<{ projec
   } catch (error) {
     return toErrorResponse(error);
   }
+}
+
+function permissionForAssetBibleAction(body: z.infer<typeof jsonActionSchema>): ProjectAction {
+  if (body.action === "generate") return "request_asset_generation";
+  if (body.action === "status") return body.status === "locked" ? "lock_unlock_assets" : "approve_reject_assets";
+  if (body.action === "style") return "edit_project_settings";
+  return "edit_asset_requirements";
 }
