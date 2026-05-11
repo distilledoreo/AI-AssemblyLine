@@ -336,7 +336,7 @@ describe("Prisma repository mode", () => {
     prismaMock.jobEvent.create.mockResolvedValue({});
 
     const repository = await import("@/server/repository");
-    const job = repository.createGenerationJob({
+    const job = await repository.createGenerationJob({
       projectId: "33333333-3333-4333-8333-333333333333",
       type: "script_analysis",
       providerSlug: "local-mock",
@@ -346,14 +346,10 @@ describe("Prisma repository mode", () => {
         scriptVersionId: "88888888-8888-4888-8888-888888888888",
       },
     });
-    repository.completeGenerationJob(job.id, {
+    await repository.completeGenerationJob(job.id, {
       status: "complete",
       outputPayload: { scenes: 1, shots: 1, assets: 2 },
     });
-
-    await vi.waitFor(() => expect(prismaMock.generationJob.create).toHaveBeenCalled());
-    await vi.waitFor(() => expect(prismaMock.jobEvent.create).toHaveBeenCalled());
-    await vi.waitFor(() => expect(prismaMock.generationJob.update).toHaveBeenCalled());
 
     expect(prismaMock.generationJob.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -379,6 +375,25 @@ describe("Prisma repository mode", () => {
         outputPayload: { scenes: 1, shots: 1, assets: 2 },
       }),
     });
+  });
+
+  it("rejects job creation when the Prisma job write fails", async () => {
+    prismaMock.generationJob.create.mockRejectedValue(new Error("database unavailable"));
+    prismaMock.jobEvent.create.mockResolvedValue({});
+
+    const repository = await import("@/server/repository");
+    repository.resetStoreForTests();
+
+    await expect(
+      repository.createGenerationJob({
+        projectId: "33333333-3333-4333-8333-333333333333",
+        type: "script_analysis",
+        providerSlug: "local-mock",
+        inputPayload: { scriptVersionId: "88888888-8888-4888-8888-888888888888" },
+      }),
+    ).rejects.toThrow("database unavailable");
+    expect(prismaMock.jobEvent.create).not.toHaveBeenCalled();
+    expect(repository.getStore().generationJobs).toHaveLength(0);
   });
 
   it("updates worker job lifecycle from Prisma when the local store is empty", async () => {
@@ -409,13 +424,13 @@ describe("Prisma repository mode", () => {
       id: job.id,
       status: "running",
     });
-    expect(repository.completeGenerationJob(job.id, {
+    await expect(repository.completeGenerationJob(job.id, {
       status: "complete",
       outputPayload: { manifestPath: "storage/projects/project/export.json" },
       retryCount: 2,
-    })).toBeUndefined();
+    })).resolves.toBeUndefined();
 
-    await vi.waitFor(() => expect(prismaMock.generationJob.update).toHaveBeenCalledTimes(2));
+    expect(prismaMock.generationJob.update).toHaveBeenCalledTimes(2);
     expect(prismaMock.generationJob.update).toHaveBeenNthCalledWith(1, {
       where: { id: job.id },
       data: expect.objectContaining({ status: "running", startedAt: expect.any(Date) }),

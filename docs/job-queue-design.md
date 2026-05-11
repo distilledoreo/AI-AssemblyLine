@@ -121,10 +121,11 @@ Job events are broadcast to connected clients via **Server-Sent Events (SSE)**.
 
 ### Event publishing flow
 
-1. BullMQ workers create `JobEvent` records in the database.
-2. After writing, the worker publishes the event to a Redis pub/sub channel: `project:{projectId}:events`.
-3. The SSE endpoint subscribes to the Redis channel and forwards events to connected clients.
-4. Clients receive events and update job status in the UI in real time.
+1. Repository job creation writes the `GenerationJob` record before submitting the BullMQ job, preventing workers from receiving orphaned job IDs.
+2. BullMQ workers create `JobEvent` records in the database.
+3. After writing, the worker publishes the event to a Redis pub/sub channel: `project:{projectId}:events`.
+4. The SSE endpoint subscribes to the Redis channel and forwards events to connected clients.
+5. Clients receive events and update job status in the UI in real time.
 
 In automated tests, set `NODE_ENV=test` or `QUEUE_MODE=inline` to avoid opening Redis sockets. Production and production-like staging should leave `QUEUE_MODE` unset so BullMQ submission and Redis pub/sub are active.
 

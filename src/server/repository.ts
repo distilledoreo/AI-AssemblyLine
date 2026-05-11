@@ -3188,7 +3188,7 @@ export async function listExportBundles(projectId: string) {
   return getStore().exportBundles.filter((bundle) => bundle.projectId === projectId);
 }
 
-export function completeGenerationJob(
+export async function completeGenerationJob(
   jobId: string,
   input: {
     status: GenerationJob["status"];
@@ -3203,7 +3203,7 @@ export function completeGenerationJob(
     if (!isPrismaRepositoryEnabled()) {
       throw new NotFoundError("Generation job not found.");
     }
-    void prisma.generationJob.update({
+    await prisma.generationJob.update({
       where: { id: jobId },
       data: {
         status: input.status,
@@ -3213,7 +3213,7 @@ export function completeGenerationJob(
         retryCount: input.retryCount,
         completedAt: new Date(),
       },
-    }).catch(() => undefined);
+    });
     return undefined;
   }
   Object.assign(job, {
@@ -3225,7 +3225,7 @@ export function completeGenerationJob(
     completedAt: nowIso(),
   });
   if (isPrismaRepositoryEnabled()) {
-    void prisma.generationJob.update({
+    await prisma.generationJob.update({
       where: { id: jobId },
       data: {
         status: input.status,
@@ -3235,12 +3235,12 @@ export function completeGenerationJob(
         retryCount: input.retryCount,
         completedAt: new Date(job.completedAt!),
       },
-    }).catch(() => undefined);
+    });
   }
   return job;
 }
 
-export function markGenerationJobProviderSubmitted(
+export async function markGenerationJobProviderSubmitted(
   jobId: string,
   input: { providerJobId: string; outputPayload?: unknown },
 ) {
@@ -3255,7 +3255,7 @@ export function markGenerationJobProviderSubmitted(
     });
   }
   if (isPrismaRepositoryEnabled()) {
-    void prisma.generationJob.update({
+    await prisma.generationJob.update({
       where: { id: jobId },
       data: {
         status: "provider_submitted",
@@ -3263,7 +3263,7 @@ export function markGenerationJobProviderSubmitted(
         outputPayload: toPrismaJson(input.outputPayload),
         startedAt: new Date(submittedAt),
       },
-    }).catch(() => undefined);
+    });
   }
   return job;
 }
@@ -3424,7 +3424,7 @@ export async function decryptProjectProviderKey(projectId: string, providerSlug:
   return decryptWorkspaceProviderKey(project.workspaceId, providerSlug);
 }
 
-export function createGenerationJob(input: {
+export async function createGenerationJob(input: {
   projectId: string;
   type: GenerationJob["type"];
   providerSlug?: string;
@@ -3443,9 +3443,8 @@ export function createGenerationJob(input: {
     retryCount: 0,
     createdAt: timestamp,
   };
-  getStore().generationJobs.push(job);
   if (isPrismaRepositoryEnabled()) {
-    void prisma.generationJob.create({
+    await prisma.generationJob.create({
       data: {
         id: job.id,
         projectId: job.projectId,
@@ -3456,10 +3455,11 @@ export function createGenerationJob(input: {
         inputPayload: toPrismaJson(job.inputPayload) ?? {},
         retryCount: job.retryCount,
       },
-    }).catch(() => undefined);
+    });
   }
-  void submitGenerationJob(job);
-  addJobEvent({
+  getStore().generationJobs.push(job);
+  await submitGenerationJob(job);
+  await addJobEvent({
     jobId: job.id,
     projectId: job.projectId,
     eventType: "status_change",
@@ -3469,11 +3469,14 @@ export function createGenerationJob(input: {
   return job;
 }
 
-export function addJobEvent(input: Omit<JobEvent, "id" | "createdAt">) {
-  const event = emitProjectEvent(input);
-  getStore().jobEvents.push(event);
+export async function addJobEvent(input: Omit<JobEvent, "id" | "createdAt">) {
+  const event: JobEvent = {
+    ...input,
+    id: createId(),
+    createdAt: nowIso(),
+  };
   if (isPrismaRepositoryEnabled()) {
-    void prisma.jobEvent.create({
+    await prisma.jobEvent.create({
       data: {
         id: event.id,
         jobId: event.jobId,
@@ -3482,8 +3485,10 @@ export function addJobEvent(input: Omit<JobEvent, "id" | "createdAt">) {
         message: event.message,
         progressPct: event.progressPct,
       },
-    }).catch(() => undefined);
+    });
   }
+  getStore().jobEvents.push(event);
+  emitProjectEvent(event);
   return event;
 }
 

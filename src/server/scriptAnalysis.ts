@@ -100,7 +100,7 @@ export async function uploadScriptForProject(input: {
     rawText: text,
   });
   await supersedeScriptVersionScenes(previousVersionIds);
-  const job = createScriptAnalysisJob(input.projectId, version.id);
+  const job = await createScriptAnalysisJob(input.projectId, version.id);
   if (isRedisQueueEnabled()) {
     return getScriptAnalysisGraph(input.projectId);
   }
@@ -116,7 +116,7 @@ export async function runScriptAnalysis(projectId: string, scriptVersionId?: str
     throw new NotFoundError("Script version not found.");
   }
 
-  const job = createScriptAnalysisJob(projectId, version.id);
+  const job = await createScriptAnalysisJob(projectId, version.id);
   if (isRedisQueueEnabled()) {
     return getScriptAnalysisGraph(projectId);
   }
@@ -134,14 +134,14 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
   }
 
   await updateScriptVersionAnalysisStatus(version.id, "running");
-  addJobEvent({
+  await addJobEvent({
     jobId: job.id,
     projectId: input.projectId,
     eventType: "status_change",
     message: "Script analysis started.",
     progressPct: 5,
   });
-  addJobEvent({
+  await addJobEvent({
     jobId: job.id,
     projectId: input.projectId,
     eventType: "progress",
@@ -151,7 +151,7 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
   const analysis = await analyzeScriptWithConfiguredProvider(input.projectId, version.rawText);
   const sceneOutputs = analysis.scenes;
 
-  addJobEvent({
+  await addJobEvent({
     jobId: job.id,
     projectId: input.projectId,
     eventType: "progress",
@@ -160,7 +160,7 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
   });
   const shotOutputs = analysis.shots;
 
-  addJobEvent({
+  await addJobEvent({
     jobId: job.id,
     projectId: input.projectId,
     eventType: "progress",
@@ -180,7 +180,7 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
       warnings: assetOutput.warnings,
     },
   });
-  addJobEvent({
+  await addJobEvent({
     jobId: job.id,
     projectId: input.projectId,
     eventType: "status_change",
@@ -190,7 +190,7 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
   return getScriptAnalysisGraphForProject(input.projectId);
 }
 
-function createScriptAnalysisJob(projectId: string, scriptVersionId: string) {
+async function createScriptAnalysisJob(projectId: string, scriptVersionId: string) {
   return createGenerationJob({
     projectId,
     type: "script_analysis",

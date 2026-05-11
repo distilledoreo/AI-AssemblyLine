@@ -77,7 +77,7 @@ export async function exportProjectBundle(input: { projectId: string; userId: st
   if (!project) {
     throw new AppError("Project not found.", 404, "not_found");
   }
-  const job = createGenerationJob({
+  const job = await createGenerationJob({
     projectId: input.projectId,
     type: "export",
     inputPayload: { projectId: input.projectId, userId: input.userId, bundleVersion: BUNDLE_VERSION },
@@ -100,7 +100,7 @@ export async function processExportProjectBundleJob(input: { projectId: string; 
   await ensureProjectStorage(input.projectId);
   const dashboard = await getProjectDashboard(input.projectId);
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
-  addJobEvent({ jobId: job.id, projectId: input.projectId, eventType: "status_change", message: "Export started.", progressPct: 10 });
+  await addJobEvent({ jobId: job.id, projectId: input.projectId, eventType: "status_change", message: "Export started.", progressPct: 10 });
 
   const media = await copyMediaFiles(input.projectId, graph);
   const manifest: ExportManifest = {
@@ -130,7 +130,7 @@ export async function processExportProjectBundleJob(input: { projectId: string; 
     createdAt: nowIso(),
   });
   await completeGenerationJob(job.id, { status: "complete", outputPayload: { manifestPath, bundleId: bundle.id } });
-  addJobEvent({ jobId: job.id, projectId: input.projectId, eventType: "status_change", message: "Export complete.", progressPct: 100 });
+  await addJobEvent({ jobId: job.id, projectId: input.projectId, eventType: "status_change", message: "Export complete.", progressPct: 100 });
   return { bundle, manifestPath, manifest, job };
 }
 
@@ -148,7 +148,7 @@ export async function importProjectBundle(input: { userId: string; manifestPath:
     if (!projectId) {
       throw new AppError("Project ID is required to queue an import job.", 400, "missing_project_id");
     }
-    const job = createGenerationJob({
+    const job = await createGenerationJob({
       projectId,
       type: "import",
       inputPayload: { userId: input.userId, manifestPath: input.manifestPath, projectId },
@@ -181,7 +181,7 @@ export async function processImportProjectBundleJob(input: { userId: string; man
   });
   const job = input.jobId
     ? await markGenerationJobRunning(input.jobId)
-    : createGenerationJob({
+    : await createGenerationJob({
         projectId: project.id,
         type: "import",
         inputPayload: { sourceBundleVersion: manifest.bundleVersion, manifestPath: input.manifestPath },
@@ -192,7 +192,7 @@ export async function processImportProjectBundleJob(input: { userId: string; man
   if (!input.jobId) {
     Object.assign(job, { status: "running", startedAt: nowIso() });
   }
-  addJobEvent({ jobId: job.id, projectId: job.projectId, eventType: "status_change", message: "Import started.", progressPct: 10 });
+  await addJobEvent({ jobId: job.id, projectId: job.projectId, eventType: "status_change", message: "Import started.", progressPct: 10 });
 
   const scriptMap = createMap(manifest.graph.scripts);
   const versionMap = createMap(manifest.graph.activeVersion ? [manifest.graph.activeVersion, ...manifest.graph.scripts.flatMap(() => [])] : []);
@@ -257,6 +257,6 @@ export async function processImportProjectBundleJob(input: { userId: string; man
   });
 
   await completeGenerationJob(job.id, { status: "complete", outputPayload: { importedProjectId: project.id } });
-  addJobEvent({ jobId: job.id, projectId: job.projectId, eventType: "status_change", message: "Import complete.", progressPct: 100 });
+  await addJobEvent({ jobId: job.id, projectId: job.projectId, eventType: "status_change", message: "Import complete.", progressPct: 100 });
   return { project, graph: await getScriptAnalysisGraphForProject(project.id), job };
 }

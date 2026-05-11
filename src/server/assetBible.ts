@@ -120,7 +120,7 @@ export async function generateAssetReference(input: {
     input.providerSlug === "stability"
       ? new StabilityAdapter(await resolveStabilityApiKeyForProject(input.projectId))
       : new OpenAIAdapter(await resolveOpenAiApiKeyForProject(input.projectId));
-  const job = createGenerationJob({
+  const job = await createGenerationJob({
     projectId: input.projectId,
     type: "asset_reference",
     providerSlug: adapter.slug,
@@ -154,7 +154,7 @@ export async function processAssetReferenceJob(input: {
     input.providerSlug === "stability"
       ? new StabilityAdapter(await resolveStabilityApiKeyForProject(input.projectId))
       : new OpenAIAdapter(await resolveOpenAiApiKeyForProject(input.projectId));
-  addJobEvent({
+  await addJobEvent({
     jobId: job.id,
     projectId: input.projectId,
     eventType: "status_change",
@@ -197,7 +197,7 @@ export async function processAssetReferenceJob(input: {
   await persistAssetState(asset);
   await persistAssetVersionAndReference({ version, reference });
   await completeGenerationJob(job.id, { status: "complete", outputPayload: { assetVersionId: version.id, referenceId: reference.id } });
-  addJobEvent({
+  await addJobEvent({
     jobId: job.id,
     projectId: input.projectId,
     eventType: "status_change",

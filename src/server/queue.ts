@@ -111,10 +111,10 @@ export function subscribeToProjectEvents(projectId: string, listener: Listener) 
   };
 }
 
-export function emitProjectEvent(event: Omit<JobEvent, "id" | "createdAt"> & { createdAt?: string }) {
+export function emitProjectEvent(event: Omit<JobEvent, "id" | "createdAt"> & Partial<Pick<JobEvent, "id" | "createdAt">>) {
   const fullEvent: JobEvent = {
     ...event,
-    id: createId(),
+    id: event.id ?? createId(),
     createdAt: event.createdAt ?? nowIso(),
   };
   listeners.get(fullEvent.projectId)?.forEach((listener) => listener(fullEvent));

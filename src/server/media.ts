@@ -49,7 +49,7 @@ export async function processMediaUtilityJob(input: {
   }
   try {
     await access(input.sourceFilePath);
-    addJobEvent({
+    await addJobEvent({
       jobId: job.id,
       projectId: input.projectId,
       eventType: "progress",
@@ -62,11 +62,11 @@ export async function processMediaUtilityJob(input: {
         ? await generateThumbnail(input.sourceFilePath, requireOutputPath(input.outputFilePath, "thumbnail"), input.seekSeconds)
         : await convertMedia(input.sourceFilePath, requireOutputPath(input.outputFilePath, "media_convert"));
 
-    completeGenerationJob(job.id, {
+    await completeGenerationJob(job.id, {
       status: "complete",
       outputPayload: result,
     });
-    addJobEvent({
+    await addJobEvent({
       jobId: job.id,
       projectId: input.projectId,
       eventType: "status_change",
@@ -76,8 +76,8 @@ export async function processMediaUtilityJob(input: {
     return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Media utility job failed.";
-    completeGenerationJob(job.id, { status: "failed", errorMessage: message });
-    addJobEvent({
+    await completeGenerationJob(job.id, { status: "failed", errorMessage: message });
+    await addJobEvent({
       jobId: job.id,
       projectId: input.projectId,
       eventType: "status_change",

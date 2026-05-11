@@ -41,7 +41,7 @@ export async function generateVideoClip(input: {
   }
   const adapter = input.providerSlug === "kling" ? new KlingAdapter() : new RunwayAdapter(await resolveRunwayApiKeyForProject(input.projectId));
   const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
-  const job = createGenerationJob({
+  const job = await createGenerationJob({
     projectId: input.projectId,
     type: "video_clip",
     providerSlug: adapter.slug,
@@ -101,7 +101,7 @@ export async function processVideoClipJob(input: {
     { modelId: job.modelId ?? "video-model", width: 1024, height: 576, durationSeconds: 3 },
   );
   if (result.isAsync && result.providerJobId && !result.video) {
-    markGenerationJobProviderSubmitted(job.id, {
+    await markGenerationJobProviderSubmitted(job.id, {
       providerJobId: result.providerJobId,
       outputPayload: {
         providerJobId: result.providerJobId,
@@ -142,7 +142,7 @@ export async function processVideoProviderResult(input: {
   const status = await adapter.checkJobStatus(job.providerJobId);
   if (status.status === "pending" || status.status === "processing") {
     await markGenerationJobRunning(input.jobId, "polling");
-    addJobEvent({
+    await addJobEvent({
       jobId: job.id,
       projectId: input.projectId,
       eventType: "progress",
@@ -152,8 +152,8 @@ export async function processVideoProviderResult(input: {
     return getScriptAnalysisGraphForProject(input.projectId);
   }
   if (status.status === "failed") {
-    completeGenerationJob(job.id, { status: "failed", errorMessage: status.error ?? "Runway video task failed." });
-    addJobEvent({
+    await completeGenerationJob(job.id, { status: "failed", errorMessage: status.error ?? "Runway video task failed." });
+    await addJobEvent({
       jobId: job.id,
       projectId: input.projectId,
       eventType: "status_change",

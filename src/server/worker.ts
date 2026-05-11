@@ -170,13 +170,13 @@ async function persistWorkerFailure(job: Job<WorkerJobData>, error: unknown) {
   }
   const message = error instanceof Error ? error.message : "Worker job failed.";
   const errorClass = classifyWorkerError(error);
-  completeGenerationJob(jobId, {
+  await completeGenerationJob(jobId, {
     status: "failed",
     errorMessage: message,
     errorClass,
     retryCount: retryCountForAttempt(job),
   });
-  addJobEvent({
+  await addJobEvent({
     jobId,
     projectId: job.data.projectId,
     eventType: "status_change",

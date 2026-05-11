@@ -40,7 +40,7 @@ export async function generateStoryboardFrame(input: {
   if (keyframeIndex < 0 || keyframeIndex > 8) {
     throw new AppError("Storyboard keyframes must be between 1 and 9.", 400, "bad_keyframe");
   }
-  const job = createGenerationJob({
+  const job = await createGenerationJob({
     projectId: input.projectId,
     type: "storyboard_frame",
     providerSlug: "openai",
