@@ -10,6 +10,7 @@ import {
   getStore,
   getVideoClipForScene,
   getVideoClipForShot,
+  markGenerationJobProviderSubmitted,
   markGenerationJobRunning,
   persistClipVersionState,
   persistGeneratedClipVersion,
@@ -18,6 +19,7 @@ import { isRedisQueueEnabled } from "@/server/queue";
 import { inspectClip } from "@/server/media";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
+import { resolveRunwayApiKeyForProject } from "@/server/providerKeys";
 import type { ClipVersion, ScriptAnalysisGraph, VideoClip } from "@/server/types";
 
 export async function generateVideoClip(input: {
@@ -35,7 +37,7 @@ export async function generateVideoClip(input: {
   if (frameVersions.length === 0) {
     throw new AppError("Video generation requires approved storyboard frames.", 409, "missing_approved_frames");
   }
-  const adapter = input.providerSlug === "kling" ? new KlingAdapter() : new RunwayAdapter();
+  const adapter = input.providerSlug === "kling" ? new KlingAdapter() : new RunwayAdapter(await resolveRunwayApiKeyForProject(input.projectId));
   const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
   const job = createGenerationJob({
     projectId: input.projectId,
@@ -83,7 +85,7 @@ export async function processVideoClipJob(input: {
   if (frameVersions.length === 0) {
     throw new AppError("Video generation requires approved storyboard frames.", 409, "missing_approved_frames");
   }
-  const adapter = input.providerSlug === "kling" ? new KlingAdapter() : new RunwayAdapter();
+  const adapter = input.providerSlug === "kling" ? new KlingAdapter() : new RunwayAdapter(await resolveRunwayApiKeyForProject(input.projectId));
   const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
   const job = await markGenerationJobRunning(input.jobId, "polling");
   if (!job) throw new NotFoundError("Generation job not found.");
@@ -97,6 +99,17 @@ export async function processVideoClipJob(input: {
     },
     { modelId: job.modelId ?? "video-model", width: 1024, height: 576, durationSeconds: 3 },
   );
+  if (result.isAsync && result.providerJobId && !result.video) {
+    markGenerationJobProviderSubmitted(job.id, {
+      providerJobId: result.providerJobId,
+      outputPayload: {
+        providerJobId: result.providerJobId,
+        sourceFrameVersionIds: frameVersions.map((frame) => frame.id),
+        prompt,
+      },
+    });
+    return getScriptAnalysisGraphForProject(input.projectId);
+  }
   let clip =
     input.mode === "shot" && input.shotId
       ? await getVideoClipForShot(input.shotId)

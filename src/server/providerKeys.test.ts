@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveOpenAiApiKeyForProject, resolveStabilityApiKeyForProject } from "@/server/providerKeys";
+import { resolveOpenAiApiKeyForProject, resolveRunwayApiKeyForProject, resolveStabilityApiKeyForProject } from "@/server/providerKeys";
 
 describe("provider key resolution", () => {
   afterEach(() => {
@@ -52,5 +52,21 @@ describe("provider key resolution", () => {
     vi.stubEnv("NODE_ENV", "production");
 
     await expect(resolveStabilityApiKeyForProject("00000000-0000-4000-8000-000000000000")).resolves.toBe("sk-stability-live-test");
+  });
+
+  it("requires real Runway credentials in production", async () => {
+    vi.stubEnv("RUNWAYML_API_SECRET", "");
+    vi.stubEnv("NODE_ENV", "production");
+
+    await expect(resolveRunwayApiKeyForProject("00000000-0000-4000-8000-000000000000")).rejects.toMatchObject({
+      code: "provider_key_missing",
+    });
+  });
+
+  it("uses RUNWAYML_API_SECRET when no workspace key is configured", async () => {
+    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    vi.stubEnv("NODE_ENV", "production");
+
+    await expect(resolveRunwayApiKeyForProject("00000000-0000-4000-8000-000000000000")).resolves.toBe("key_runway_live");
   });
 });

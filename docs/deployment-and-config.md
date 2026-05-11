@@ -36,6 +36,7 @@ All configuration is driven by environment variables loaded from `.env` files (v
 | `OPENAI_SMOKE_MODEL` | Optional model override for `npm run smoke:openai`. | `gpt-4.1-mini` |
 | `STABILITY_API_KEY` | Optional server fallback Stability AI key when a workspace Stability key is not saved. Enables live Stable Image Core/Ultra image generation and `npm run smoke:stability`. | None |
 | `STABILITY_SMOKE_MODEL` | Optional model override for `npm run smoke:stability`. | `stable-image-core` |
+| `RUNWAYML_API_SECRET` | Optional server fallback Runway key when a workspace Runway key is not saved. Enables live Runway video task submission. | None |
 
 ### OAuth sign-in variables
 
@@ -116,7 +117,7 @@ npm run dev
 
 The checked-in `compose.yaml` starts PostgreSQL 16 on `localhost:5432` and Redis 7 on `localhost:6379`, matching `.env.example`. Stop those services with `npm run services:down`; inspect logs with `npm run services:logs`.
 
-Run `npm run preflight:production` before release. The preflight checks required production environment variables, `NEXTAUTH_SECRET` length, decoded `ENCRYPTION_KEY` length, real non-mock `OPENAI_API_KEY` and `STABILITY_API_KEY` values for live smoke testing, FFmpeg/ffprobe availability, and TCP reachability for the configured Postgres and Redis URLs.
+Run `npm run preflight:production` before release. The preflight checks required production environment variables, `NEXTAUTH_SECRET` length, decoded `ENCRYPTION_KEY` length, real non-mock `OPENAI_API_KEY`, `STABILITY_API_KEY`, and `RUNWAYML_API_SECRET` values for live provider verification, FFmpeg/ffprobe availability, and TCP reachability for the configured Postgres and Redis URLs.
 
 Run `npm run smoke:openai` and `npm run smoke:stability` with real provider keys before enabling those providers in production. These commands make small live API calls and print only non-secret result metadata.
 
@@ -134,7 +135,7 @@ In development:
 - `QUEUE_MODE=inline` runs script analysis synchronously without Redis so the local workflow remains usable on a bare machine.
 - `QUEUE_MODE=redis` submits script analysis jobs to BullMQ. Run `npm run worker` as a separate process to consume queued jobs.
 - Redis can be a local instance or Docker container.
-- Provider adapters default to mock mode in local development and tests if no API keys are configured, returning placeholder outputs so the full workflow can be tested without spend. Production OpenAI generation requires an encrypted workspace OpenAI key or `OPENAI_API_KEY`; production Stability image generation requires an encrypted workspace Stability key or `STABILITY_API_KEY`. Missing or literal `mock` production credentials fail with a provider-key configuration error instead of producing mock outputs, and production provider-key saves reject the literal `mock` value for every provider.
+- Provider adapters default to mock mode in local development and tests if no API keys are configured, returning placeholder outputs so the full workflow can be tested without spend. Production OpenAI generation requires an encrypted workspace OpenAI key or `OPENAI_API_KEY`; production Stability image generation requires an encrypted workspace Stability key or `STABILITY_API_KEY`; production Runway video submission requires an encrypted workspace Runway key or `RUNWAYML_API_SECRET`. Missing or literal `mock` production credentials fail with a provider-key configuration error instead of producing mock outputs, and production provider-key saves reject the literal `mock` value for every provider.
 - Mock-backed placeholder providers for Runway, Kling, Seedance, Pika, Luma, and ElevenLabs are development/test-only. Production calls fail with `provider_not_configured` until a live provider client and credentials are configured for that provider.
 - File storage uses `./storage` relative to the project root.
 - Phase 1 exposes a local credentials session path so the foundation UI can be exercised before a Postgres instance is available; production deployments should use the configured database-backed Auth.js sessions.

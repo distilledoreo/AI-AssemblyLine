@@ -54,6 +54,13 @@ export function evaluateProductionPreflight(
     detail: stabilityKey && stabilityKey !== "mock" ? "configured for live smoke test" : "missing or mock",
   });
 
+  const runwayKey = env.RUNWAYML_API_SECRET?.trim() ?? "";
+  results.push({
+    name: "RUNWAYML_API_SECRET",
+    ok: Boolean(runwayKey) && runwayKey !== "mock",
+    detail: runwayKey && runwayKey !== "mock" ? "configured for live video submission" : "missing or mock",
+  });
+
   for (const command of ["ffmpeg", "ffprobe"]) {
     const exists = commandExists(command);
     results.push({

@@ -208,7 +208,18 @@ Live Stability image output is sent to `POST https://api.stability.ai/v2beta/sta
 
 Run `npm run smoke:stability` with `STABILITY_API_KEY` set to verify live Stability connectivity before a production release. The smoke command requests one small Stable Image Core image by default; set `STABILITY_SMOKE_MODEL` to test another supported Stability image model.
 
-Mock-backed placeholder adapters for providers that do not yet have live HTTP clients, including Runway, Kling, Seedance, Pika, Luma, and ElevenLabs, are development/test-only. In production, attempting generation through one of these placeholder adapters fails with `provider_not_configured` until a real provider client and credentials are configured.
+## Runway live mode
+
+The Runway adapter has two modes:
+
+- `mock` or missing key: deterministic local video bytes for development and automated tests only.
+- real API key: live Runway task submission.
+
+Runtime video generation resolves Runway credentials from the project workspace's encrypted `runway` provider key first. If no workspace key is configured, it falls back to `RUNWAYML_API_SECRET`. Production video generation fails with `provider_key_missing` when no real Runway key is available.
+
+Live Runway output is submitted to `POST https://api.dev.runwayml.com/v1/image_to_video` with `promptText`, `model`, `ratio`, `duration`, bearer-token authorization, and `X-Runway-Version: 2024-11-06`. Text-to-video mode omits `promptImage`, matching Runway's documented API guide. The initial worker transition stores the returned Runway task ID and marks the AssemblyLine job `provider_submitted`; provider polling and result download remain tracked as production follow-up work.
+
+Mock-backed placeholder adapters for providers that do not yet have live HTTP clients, including Kling, Seedance, Pika, Luma, and ElevenLabs, are development/test-only. In production, attempting generation through one of these placeholder adapters fails with `provider_not_configured` until a real provider client and credentials are configured.
 
 ## Model selector behavior
 

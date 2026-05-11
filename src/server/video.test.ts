@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createProjectForWorkspace,
   createWorkspaceForUser,
@@ -31,6 +31,10 @@ async function projectWithApprovedFrame() {
 
 describe("video workflow", () => {
   beforeEach(() => resetStoreForTests());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
 
   it("generates shot and scene clips from approved storyboard frames and approves clips", async () => {
     const { project, graph } = await projectWithApprovedFrame();
@@ -75,5 +79,34 @@ describe("video workflow", () => {
     expect(new RunwayAdapter().getCapabilities().requiresAsyncPolling).toBe(true);
     expect(new KlingAdapter().getCapabilities().supportsImageToVideo).toBe(true);
     expect(checkFfmpegAvailability().message).toBeTruthy();
+  });
+
+  it("submits live Runway jobs without writing mock video bytes", async () => {
+    const { project, graph } = await projectWithApprovedFrame();
+    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-live-1", status: "PENDING" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const submitted = await generateVideoClip({
+      projectId: project.id,
+      mode: "shot",
+      shotId: graph.shots[0].id,
+      providerSlug: "runway",
+    });
+
+    expect(submitted.videoClips).toHaveLength(0);
+    expect(submitted.clipVersions).toHaveLength(0);
+    expect(submitted.jobs.at(-1)).toMatchObject({
+      type: "video_clip",
+      status: "provider_submitted",
+      providerJobId: "task-runway-live-1",
+      outputPayload: expect.objectContaining({ providerJobId: "task-runway-live-1" }),
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.dev.runwayml.com/v1/image_to_video",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer key_runway_live" }),
+      }),
+    );
   });
 });

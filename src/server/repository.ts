@@ -2857,6 +2857,34 @@ export function completeGenerationJob(
   return job;
 }
 
+export function markGenerationJobProviderSubmitted(
+  jobId: string,
+  input: { providerJobId: string; outputPayload?: unknown },
+) {
+  const job = getStore().generationJobs.find((candidate) => candidate.id === jobId);
+  const submittedAt = nowIso();
+  if (job) {
+    Object.assign(job, {
+      status: "provider_submitted" as const,
+      providerJobId: input.providerJobId,
+      outputPayload: input.outputPayload,
+      completedAt: undefined,
+    });
+  }
+  if (isPrismaRepositoryEnabled()) {
+    void prisma.generationJob.update({
+      where: { id: jobId },
+      data: {
+        status: "provider_submitted",
+        providerJobId: input.providerJobId,
+        outputPayload: toPrismaJson(input.outputPayload),
+        startedAt: new Date(submittedAt),
+      },
+    }).catch(() => undefined);
+  }
+  return job;
+}
+
 export async function getGenerationJob(jobId: string) {
   const local = getStore().generationJobs.find((candidate) => candidate.id === jobId);
   if (local) {
