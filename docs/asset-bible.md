@@ -133,4 +133,6 @@ The system should ask for reference images for required assets, but it should on
 
 Each scene and shot tracks the assets it requires. A scene or shot is storyboard-ready when all required assets for that specific unit are approved or locked. This enables partial progression through production without waiting for the entire Asset Bible to reach 100% completion.
 
+Readiness refresh persistence is atomic in Prisma mode: all recalculated scene and shot statuses commit in one database transaction. If any status write fails, production must reject the whole refresh instead of leaving scene readiness updated separately from shot readiness.
+
 See [data-model.md](data-model.md) for the cascading staleness rules that apply when approved assets are superseded or the project style changes after storyboard frames or video clips have already been generated.

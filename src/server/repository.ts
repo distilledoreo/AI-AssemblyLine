@@ -3312,20 +3312,23 @@ export async function refreshPrismaReadiness(projectId: string) {
   const approvedAssetIds = new Set(
     graph.assets.filter((asset) => ["approved", "locked"].includes(asset.status)).map((asset) => asset.id),
   );
-  await Promise.all(
-    graph.scenes.map((scene) => {
-      const reqs = graph.sceneAssetRequirements.filter((req) => req.sceneId === scene.id && !req.isOptional);
-      const status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
-      return prisma.scene.update({ where: { id: scene.id }, data: { status } });
-    }),
-  );
-  await Promise.all(
-    graph.shots.map((shot) => {
-      const reqs = graph.shotAssetRequirements.filter((req) => req.shotId === shot.id && !req.isOptional);
-      const status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
-      return prisma.shot.update({ where: { id: shot.id }, data: { status } });
-    }),
-  );
+  const operations: Prisma.PrismaPromise<unknown>[] = [];
+
+  for (const scene of graph.scenes) {
+    const reqs = graph.sceneAssetRequirements.filter((req) => req.sceneId === scene.id && !req.isOptional);
+    const status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
+    operations.push(prisma.scene.update({ where: { id: scene.id }, data: { status } }));
+  }
+
+  for (const shot of graph.shots) {
+    const reqs = graph.shotAssetRequirements.filter((req) => req.shotId === shot.id && !req.isOptional);
+    const status = reqs.length > 0 && reqs.every((req) => approvedAssetIds.has(req.assetId)) ? "ready" : "blocked";
+    operations.push(prisma.shot.update({ where: { id: shot.id }, data: { status } }));
+  }
+
+  if (operations.length > 0) {
+    await prisma.$transaction(operations);
+  }
 }
 
 export function refreshLocalReadiness(projectId: string) {

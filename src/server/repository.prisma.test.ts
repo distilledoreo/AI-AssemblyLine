@@ -1979,6 +1979,13 @@ describe("Prisma repository mode", () => {
     expect(prismaMock.scene.update).toHaveBeenCalledWith({ where: { id: blockedSceneId }, data: { status: "blocked" } });
     expect(prismaMock.shot.update).toHaveBeenCalledWith({ where: { id: readyShotId }, data: { status: "ready" } });
     expect(prismaMock.shot.update).toHaveBeenCalledWith({ where: { id: blockedShotId }, data: { status: "blocked" } });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction).toHaveBeenCalledWith([
+      expect.any(Promise),
+      expect.any(Promise),
+      expect.any(Promise),
+      expect.any(Promise),
+    ]);
   });
 
   it("surfaces scene readiness write failures from Prisma", async () => {
@@ -1996,6 +2003,24 @@ describe("Prisma repository mode", () => {
     prismaMock.shot.update.mockRejectedValue(new Error("shot readiness write failed"));
 
     await expect(repository.refreshPrismaReadiness(projectId)).rejects.toThrow("shot readiness write failed");
+  });
+
+  it("rejects Prisma readiness refresh when the status transaction fails", async () => {
+    const repository = await import("@/server/repository");
+    const { projectId } = mockReadinessGraph();
+    prismaMock.scene.update.mockResolvedValue({});
+    prismaMock.shot.update.mockResolvedValue({});
+    prismaMock.$transaction.mockRejectedValueOnce(new Error("readiness transaction failed"));
+
+    await expect(repository.refreshPrismaReadiness(projectId)).rejects.toThrow("readiness transaction failed");
+
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction).toHaveBeenCalledWith([
+      expect.any(Promise),
+      expect.any(Promise),
+      expect.any(Promise),
+      expect.any(Promise),
+    ]);
   });
 
   it("persists Asset Bible status and manual requirements through Prisma", async () => {

@@ -120,6 +120,8 @@ Asset Bible reference persistence commits each new `AssetVersion` and attached `
 
 Typed Asset Bible detail persistence commits the base `Asset` update and its type-specific detail upsert in one database transaction. A failed detail write should not leave production with canonical asset metadata saved separately from the continuity fields that define the same record.
 
+Asset Bible readiness refresh persistence commits all recalculated `Scene` and `Shot` statuses in one database transaction. A failed refresh should not leave production with scene readiness reflecting the latest asset approvals while shot readiness still reflects older asset states.
+
 Generated storyboard frame persistence commits the storyboard frame upsert, frame version insert, shot status update, and related generation-job completion in one database transaction. A failed generated-frame write should not leave a production shot marked storyboarded without the frame version and completed generation job that justify that status.
 
 Generated video clip persistence commits the video clip upsert, clip version insert, and related generation-job completion in one database transaction. A failed generated-clip write should not leave a production clip record without the version and completed generation job that justify it.

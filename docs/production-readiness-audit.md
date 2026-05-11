@@ -172,6 +172,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Asset Bible reference saves now commit each asset version and attached asset reference in one Prisma transaction, preventing orphaned version/reference persistence if either production write fails.
 - Typed Asset Bible detail saves now commit the base asset update and matching type-specific detail upsert in one Prisma transaction, preventing canonical asset metadata from drifting away from its continuity detail record.
 - Local credentials sign-in now creates the database session through the same Prisma user upsert that creates or updates the user, preventing successful credential sign-in from leaving a user row without an active session.
+- Scene and shot readiness refreshes now commit all recalculated status updates in one Prisma transaction, preventing asset-approval refreshes from leaving scenes and shots at different dependency-calculation revisions.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
 - `npm test`: passing, 36 files and 176 tests.
