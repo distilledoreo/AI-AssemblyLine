@@ -9,7 +9,7 @@ import {
 import { transitionAssetStatus } from "@/server/assetBible";
 import { uploadScriptForProject } from "@/server/scriptAnalysis";
 import { generateStoryboardFrame, updateFrameVersion } from "@/server/storyboard";
-import { generateVideoClip, updateClipVersion } from "@/server/video";
+import { generateVideoClip, processVideoProviderResult, updateClipVersion } from "@/server/video";
 import { checkFfmpegAvailability } from "@/server/media";
 import { KlingAdapter, RunwayAdapter } from "@/providers/videoProviders";
 
@@ -108,5 +108,44 @@ describe("video workflow", () => {
         headers: expect.objectContaining({ Authorization: "Bearer key_runway_live" }),
       }),
     );
+  });
+
+  it("downloads completed Runway task output into a clip version", async () => {
+    const { project, graph } = await projectWithApprovedFrame();
+    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    const submitFetch = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-live-2", status: "PENDING" }));
+    vi.stubGlobal("fetch", submitFetch);
+    const submitted = await generateVideoClip({
+      projectId: project.id,
+      mode: "shot",
+      shotId: graph.shots[0].id,
+      providerSlug: "runway",
+    });
+    const job = submitted.jobs.at(-1)!;
+    const videoBytes = Buffer.from("runway-video-bytes");
+    const pollFetch = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ id: "task-runway-live-2", status: "SUCCEEDED", output: ["https://example.com/video.mp4"] }))
+      .mockResolvedValueOnce(new Response(videoBytes, { status: 200, headers: { "content-type": "video/mp4" } }));
+
+    const completed = await processVideoProviderResult({
+      projectId: project.id,
+      jobId: job.id,
+      fetchImpl: pollFetch,
+    });
+
+    expect(completed.videoClips).toHaveLength(1);
+    expect(completed.clipVersions).toHaveLength(1);
+    expect(completed.clipVersions[0].generationJobId).toBe(job.id);
+    expect(completed.jobs.find((candidate) => candidate.id === job.id)).toMatchObject({
+      status: "complete",
+      providerJobId: "task-runway-live-2",
+    });
+    expect(pollFetch).toHaveBeenNthCalledWith(
+      1,
+      "https://api.dev.runwayml.com/v1/tasks/task-runway-live-2",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(pollFetch).toHaveBeenNthCalledWith(2, "https://example.com/video.mp4", expect.any(Object));
   });
 });

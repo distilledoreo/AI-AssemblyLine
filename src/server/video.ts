@@ -3,9 +3,11 @@ import path from "node:path";
 import { KlingAdapter, RunwayAdapter } from "@/providers/videoProviders";
 import { AppError, NotFoundError } from "@/server/errors";
 import {
+  addJobEvent,
   completeGenerationJob,
   createGenerationJob,
   getClipVersionById,
+  getGenerationJob,
   getScriptAnalysisGraphForProject,
   getStore,
   getVideoClipForScene,
@@ -20,7 +22,7 @@ import { inspectClip } from "@/server/media";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
 import { resolveRunwayApiKeyForProject } from "@/server/providerKeys";
-import type { ClipVersion, ScriptAnalysisGraph, VideoClip } from "@/server/types";
+import type { ClipVersion, GenerationJob, ScriptAnalysisGraph, VideoClip } from "@/server/types";
 
 export async function generateVideoClip(input: {
   projectId: string;
@@ -77,7 +79,6 @@ export async function processVideoClipJob(input: {
   jobId: string;
 }) {
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
-  const store = getStore();
   const frameVersions =
     input.mode === "shot"
       ? approvedFrameVersionsForShot(graph, input.shotId)
@@ -110,6 +111,95 @@ export async function processVideoClipJob(input: {
     });
     return getScriptAnalysisGraphForProject(input.projectId);
   }
+  return persistVideoClipBytes({
+    projectId: input.projectId,
+    mode: input.mode,
+    shotId: input.shotId,
+    sceneId: input.sceneId,
+    graph,
+    job,
+    prompt,
+    sourceFrameVersionIds: frameVersions.map((frame) => frame.id),
+    data: result.video?.data ?? Buffer.from("mock-video"),
+    mimeType: result.video?.mimeType ?? "video/mp4",
+  });
+}
+
+export async function processVideoProviderResult(input: {
+  projectId: string;
+  jobId: string;
+  fetchImpl?: typeof fetch;
+}) {
+  const job = await getGenerationJob(input.jobId);
+  if (!job) {
+    throw new NotFoundError("Generation job not found.");
+  }
+  if (job.type !== "video_clip" || job.providerSlug !== "runway" || !job.providerJobId) {
+    throw new AppError("Only submitted Runway video jobs can be polled.", 400, "unsupported_provider_poll");
+  }
+
+  const adapter = new RunwayAdapter(await resolveRunwayApiKeyForProject(input.projectId), input.fetchImpl ?? fetch);
+  const status = await adapter.checkJobStatus(job.providerJobId);
+  if (status.status === "pending" || status.status === "processing") {
+    await markGenerationJobRunning(input.jobId, "polling");
+    addJobEvent({
+      jobId: job.id,
+      projectId: input.projectId,
+      eventType: "progress",
+      message: "Runway video task is still processing.",
+      progressPct: status.progress ?? 50,
+    });
+    return getScriptAnalysisGraphForProject(input.projectId);
+  }
+  if (status.status === "failed") {
+    completeGenerationJob(job.id, { status: "failed", errorMessage: status.error ?? "Runway video task failed." });
+    addJobEvent({
+      jobId: job.id,
+      projectId: input.projectId,
+      eventType: "status_change",
+      message: status.error ?? "Runway video task failed.",
+      progressPct: 100,
+    });
+    return getScriptAnalysisGraphForProject(input.projectId);
+  }
+  if (!status.resultUrl) {
+    throw new AppError("Runway task completed without an output URL.", 502, "provider_output_missing");
+  }
+
+  await markGenerationJobRunning(input.jobId, "processing_output");
+  const output = await (input.fetchImpl ?? fetch)(status.resultUrl, { signal: AbortSignal.timeout(120000) });
+  if (!output.ok) {
+    throw new AppError(`Runway output download failed with status ${output.status}.`, 502, "provider_output_download_failed");
+  }
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
+  const payload = normalizeVideoJobPayload(job);
+  return persistVideoClipBytes({
+    projectId: input.projectId,
+    mode: payload.mode,
+    shotId: payload.shotId,
+    sceneId: payload.sceneId,
+    graph,
+    job,
+    prompt: payload.prompt ?? composeVideoPrompt(payload.mode, graph, payload.shotId, payload.sceneId),
+    sourceFrameVersionIds: payload.sourceFrameVersionIds,
+    data: Buffer.from(await output.arrayBuffer()),
+    mimeType: output.headers.get("content-type")?.split(";")[0] || "video/mp4",
+  });
+}
+
+async function persistVideoClipBytes(input: {
+  projectId: string;
+  mode: "shot" | "scene";
+  shotId?: string;
+  sceneId?: string;
+  graph: ScriptAnalysisGraph;
+  job: GenerationJob;
+  prompt: string;
+  sourceFrameVersionIds: string[];
+  data: Buffer;
+  mimeType: string;
+}) {
+  const store = getStore();
   let clip =
     input.mode === "shot" && input.shotId
       ? await getVideoClipForShot(input.shotId)
@@ -129,29 +219,32 @@ export async function processVideoClipJob(input: {
   await mkdir(dir, { recursive: true });
   const knownClipVersions = [
     ...store.clipVersions.filter((version) => version.clipId === clip.id),
-    ...graph.clipVersions.filter((version) => version.clipId === clip.id),
+    ...input.graph.clipVersions.filter((version) => version.clipId === clip.id),
   ];
   const versionNumber = knownClipVersions.reduce((max, version) => Math.max(max, version.versionNumber), 0) + 1;
   const filePath = path.join(dir, `clip-v${versionNumber}.mp4`);
-  await writeFile(filePath, result.video?.data ?? Buffer.from("mock-video"));
+  await writeFile(filePath, input.data);
   const info = await inspectClip(filePath);
   const version: ClipVersion = {
     id: createId(),
     clipId: clip.id,
     versionNumber,
-    prompt,
+    prompt: input.prompt,
     filePath,
     thumbnailPath: filePath,
     durationMs: info.durationMs,
     status: "draft",
     isStale: false,
-    sourceFrameVersionIds: frameVersions.map((frame) => frame.id),
-    generationJobId: job.id,
+    sourceFrameVersionIds: input.sourceFrameVersionIds,
+    generationJobId: input.job.id,
     createdAt: timestamp,
   };
   store.clipVersions.push(version);
   await persistGeneratedClipVersion({ clip, version });
-  await completeGenerationJob(job.id, { status: "complete", outputPayload: { clipId: clip.id, clipVersionId: version.id, media: info } });
+  await completeGenerationJob(input.job.id, {
+    status: "complete",
+    outputPayload: { clipId: clip.id, clipVersionId: version.id, media: info, mimeType: input.mimeType },
+  });
   return getScriptAnalysisGraphForProject(input.projectId);
 }
 
@@ -203,4 +296,28 @@ function composeVideoPrompt(
   const scene = graph.scenes.find((candidate) => candidate.id === sceneId);
   const shots = graph.shots.filter((shot) => shot.sceneId === sceneId).map((shot) => shot.action).join(" ");
   return `Scene-level video clip. Scene: ${scene?.summary ?? ""}. Shots in order: ${shots}`;
+}
+
+function normalizeVideoJobPayload(job: GenerationJob): {
+  mode: "shot" | "scene";
+  shotId?: string;
+  sceneId?: string;
+  prompt?: string;
+  sourceFrameVersionIds: string[];
+} {
+  const payload = job.inputPayload && typeof job.inputPayload === "object" ? (job.inputPayload as Record<string, unknown>) : {};
+  const output = job.outputPayload && typeof job.outputPayload === "object" ? (job.outputPayload as Record<string, unknown>) : {};
+  const mode = payload.mode === "scene" ? "scene" : "shot";
+  const sourceFrameVersionIds = Array.isArray(output.sourceFrameVersionIds)
+    ? output.sourceFrameVersionIds.map(String)
+    : Array.isArray(payload.sourceFrameVersionIds)
+      ? payload.sourceFrameVersionIds.map(String)
+      : [];
+  return {
+    mode,
+    shotId: typeof payload.shotId === "string" ? payload.shotId : undefined,
+    sceneId: typeof payload.sceneId === "string" ? payload.sceneId : undefined,
+    prompt: typeof output.prompt === "string" ? output.prompt : typeof payload.prompt === "string" ? payload.prompt : undefined,
+    sourceFrameVersionIds,
+  };
 }

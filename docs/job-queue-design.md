@@ -147,7 +147,7 @@ npm run worker
 
 With `QUEUE_MODE=inline`, script analysis, asset reference generation, storyboard frame generation, video clip generation, and project export/import run synchronously and no Redis sockets are opened. With `QUEUE_MODE=redis` or production defaults, script upload and re-analysis create `script_analysis` jobs on the `assemblyline-analysis` BullMQ queue, Asset Bible reference generation creates `asset_reference` jobs and storyboard generation creates `storyboard_frame` jobs on the `assemblyline-image` queue, video generation creates `video_clip` jobs on the `assemblyline-video` queue, and project export/import creates `export` and `import` jobs on the `assemblyline-project` queue. The worker process consumes those jobs and writes progress events.
 
-Current implementation status: `script_analysis`, `asset_reference`, `storyboard_frame`, `video_clip`, `export`, and `import` have executable BullMQ worker processors. Media utility jobs and provider polling jobs are still represented in the topology and retry policy, but their worker processors are not complete yet.
+Current implementation status: `script_analysis`, `asset_reference`, `storyboard_frame`, `video_clip`, `export`, and `import` have executable BullMQ worker processors. Runway video jobs can be submitted to the live provider and finalized by the Runway result processor after polling a completed task, but the repeatable Redis poll scheduler that automatically finds all `provider_submitted`/`polling` jobs is not complete yet. Media utility jobs are still represented in the topology and retry policy, but their worker processors are not complete yet.
 
 Each worker process:
 
