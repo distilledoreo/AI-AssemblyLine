@@ -52,10 +52,10 @@ All provider adapters implement a common interface. The mock factory creates fak
 
 ```typescript
 // Example usage in tests
-const mockOpenAI = createMockAdapter('openai', {
+const mockOpenAI = createMockAdapter("openai", {
   latencyMs: 100,
-  errorOnCall: 3,           // third call returns an error
-  errorClass: 'rate_limit',
+  errorOnCall: 3, // third call returns an error
+  errorClass: "rate_limit",
 });
 ```
 
@@ -74,14 +74,16 @@ Integration and E2E tests use a separate Postgres database (`assemblyline_test`)
 - Test coverage is tracked but not gated (no minimum percentage). Coverage trends are monitored for regressions.
 - Provider mock factory is the only way to test provider interactions in CI. Real API calls are never made in automated tests.
 
+The checked-in GitHub Actions workflow at `.github/workflows/ci.yml` runs on pull requests and pushes to `main`. It installs with `npm ci`, generates and validates the Prisma client/schema, runs the dependency audit, runs Vitest, lint, the production build, installs Chromium, and runs the Playwright E2E workflow. CI uses inline queue mode, memory repository mode, mocked/local providers, and disposable local storage so it can verify non-secret behavior without real API keys or external production services.
+
 ## What to test per phase
 
-| Phase | Test focus |
-|-------|-----------|
-| 1 — Foundation | Auth flows, RBAC middleware, provider adapter interface compliance, SSE connection, project CRUD |
-| 2 — Script Pipeline | Analysis passes, chunking, validation, repair, user correction API routes |
-| 3 — Asset Bible | Asset CRUD, lifecycle transitions, staleness propagation, reference upload, generation job flow |
-| 4 — Storyboard | Prompt composition, frame versioning, sketch ingestion, drawing tool state |
-| 5 — Video | Video prompt composition, async polling flow, clip versioning, staleness from frame changes |
-| 6 — Collaboration | Invitation flow, role enforcement across all endpoints, activity feed, multi-user SSE |
-| 7 — Export/Import | Bundle creation, re-import integrity, version compatibility |
+| Phase               | Test focus                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
+| 1 — Foundation      | Auth flows, RBAC middleware, provider adapter interface compliance, SSE connection, project CRUD |
+| 2 — Script Pipeline | Analysis passes, chunking, validation, repair, user correction API routes                        |
+| 3 — Asset Bible     | Asset CRUD, lifecycle transitions, staleness propagation, reference upload, generation job flow  |
+| 4 — Storyboard      | Prompt composition, frame versioning, sketch ingestion, drawing tool state                       |
+| 5 — Video           | Video prompt composition, async polling flow, clip versioning, staleness from frame changes      |
+| 6 — Collaboration   | Invitation flow, role enforcement across all endpoints, activity feed, multi-user SSE            |
+| 7 — Export/Import   | Bundle creation, re-import integrity, version compatibility                                      |

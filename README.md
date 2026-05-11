@@ -60,6 +60,8 @@ Phase 7 export/import and polish implementation is underway. The repository now 
 
 The [implementation roadmap](docs/implementation-roadmap.md) remains the build order across seven phases. Each phase must be implemented, documented, tested, run, verified, committed, and pushed before the next phase begins.
 
+GitHub Actions runs the non-secret verification gates on pull requests and pushes to `main`: dependency installation, Prisma generation and schema validation, dependency audit, Vitest, lint, production build, and Playwright E2E. Live provider smoke tests and production preflight still require real deployment secrets and external services.
+
 ## Local development
 
 ```bash
@@ -78,4 +80,3 @@ The `services:up` script requires Docker Compose and starts the local Postgres a
 For Redis-backed script analysis in a production-like setup, set `QUEUE_MODE=redis`, start the web app with `npm run dev` or `npm run build && npm start`, and run `npm run worker` in a separate process. In the default local `.env.example`, `QUEUE_MODE=inline` keeps jobs synchronous so the app can be exercised without a Redis worker.
 
 Google and GitHub sign-in appear on `/signin` when the corresponding `AUTH_GOOGLE_*` or `AUTH_GITHUB_*` variables are configured. Live OpenAI verification uses `npm run smoke:openai` with `OPENAI_API_KEY` set.
-
