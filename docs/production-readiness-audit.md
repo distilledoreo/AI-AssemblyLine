@@ -53,7 +53,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Runway video generation now has a live task-submission path when a workspace Runway key or `RUNWAYML_API_SECRET` is configured, plus a result processor that polls completed tasks and downloads output media. Redis workers now register a repeatable video provider poll job that automatically invokes that processor for submitted/polling Runway jobs.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 31 files and 105 tests.
+- `npm test`: passing, 32 files and 109 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.
@@ -61,7 +61,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - `prisma validate`: passing when `DATABASE_URL` is set for schema validation.
 - `npm run test:e2e`: passing, 1 Chromium workflow test.
 - `QUEUE_MODE=inline npm run worker`: exits cleanly with Redis disabled message.
-- `npm run preflight:production`: fails in this environment with 12 explicit blockers: missing production env vars, missing real OpenAI key, missing FFmpeg/ffprobe, and missing Postgres/Redis URLs.
+- `npm run preflight:production`: fails in this environment with 14 explicit blockers: missing production env vars, missing real OpenAI/Stability/Runway keys, missing FFmpeg/ffprobe, and missing Postgres/Redis URLs.
 - `GET /api/health` against the live local dev server returns `503` with `status: "degraded"` and local dependency diagnostics. Production responses redact raw dependency exception details by default.
 - Docker preflight: `docker --version` and `docker compose version` fail because Docker is not installed in this environment.
 - Local Postgres TCP check: failed on `127.0.0.1:5432`.
