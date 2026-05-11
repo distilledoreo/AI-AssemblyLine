@@ -66,7 +66,7 @@ export class OpenAIAdapter implements TextAdapter, ImageAdapter {
 
     const response = await this.openAiRequest("https://api.openai.com/v1/responses", body);
     return {
-      content: extractResponseText(response),
+      content: requireResponseText(response),
       usage: {
         inputTokens: Number(response.usage?.input_tokens ?? 0),
         outputTokens: Number(response.usage?.output_tokens ?? 0),
@@ -85,14 +85,19 @@ export class OpenAIAdapter implements TextAdapter, ImageAdapter {
         n: options.count ?? 1,
         quality: normalizeImageQuality(options.qualityMode),
       });
-      const images = (response.data ?? []).map((item: { b64_json?: string; mime_type?: string }) => {
+      const images: ImageResult["images"] = (response.data ?? []).map((item: { b64_json?: string; mime_type?: string }) => {
         if (!item.b64_json) {
           const error = new Error("OpenAI image response did not include base64 image data.");
-          Object.assign(error, { errorClass: "fatal" });
+          Object.assign(error, { errorClass: "fatal", status: 502 });
           throw error;
         }
         return { data: Buffer.from(item.b64_json, "base64"), mimeType: item.mime_type ?? "image/png" };
       });
+      if (images.length === 0 || images.some((image) => image.data.length === 0)) {
+        const error = new Error("OpenAI image response did not include usable image data.");
+        Object.assign(error, { errorClass: "fatal", status: 502 });
+        throw error;
+      }
       return {
         images,
         usage: { units: images.length },
@@ -161,7 +166,7 @@ function hashPrompt(value: string) {
   return Math.abs(hash).toString(16);
 }
 
-function extractResponseText(response: any) {
+function requireResponseText(response: any) {
   if (typeof response.output_text === "string") {
     return response.output_text;
   }
@@ -173,7 +178,9 @@ function extractResponseText(response: any) {
   if (text) {
     return text;
   }
-  return JSON.stringify(response);
+  const error = new Error("OpenAI response did not include output text.");
+  Object.assign(error, { errorClass: "fatal", status: 502 });
+  throw error;
 }
 
 function classifyOpenAiStatus(status: number) {

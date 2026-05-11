@@ -51,6 +51,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - `npm run smoke:stability` now provides a release-time live Stability API check when `STABILITY_API_KEY` is available.
 - Mock-backed placeholder providers now fail with `provider_not_configured` in production instead of silently returning fake Runway, Kling, Seedance, Pika, Luma, or ElevenLabs outputs.
 - Direct OpenAI adapter mock-mode calls now fail with `provider_not_configured` in production, covering callers that bypass project credential resolution.
+- OpenAI successful HTTP responses now must include output text for Responses API calls and non-empty base64 image data for image calls; malformed success payloads fail as fatal provider errors instead of being stringified or accepted as empty image output.
 - Runway video generation now has a live task-submission path when a workspace Runway key or `RUNWAYML_API_SECRET` is configured, plus a result processor that polls completed tasks and downloads output media. Redis workers now register a repeatable video provider poll job that automatically invokes that processor for submitted/polling Runway jobs.
 - Video generation now fails the GenerationJob with `provider_output_missing` when a provider response contains neither video bytes nor an async provider job id, instead of writing placeholder `mock-video` bytes.
 - Runway task submission now rejects successful HTTP responses that do not include a task ID, preventing `providerJobId: "undefined"` from entering polling state.
@@ -83,7 +84,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - Project deletes now distinguish Prisma not-found records from real write failures, surfacing production database errors instead of misreporting every delete failure as `not_found`.
 - `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, optional OAuth pair consistency, live OpenAI/Stability/Runway credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 34 files and 162 tests.
+- `npm test`: passing, 34 files and 164 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.

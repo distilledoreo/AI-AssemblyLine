@@ -73,6 +73,17 @@ describe("provider adapters", () => {
     expect(result.providerJobId).toBe("resp_123");
   });
 
+  it("rejects malformed successful OpenAI text responses without output text", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ id: "resp_empty", model: "gpt-4.1-mini", output: [] }));
+    const adapter = new OpenAIAdapter("sk-live", fetchMock);
+
+    await expect(adapter.generateStructuredOutput("Return JSON", { type: "object" }, { modelId: "gpt-4.1-mini" })).rejects.toMatchObject({
+      message: "OpenAI response did not include output text.",
+      errorClass: "fatal",
+      status: 502,
+    });
+  });
+
   it("calls the OpenAI image generation API and maps provider failures", async () => {
     const fetchMock = vi
       .fn()
@@ -98,6 +109,24 @@ describe("provider adapters", () => {
     await expect(adapter.generateImage(prompt, { modelId: "gpt-image-1", width: 1536, height: 1024 })).rejects.toMatchObject({
       errorClass: "rate_limit",
       status: 429,
+    });
+  });
+
+  it("rejects malformed successful OpenAI image responses without usable image data", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ model: "gpt-image-1", data: [] }));
+    const adapter = new OpenAIAdapter("sk-live", fetchMock);
+    const prompt = {
+      positivePrompt: "Production storyboard frame",
+      negativePrompt: "blur",
+      referenceImages: [],
+      generationSettings: { width: 1536, height: 1024 },
+      metadata: { sourceIds: [], conflictWarnings: [], truncationWarnings: [] },
+    };
+
+    await expect(adapter.generateImage(prompt, { modelId: "gpt-image-1", width: 1536, height: 1024 })).rejects.toMatchObject({
+      message: "OpenAI image response did not include usable image data.",
+      errorClass: "fatal",
+      status: 502,
     });
   });
 

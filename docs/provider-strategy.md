@@ -189,6 +189,8 @@ The OpenAI adapter has two modes:
 
 Live structured text output is sent to `POST /v1/responses` with `text.format` when JSON output is requested. Live image output is sent to `POST /v1/images/generations` and expects base64 image data for GPT Image models. Provider HTTP failures are mapped into the common retry classes: `rate_limit`, `timeout`, `retriable`, and `fatal`.
 
+Successful OpenAI responses must still include usable provider output. Responses API payloads without output text and image-generation payloads without non-empty base64 image data are treated as fatal malformed-provider responses instead of being coerced into placeholder content.
+
 Run `npm run smoke:openai` with `OPENAI_API_KEY` set to verify live OpenAI connectivity before a production release. The smoke command uses a small structured-output Responses API request with `gpt-4.1-mini` by default; set `OPENAI_SMOKE_MODEL` to test a different approved model.
 
 Runtime generation paths resolve OpenAI credentials from the project workspace's encrypted provider key first. If no workspace key is configured, they fall back to `OPENAI_API_KEY`. If neither is present, local development and tests use the mock OpenAI adapter response; production generation fails with a provider-key configuration error instead of silently producing mock outputs. The literal `mock` key is also rejected in production.
