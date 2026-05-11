@@ -108,6 +108,8 @@ Provider API keys must never be included in exports.
 
 Bundle imports persist their restored project graph in one database transaction. Historical generation jobs are restored before imported media/version rows that may reference them. If any imported record fails validation or persistence, the production database should not be left with a partially restored script, storyboard, video, or review graph.
 
+Generated script analysis graph persistence also commits as a single database transaction. The write replaces generated scenes, shots, and requirements while preserving user-edited scenes and shots, and detected asset upserts are committed with the regenerated requirement links so a failed analysis write does not leave a partially replaced production dependency graph.
+
 ## Rights and safety controls
 
 Projects should include a user-selectable rights and safety setting. Users can choose whether their project allows uploaded references involving copyrighted characters, real people, brand assets, client-owned material, or restricted likenesses. The app should record the setting and surface provider restrictions before generation jobs are submitted.

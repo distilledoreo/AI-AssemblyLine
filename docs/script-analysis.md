@@ -108,6 +108,10 @@ LLM output is unreliable. Every pass output goes through validation:
 3. **Completeness check:** Compare detected scenes against simple regex heuristics (e.g. lines matching `INT.` or `EXT.` patterns) to flag scenes the LLM may have missed.
 4. **Repair prompt:** If validation finds issues (missing scenes, orphaned references, empty fields), a targeted repair prompt asks the LLM to fix specific problems rather than re-running the entire pass.
 
+## Persistence guarantees
+
+When generated analysis is persisted through Prisma, the regenerated scene graph, shot graph, detected assets, and scene/shot asset requirements are written in one database transaction. User-edited scenes and shots are preserved and relinked inside the same transaction. If any generated graph write fails, the production database must reject the whole analysis graph update instead of retaining a partially replaced set of scenes, shots, assets, or requirements.
+
 ## User correction flow
 
 After analysis completes, users see the full breakdown in an editable UI:

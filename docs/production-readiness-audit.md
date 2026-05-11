@@ -49,6 +49,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
+- Generated script analysis graph persistence now batches the regenerated Prisma scene, shot, asset, and requirement writes into one transaction, preventing a late graph-write failure from leaving a partially replaced production dependency graph.
 - Project bundle import graph persistence now batches restored Prisma records into a single transaction and restores historical generation jobs before dependent media/version rows, preventing late storyboard/video/review write failures from leaving partially imported production graphs.
 - Workspace provider-key replacement now runs the Prisma delete/create pair inside a single transaction, preventing a failed credential replacement from deleting the previously working production key.
 - Project storage path helpers now reject path separators and traversal characters before constructing media directories, keeping cleanup, thumbnail, export, and media-write paths under `STORAGE_ROOT/projects/{projectIdWithoutDashes}`.

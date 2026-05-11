@@ -1272,6 +1272,9 @@ describe("Prisma repository mode", () => {
       shotAssetLinks: [{ sceneNumber: 1, shotNumber: 1, assetName: "Room" }],
       warnings: [],
     });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction.mock.calls[0]?.[0]).toHaveLength(5);
+
     await repository.updateScriptVersionAnalysisStatus("88888888-8888-4888-8888-888888888888", "complete");
 
     expect(prismaMock.scene.create).toHaveBeenCalledWith({
@@ -1306,6 +1309,43 @@ describe("Prisma repository mode", () => {
       where: { id: "88888888-8888-4888-8888-888888888888" },
       data: { analysisStatus: "complete" },
     });
+  });
+
+  it("rejects generated script analysis persistence when the Prisma transaction fails", async () => {
+    prismaMock.scene.findMany.mockResolvedValue([]);
+    prismaMock.shot.findMany.mockResolvedValue([]);
+    prismaMock.asset.findFirst.mockResolvedValue(undefined);
+    prismaMock.scene.create.mockImplementation(async ({ data }) => ({
+      ...data,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      isUserEdited: false,
+    }));
+    prismaMock.$transaction.mockRejectedValueOnce(new Error("analysis graph transaction failed"));
+
+    const repository = await import("@/server/repository");
+
+    await expect(
+      repository.persistGeneratedScriptAnalysis({
+        projectId: "33333333-3333-4333-8333-333333333333",
+        scriptVersionId: "88888888-8888-4888-8888-888888888888",
+        scenes: [
+          {
+            sceneNumber: 1,
+            heading: "INT. ROOM - DAY",
+            summary: "Anna waits.",
+            scriptStartLine: 1,
+            scriptEndLine: 3,
+          },
+        ],
+        shotBreakdowns: [],
+        assets: [],
+        sceneAssetLinks: [],
+        shotAssetLinks: [],
+        warnings: [],
+      }),
+    ).rejects.toThrow("analysis graph transaction failed");
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it("rejects script analysis status updates when the Prisma write fails", async () => {

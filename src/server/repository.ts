@@ -1833,32 +1833,37 @@ export async function persistGeneratedScriptAnalysis(input: {
     : [];
   const previousPrismaShotIds = previousPrismaShots.map((shot) => shot.id);
 
+  const operations: Prisma.PrismaPromise<unknown>[] = [];
+  const updatedAt = new Date();
+
   if (previousPrismaSceneIds.length) {
-    await prisma.sceneAssetReq.deleteMany({ where: { sceneId: { in: previousPrismaSceneIds } } });
+    operations.push(prisma.sceneAssetReq.deleteMany({ where: { sceneId: { in: previousPrismaSceneIds } } }));
   }
   if (previousPrismaShotIds.length) {
-    await prisma.shotAssetReq.deleteMany({ where: { shotId: { in: previousPrismaShotIds } } });
+    operations.push(prisma.shotAssetReq.deleteMany({ where: { shotId: { in: previousPrismaShotIds } } }));
   }
   const generatedShotIds = previousPrismaShots.filter((shot) => !shot.isUserEdited).map((shot) => shot.id);
   if (generatedShotIds.length) {
-    await prisma.shot.deleteMany({ where: { id: { in: generatedShotIds } } });
+    operations.push(prisma.shot.deleteMany({ where: { id: { in: generatedShotIds } } }));
   }
   const generatedSceneIds = previousPrismaScenes.filter((scene) => !scene.isUserEdited).map((scene) => scene.id);
   if (generatedSceneIds.length) {
-    await prisma.scene.deleteMany({ where: { id: { in: generatedSceneIds } } });
+    operations.push(prisma.scene.deleteMany({ where: { id: { in: generatedSceneIds } } }));
   }
 
   const sceneByNumber = new Map<number, { id: string; sceneNumber: number }>();
   for (const scene of input.scenes) {
     const existing = previousPrismaScenes.find((candidate) => candidate.sceneNumber === scene.sceneNumber && candidate.isUserEdited);
-    const persisted = existing
-      ? await prisma.scene.update({
+    const sceneId = existing?.id ?? createId();
+    operations.push(
+      existing
+        ? prisma.scene.update({
           where: { id: existing.id },
-          data: { updatedAt: new Date() },
+          data: { updatedAt },
         })
-      : await prisma.scene.create({
+        : prisma.scene.create({
           data: {
-            id: createId(),
+            id: sceneId,
             scriptVersionId: input.scriptVersionId,
             sceneNumber: scene.sceneNumber,
             heading: scene.heading,
@@ -1869,8 +1874,9 @@ export async function persistGeneratedScriptAnalysis(input: {
             status: "blocked",
             warnings: toPrismaJson(input.warnings),
           },
-        });
-    sceneByNumber.set(scene.sceneNumber, persisted);
+        }),
+    );
+    sceneByNumber.set(scene.sceneNumber, { id: sceneId, sceneNumber: scene.sceneNumber });
   }
 
   const shotBySceneAndNumber = new Map<string, { id: string; sceneId: string; shotNumber: number }>();
@@ -1887,14 +1893,16 @@ export async function persistGeneratedScriptAnalysis(input: {
           previousPrismaSceneNumberById.get(candidate.sceneId) === breakdown.sceneNumber &&
           candidate.shotNumber === shot.shotNumber,
       );
-      const persisted = existing
-        ? await prisma.shot.update({
+      const shotId = existing?.id ?? createId();
+      operations.push(
+        existing
+          ? prisma.shot.update({
             where: { id: existing.id },
-            data: { sceneId: scene.id, updatedAt: new Date() },
+            data: { sceneId: scene.id, updatedAt },
           })
-        : await prisma.shot.create({
+          : prisma.shot.create({
             data: {
-              id: createId(),
+              id: shotId,
               sceneId: scene.id,
               shotNumber: shot.shotNumber,
               action: shot.action,
@@ -1904,8 +1912,13 @@ export async function persistGeneratedScriptAnalysis(input: {
               lightingNotes: shot.lightingNotes,
               status: "blocked",
             },
-          });
-      shotBySceneAndNumber.set(`${breakdown.sceneNumber}:${shot.shotNumber}`, persisted);
+          }),
+      );
+      shotBySceneAndNumber.set(`${breakdown.sceneNumber}:${shot.shotNumber}`, {
+        id: shotId,
+        sceneId: scene.id,
+        shotNumber: shot.shotNumber,
+      });
     }
   }
 
@@ -1918,8 +1931,10 @@ export async function persistGeneratedScriptAnalysis(input: {
       },
     });
     const aliases = Array.from(new Set([...(Array.isArray(existing?.aliases) ? existing.aliases.map(String) : []), ...(asset.aliases ?? [])]));
-    const persisted = existing
-      ? await prisma.asset.update({
+    const assetId = existing?.id ?? createId();
+    operations.push(
+      existing
+        ? prisma.asset.update({
           where: { id: existing.id },
           data: {
             aliases,
@@ -1927,9 +1942,9 @@ export async function persistGeneratedScriptAnalysis(input: {
             firstAppearance: existing.firstAppearance ?? toPrismaJson(asset.firstAppearance),
           },
         })
-      : await prisma.asset.create({
+        : prisma.asset.create({
           data: {
-            id: createId(),
+            id: assetId,
             projectId: input.projectId,
             type: asset.type,
             canonicalName: asset.canonicalName,
@@ -1938,8 +1953,9 @@ export async function persistGeneratedScriptAnalysis(input: {
             description: asset.description,
             firstAppearance: toPrismaJson(asset.firstAppearance),
           },
-        });
-    assetByName.set(asset.canonicalName.toLowerCase(), persisted);
+        }),
+    );
+    assetByName.set(asset.canonicalName.toLowerCase(), { id: assetId, canonicalName: asset.canonicalName });
   }
 
   const sceneReqs = input.sceneAssetLinks
@@ -1952,7 +1968,7 @@ export async function persistGeneratedScriptAnalysis(input: {
     })
     .filter(isPresent);
   if (sceneReqs.length) {
-    await prisma.sceneAssetReq.createMany({ data: sceneReqs, skipDuplicates: true });
+    operations.push(prisma.sceneAssetReq.createMany({ data: sceneReqs, skipDuplicates: true }));
   }
 
   const shotReqs = input.shotAssetLinks
@@ -1965,7 +1981,11 @@ export async function persistGeneratedScriptAnalysis(input: {
     })
     .filter(isPresent);
   if (shotReqs.length) {
-    await prisma.shotAssetReq.createMany({ data: shotReqs, skipDuplicates: true });
+    operations.push(prisma.shotAssetReq.createMany({ data: shotReqs, skipDuplicates: true }));
+  }
+
+  if (operations.length) {
+    await prisma.$transaction(operations);
   }
 }
 
