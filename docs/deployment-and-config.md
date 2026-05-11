@@ -125,7 +125,7 @@ The checked-in `compose.yaml` starts PostgreSQL 16 on `localhost:5432` and Redis
 
 Run `npm run preflight:production` before release. The preflight checks required production environment variables, `NEXTAUTH_SECRET` length, decoded `ENCRYPTION_KEY` length, real non-mock `OPENAI_API_KEY`, `STABILITY_API_KEY`, and `RUNWAYML_API_SECRET` values for live provider verification, optional Google/GitHub OAuth client/secret pair consistency, FFmpeg/ffprobe availability, and TCP reachability for the configured Postgres and Redis URLs.
 
-Run `npm run smoke:openai`, `npm run smoke:stability`, and `npm run smoke:runway` with real provider keys before enabling those providers in production. These commands make small live API calls and print only non-secret result metadata. The Runway smoke command submits a short async video task and prints the returned provider task id; it does not wait for final video output.
+Run `npm run smoke:providers` with real provider keys before enabling providers in production. It runs the OpenAI, Stability, and Runway smoke checks in one release gate and prints only non-secret result metadata. You can also run `npm run smoke:openai`, `npm run smoke:stability`, or `npm run smoke:runway` individually while debugging a provider. These commands make small live API calls. The Runway smoke command submits a short async video task and prints the returned provider task id; it does not wait for final video output.
 
 To exercise BullMQ locally, set `QUEUE_MODE=redis`, make sure Redis is reachable at `REDIS_URL`, and run the worker in a second terminal:
 
