@@ -19,6 +19,7 @@ Phase 6 adds team production controls around the existing project workflow.
   - `accept` to accept an invitation token.
   - `member` to add/update a project member role.
   - `assign` to assign scenes, shots, or assets.
+- Assignment actions require the assignee to already be a member of the route project, must include exactly one target ID that matches `targetType`, and reject scene/shot/asset IDs from other projects with `not_found`.
 
 ## Role behavior
 

@@ -4,6 +4,7 @@ import { createId, nowIso } from "@/server/ids";
 import {
   findInvitationByTokenHash,
   getProjectMemberForUser,
+  getScriptAnalysisGraphForProject,
   persistActivityEventState,
   persistAssignmentState,
   persistInvitationState,
@@ -71,6 +72,10 @@ export async function assignProjectTarget(input: {
   assetId?: string;
   actorId?: string;
 }) {
+  if (!(await getProjectMemberForUser(input.projectId, input.userId))) {
+    throw new NotFoundError("Project member not found.");
+  }
+  await assertAssignableTarget(input);
   const assignment: Assignment = {
     id: createId(),
     projectId: input.projectId,
@@ -86,6 +91,37 @@ export async function assignProjectTarget(input: {
   await persistAssignmentState(assignment);
   await recordActivity(input.projectId, input.actorId, "assignment_created", `Assigned ${input.targetType}.`, assignment);
   return assignment;
+}
+
+async function assertAssignableTarget(input: {
+  projectId: string;
+  targetType: Assignment["targetType"];
+  sceneId?: string;
+  shotId?: string;
+  assetId?: string;
+}) {
+  const providedIds = [input.sceneId, input.shotId, input.assetId].filter(Boolean);
+  if (providedIds.length !== 1) {
+    throw new AppError("Assignments must reference exactly one scene, shot, or asset.", 400, "invalid_assignment_target");
+  }
+  if (input.targetType === "scene" && !input.sceneId) {
+    throw new AppError("Scene assignments require a sceneId.", 400, "invalid_assignment_target");
+  }
+  if (input.targetType === "shot" && !input.shotId) {
+    throw new AppError("Shot assignments require a shotId.", 400, "invalid_assignment_target");
+  }
+  if (input.targetType === "asset" && !input.assetId) {
+    throw new AppError("Asset assignments require an assetId.", 400, "invalid_assignment_target");
+  }
+
+  const graph = await getScriptAnalysisGraphForProject(input.projectId);
+  const exists =
+    (input.sceneId ? graph.scenes.some((scene) => scene.id === input.sceneId) : false) ||
+    (input.shotId ? graph.shots.some((shot) => shot.id === input.shotId) : false) ||
+    (input.assetId ? graph.assets.some((asset) => asset.id === input.assetId) : false);
+  if (!exists) {
+    throw new NotFoundError("Assignment target not found.");
+  }
 }
 
 export async function addProjectMember(input: { projectId: string; userId: string; role: ProjectRole; actorId?: string }) {
