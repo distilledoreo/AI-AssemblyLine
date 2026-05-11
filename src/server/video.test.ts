@@ -43,6 +43,13 @@ describe("video workflow", () => {
     });
     const clipVersion = shotClipGraph.clipVersions[0];
     await updateClipVersion({ projectId: project.id, clipVersionId: clipVersion.id, status: "approved" });
+    const replacementFrame = await generateStoryboardFrame({ projectId: project.id, shotId: graph.shots[0].id });
+    const replacementVersion = replacementFrame.frameVersions.at(-1)!;
+    await updateFrameVersion({ projectId: project.id, frameVersionId: replacementVersion.id, status: "approved" });
+
+    const staleGraph = getScriptAnalysisGraph(project.id);
+    expect(staleGraph.clipVersions.find((version) => version.id === clipVersion.id)?.status).toBe("stale");
+    expect(staleGraph.clipVersions.find((version) => version.id === clipVersion.id)?.isStale).toBe(true);
 
     const sceneClipGraph = await generateVideoClip({
       projectId: project.id,
@@ -52,7 +59,7 @@ describe("video workflow", () => {
     });
 
     expect(sceneClipGraph.videoClips).toHaveLength(2);
-    expect(getScriptAnalysisGraph(project.id).clipVersions[0].status).toBe("approved");
+    expect(getScriptAnalysisGraph(project.id).clipVersions.some((version) => version.status === "draft")).toBe(true);
     expect(sceneClipGraph.jobs.at(-1)?.status).toBe("complete");
   });
 

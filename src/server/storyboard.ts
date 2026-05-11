@@ -11,6 +11,7 @@ import {
   getScriptAnalysisGraphForProject,
   getStore,
   markGenerationJobRunning,
+  persistClipVersionState,
   persistFrameVersionState,
   persistGeneratedFrameVersion,
   persistReviewNoteState,
@@ -20,7 +21,7 @@ import { isRedisQueueEnabled } from "@/server/queue";
 import { composeStoryboardPrompt } from "@/server/promptEngine";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
-import type { FrameVersion, ReviewNote, StoryboardFrame } from "@/server/types";
+import type { ClipVersion, FrameVersion, ReviewNote, StoryboardFrame } from "@/server/types";
 
 async function openAiApiKeyForProject(projectId: string) {
   return decryptProjectProviderKey(projectId, "openai").catch(() => process.env.OPENAI_API_KEY || "mock");
@@ -144,17 +145,25 @@ export async function updateFrameVersion(input: {
   if (!version) throw new NotFoundError("Frame version not found.");
   mirrorFrameVersionForLegacyState(version);
   if (input.status === "approved") {
-    store.frameVersions
-      .filter((candidate) => candidate.frameId === version.frameId && candidate.status === "approved")
-      .forEach((candidate) => {
-        candidate.status = "superseded";
-        store.clipVersions
-          .filter((clipVersion) => clipVersion.sourceFrameVersionIds.includes(candidate.id))
-          .forEach((clipVersion) => {
-            clipVersion.status = "stale";
-            clipVersion.isStale = true;
-          });
-      });
+    const graph = await getScriptAnalysisGraphForProject(input.projectId);
+    const priorApprovedVersions = [
+      ...graph.frameVersions,
+      ...store.frameVersions.filter((candidate) => !graph.frameVersions.some((graphVersion) => graphVersion.id === candidate.id)),
+    ].filter((candidate) => candidate.id !== version.id && candidate.frameId === version.frameId && candidate.status === "approved");
+    const knownClipVersions = [
+      ...graph.clipVersions,
+      ...store.clipVersions.filter((candidate) => !graph.clipVersions.some((graphVersion) => graphVersion.id === candidate.id)),
+    ];
+    for (const candidate of priorApprovedVersions) {
+      candidate.status = "superseded";
+      mirrorFrameVersionForLegacyState(candidate);
+      for (const clipVersion of knownClipVersions.filter((known) => known.sourceFrameVersionIds.includes(candidate.id))) {
+        clipVersion.status = "stale";
+        clipVersion.isStale = true;
+        mirrorClipVersionForLegacyState(clipVersion);
+        await persistClipVersionState(clipVersion);
+      }
+    }
   }
   Object.assign(version, { status: input.status ?? version.status, annotations: input.annotations ?? version.annotations });
   await persistFrameVersionState(version);
@@ -258,5 +267,12 @@ function mirrorFrameVersionForLegacyState(version: FrameVersion) {
   const store = getStore();
   if (!store.frameVersions.some((candidate) => candidate.id === version.id)) {
     store.frameVersions.push(version);
+  }
+}
+
+function mirrorClipVersionForLegacyState(version: ClipVersion) {
+  const store = getStore();
+  if (!store.clipVersions.some((candidate) => candidate.id === version.id)) {
+    store.clipVersions.push(version);
   }
 }
