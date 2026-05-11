@@ -116,6 +116,8 @@ Asset Bible merge persistence commits requirement reassignment and both source/t
 
 Generated storyboard frame persistence commits the storyboard frame upsert, frame version insert, shot status update, and related generation-job completion in one database transaction. A failed generated-frame write should not leave a production shot marked storyboarded without the frame version and completed generation job that justify that status.
 
+Generated video clip persistence commits the video clip upsert, clip version insert, and related generation-job completion in one database transaction. A failed generated-clip write should not leave a production clip record without the version and completed generation job that justify it.
+
 ## Rights and safety controls
 
 Projects should include a user-selectable rights and safety setting. Users can choose whether their project allows uploaded references involving copyrighted characters, real people, brand assets, client-owned material, or restricted likenesses. The app should record the setting and surface provider restrictions before generation jobs are submitted.

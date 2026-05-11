@@ -135,6 +135,8 @@ Video clips use the same status model as frames:
 
 Each ClipVersion records which FrameVersion IDs were used as input. When any of those FrameVersions are superseded or go stale, the ClipVersion is automatically marked `stale`.
 
+Generated video clip persistence commits the video clip upsert, new clip version, and related generation-job completion in one Prisma transaction.
+
 ## Video prompt sources
 
 Video generation should use:

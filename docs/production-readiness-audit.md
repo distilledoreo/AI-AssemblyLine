@@ -49,6 +49,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
+- Generated video clip persistence now batches the Prisma clip upsert, clip-version insert, and generation-job completion into one transaction, preventing partial generated-clip state after late database failures.
 - Generated storyboard frame persistence now batches the Prisma frame upsert, frame-version insert, shot status update, and generation-job completion into one transaction, preventing partial generated-frame state after late database failures.
 - Prisma project creation now verifies project media-directory setup before writing the project row, preventing storage setup failures from leaving production projects without backing media directories.
 - Asset Bible merge persistence now batches scene/shot requirement reassignment and both source/target Prisma asset updates into one transaction, preventing a failed merge from leaving requirements and asset lifecycle state out of sync.

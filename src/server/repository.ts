@@ -3012,47 +3012,52 @@ export async function persistGeneratedClipVersion(input: {
   if (!isPrismaRepositoryEnabled()) {
     return;
   }
-  await prisma.videoClip.upsert({
-    where: { id: input.clip.id },
-    update: {
-      shotId: input.clip.shotId,
-      sceneId: input.clip.sceneId,
-      updatedAt: new Date(input.clip.updatedAt),
-    },
-    create: {
-      id: input.clip.id,
-      shotId: input.clip.shotId,
-      sceneId: input.clip.sceneId,
-      createdAt: new Date(input.clip.createdAt),
-      updatedAt: new Date(input.clip.updatedAt),
-    },
-  });
-  await prisma.clipVersion.create({
-    data: {
-      id: input.version.id,
-      clipId: input.version.clipId,
-      versionNumber: input.version.versionNumber,
-      prompt: input.version.prompt,
-      filePath: input.version.filePath,
-      thumbnailPath: input.version.thumbnailPath,
-      durationMs: input.version.durationMs,
-      status: input.version.status,
-      isStale: input.version.isStale,
-      sourceFrameVersionIds: toPrismaJson(input.version.sourceFrameVersionIds) ?? [],
-      generationJobId: input.version.generationJobId,
-      createdAt: new Date(input.version.createdAt),
-    },
-  });
-  if (input.version.generationJobId) {
-    await prisma.generationJob.update({
-      where: { id: input.version.generationJobId },
-      data: {
-        status: "complete",
-        outputPayload: toPrismaJson({ clipId: input.clip.id, clipVersionId: input.version.id }),
-        completedAt: new Date(),
+  const operations: Prisma.PrismaPromise<unknown>[] = [
+    prisma.videoClip.upsert({
+      where: { id: input.clip.id },
+      update: {
+        shotId: input.clip.shotId,
+        sceneId: input.clip.sceneId,
+        updatedAt: new Date(input.clip.updatedAt),
       },
-    });
+      create: {
+        id: input.clip.id,
+        shotId: input.clip.shotId,
+        sceneId: input.clip.sceneId,
+        createdAt: new Date(input.clip.createdAt),
+        updatedAt: new Date(input.clip.updatedAt),
+      },
+    }),
+    prisma.clipVersion.create({
+      data: {
+        id: input.version.id,
+        clipId: input.version.clipId,
+        versionNumber: input.version.versionNumber,
+        prompt: input.version.prompt,
+        filePath: input.version.filePath,
+        thumbnailPath: input.version.thumbnailPath,
+        durationMs: input.version.durationMs,
+        status: input.version.status,
+        isStale: input.version.isStale,
+        sourceFrameVersionIds: toPrismaJson(input.version.sourceFrameVersionIds) ?? [],
+        generationJobId: input.version.generationJobId,
+        createdAt: new Date(input.version.createdAt),
+      },
+    }),
+  ];
+  if (input.version.generationJobId) {
+    operations.push(
+      prisma.generationJob.update({
+        where: { id: input.version.generationJobId },
+        data: {
+          status: "complete",
+          outputPayload: toPrismaJson({ clipId: input.clip.id, clipVersionId: input.version.id }),
+          completedAt: new Date(),
+        },
+      }),
+    );
   }
+  await prisma.$transaction(operations);
 }
 
 export async function persistClipVersionState(version: ClipVersion) {
