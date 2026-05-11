@@ -75,21 +75,21 @@ export function evaluateProductionPreflight(
   results.push({
     name: "OPENAI_API_KEY",
     ok: isLiveProviderApiKey(openAiKey),
-    detail: isLiveProviderApiKey(openAiKey) ? "configured for live smoke test" : "missing or mock",
+    detail: isLiveProviderApiKey(openAiKey) ? "configured for live smoke test" : "missing, mock, or placeholder",
   });
 
   const stabilityKey = env.STABILITY_API_KEY?.trim() ?? "";
   results.push({
     name: "STABILITY_API_KEY",
     ok: isLiveProviderApiKey(stabilityKey),
-    detail: isLiveProviderApiKey(stabilityKey) ? "configured for live smoke test" : "missing or mock",
+    detail: isLiveProviderApiKey(stabilityKey) ? "configured for live smoke test" : "missing, mock, or placeholder",
   });
 
   const runwayKey = env.RUNWAYML_API_SECRET?.trim() ?? "";
   results.push({
     name: "RUNWAYML_API_SECRET",
     ok: isLiveProviderApiKey(runwayKey),
-    detail: isLiveProviderApiKey(runwayKey) ? "configured for live video submission" : "missing or mock",
+    detail: isLiveProviderApiKey(runwayKey) ? "configured for live video submission" : "missing, mock, or placeholder",
   });
 
   results.push(oauthPairCheck("Google OAuth", env, ["AUTH_GOOGLE_ID", "GOOGLE_CLIENT_ID", "GOOGLE_ID"], [

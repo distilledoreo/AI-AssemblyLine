@@ -17,7 +17,7 @@ describe("Stability smoke helper", () => {
     );
 
     const result = await runStabilitySmoke({
-      apiKey: "sk-stability-live-test",
+      apiKey: "sk-stability-prod-smoke-abc123",
       fetchImpl: fetchMock,
     });
 
@@ -32,7 +32,7 @@ describe("Stability smoke helper", () => {
       "https://api.stability.ai/v2beta/stable-image/generate/core",
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer sk-stability-live-test" }),
+        headers: expect.objectContaining({ Authorization: "Bearer sk-stability-prod-smoke-abc123" }),
       }),
     );
   });

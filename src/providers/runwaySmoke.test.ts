@@ -11,7 +11,7 @@ describe("Runway smoke helper", () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-smoke", status: "PENDING" }));
 
     const result = await runRunwaySmoke({
-      apiKey: "key_runway_live",
+      apiKey: "rw-prod-runway-smoke-abc123",
       fetchImpl: fetchMock,
     });
 
@@ -26,7 +26,7 @@ describe("Runway smoke helper", () => {
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
-          Authorization: "Bearer key_runway_live",
+          Authorization: "Bearer rw-prod-runway-smoke-abc123",
           "X-Runway-Version": "2024-11-06",
         }),
       }),

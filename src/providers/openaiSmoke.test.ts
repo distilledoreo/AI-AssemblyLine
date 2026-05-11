@@ -18,7 +18,7 @@ describe("OpenAI smoke helper", () => {
     ) as unknown as typeof fetch;
 
     const result = await runOpenAiSmoke({
-      apiKey: "sk-live-test",
+      apiKey: "sk-prod-openai-smoke-abc123",
       fetchImpl: fetchMock,
     });
 
@@ -32,7 +32,7 @@ describe("OpenAI smoke helper", () => {
       "https://api.openai.com/v1/responses",
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer sk-live-test" }),
+        headers: expect.objectContaining({ Authorization: "Bearer sk-prod-openai-smoke-abc123" }),
       }),
     );
   });

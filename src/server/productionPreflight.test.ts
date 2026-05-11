@@ -13,9 +13,9 @@ const validEnv = {
   ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
   STORAGE_ROOT: "./storage",
   QUEUE_MODE: "redis",
-  OPENAI_API_KEY: "sk-live-test",
-  STABILITY_API_KEY: "sk-stability-live-test",
-  RUNWAYML_API_SECRET: "key_runway_live",
+  OPENAI_API_KEY: "sk-prod-openai-smoke-abc123",
+  STABILITY_API_KEY: "sk-stability-prod-smoke-abc123",
+  RUNWAYML_API_SECRET: "rw-prod-runway-smoke-abc123",
   AUTH_GOOGLE_ID: "google-client",
   AUTH_GOOGLE_SECRET: "google-secret",
 };
@@ -55,6 +55,31 @@ describe("production preflight", () => {
         "ffprobe",
       ]),
     );
+  });
+
+  it("rejects checked-in provider key examples as live smoke credentials", () => {
+    const results = evaluateProductionPreflight(
+      {
+        ...validEnv,
+        OPENAI_API_KEY: "sk-live-test",
+        STABILITY_API_KEY: "sk-stability-live-test",
+        RUNWAYML_API_SECRET: "key_runway_live",
+      },
+      () => true,
+    );
+
+    expect(results.find((result) => result.name === "OPENAI_API_KEY")).toMatchObject({
+      ok: false,
+      detail: "missing, mock, or placeholder",
+    });
+    expect(results.find((result) => result.name === "STABILITY_API_KEY")).toMatchObject({
+      ok: false,
+      detail: "missing, mock, or placeholder",
+    });
+    expect(results.find((result) => result.name === "RUNWAYML_API_SECRET")).toMatchObject({
+      ok: false,
+      detail: "missing, mock, or placeholder",
+    });
   });
 
   it("rejects development fallback secrets even when their shape is otherwise valid", () => {

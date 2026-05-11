@@ -14,7 +14,7 @@ describe("Runway video adapter", () => {
   it("submits live text-to-video tasks to Runway when a key is configured", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-1", status: "PENDING" }));
 
-    const result = await new RunwayAdapter(" key_runway_live ", fetchMock).generateVideo(prompt, {
+    const result = await new RunwayAdapter(" rw-prod-runway-smoke-abc123 ", fetchMock).generateVideo(prompt, {
       modelId: "gen4.5",
       width: 1024,
       height: 576,
@@ -27,7 +27,7 @@ describe("Runway video adapter", () => {
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
-          Authorization: "Bearer key_runway_live",
+          Authorization: "Bearer rw-prod-runway-smoke-abc123",
           "X-Runway-Version": "2024-11-06",
         }),
       }),
@@ -49,7 +49,7 @@ describe("Runway video adapter", () => {
       }),
     );
 
-    await expect(new RunwayAdapter("key_runway_live", fetchMock).checkJobStatus("task-runway-1")).resolves.toEqual({
+    await expect(new RunwayAdapter("rw-prod-runway-smoke-abc123", fetchMock).checkJobStatus("task-runway-1")).resolves.toEqual({
       status: "complete",
       progress: 100,
       resultUrl: "https://example.com/output.mp4",
@@ -64,7 +64,7 @@ describe("Runway video adapter", () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ message: "Rate limit" }, { status: 429 }));
 
     await expect(
-      new RunwayAdapter("key_runway_live", fetchMock).generateVideo(prompt, {
+      new RunwayAdapter("rw-prod-runway-smoke-abc123", fetchMock).generateVideo(prompt, {
         modelId: "gen4.5",
         width: 1024,
         height: 576,
@@ -77,7 +77,7 @@ describe("Runway video adapter", () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ status: "PENDING" }));
 
     await expect(
-      new RunwayAdapter("key_runway_live", fetchMock).generateVideo(prompt, {
+      new RunwayAdapter("rw-prod-runway-smoke-abc123", fetchMock).generateVideo(prompt, {
         modelId: "gen4.5",
         width: 1024,
         height: 576,

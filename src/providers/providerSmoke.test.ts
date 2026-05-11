@@ -21,7 +21,7 @@ describe("provider smoke suite", () => {
       env: {
         OPENAI_API_KEY: "sk-openai-live",
         STABILITY_API_KEY: "sk-stability-live",
-        RUNWAYML_API_SECRET: "key_runway_live",
+        RUNWAYML_API_SECRET: "rw-prod-runway-smoke-abc123",
       },
       fetchImpl: fetchMock,
     });

@@ -83,7 +83,7 @@ describe("foundation repository flows", () => {
     expect(await listProviderKeys(workspace.id)).toHaveLength(1);
   });
 
-  it("rejects mock provider keys in production", async () => {
+  it("rejects mock and placeholder provider keys in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
 
     await expect(
@@ -96,6 +96,12 @@ describe("foundation repository flows", () => {
       saveProviderKey("00000000-0000-4000-8000-000000000000", {
         providerSlug: "stability",
         apiKey: " MOCK ",
+      }),
+    ).rejects.toMatchObject({ code: "provider_key_missing" });
+    await expect(
+      saveProviderKey("00000000-0000-4000-8000-000000000000", {
+        providerSlug: "runway",
+        apiKey: "key_runway_live",
       }),
     ).rejects.toMatchObject({ code: "provider_key_missing" });
   });

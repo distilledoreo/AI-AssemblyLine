@@ -43,10 +43,10 @@ describe("provider key resolution", () => {
   });
 
   it("uses OPENAI_API_KEY when no workspace key is configured", async () => {
-    vi.stubEnv("OPENAI_API_KEY", "sk-live-test");
+    vi.stubEnv("OPENAI_API_KEY", "sk-prod-openai-smoke-abc123");
     vi.stubEnv("NODE_ENV", "production");
 
-    await expect(resolveOpenAiApiKeyForProject("00000000-0000-4000-8000-000000000000")).resolves.toBe("sk-live-test");
+    await expect(resolveOpenAiApiKeyForProject("00000000-0000-4000-8000-000000000000")).resolves.toBe("sk-prod-openai-smoke-abc123");
   });
 
   it("uses a workspace OpenAI key before the server fallback key", async () => {
@@ -80,15 +80,15 @@ describe("provider key resolution", () => {
   });
 
   it("uses STABILITY_API_KEY when no workspace key is configured", async () => {
-    vi.stubEnv("STABILITY_API_KEY", "sk-stability-live-test");
+    vi.stubEnv("STABILITY_API_KEY", "sk-stability-prod-smoke-abc123");
     vi.stubEnv("NODE_ENV", "production");
 
-    await expect(resolveStabilityApiKeyForProject("00000000-0000-4000-8000-000000000000")).resolves.toBe("sk-stability-live-test");
+    await expect(resolveStabilityApiKeyForProject("00000000-0000-4000-8000-000000000000")).resolves.toBe("sk-stability-prod-smoke-abc123");
   });
 
   it("surfaces Stability workspace key lookup failures instead of falling back to env credentials", async () => {
     decryptProjectProviderKeyMock.mockRejectedValue(new Error("decrypt failed"));
-    vi.stubEnv("STABILITY_API_KEY", "sk-stability-live-test");
+    vi.stubEnv("STABILITY_API_KEY", "sk-stability-prod-smoke-abc123");
     vi.stubEnv("NODE_ENV", "production");
 
     await expect(resolveStabilityApiKeyForProject("00000000-0000-4000-8000-000000000000")).rejects.toThrow(
@@ -106,15 +106,15 @@ describe("provider key resolution", () => {
   });
 
   it("uses RUNWAYML_API_SECRET when no workspace key is configured", async () => {
-    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    vi.stubEnv("RUNWAYML_API_SECRET", "rw-prod-runway-smoke-abc123");
     vi.stubEnv("NODE_ENV", "production");
 
-    await expect(resolveRunwayApiKeyForProject("00000000-0000-4000-8000-000000000000")).resolves.toBe("key_runway_live");
+    await expect(resolveRunwayApiKeyForProject("00000000-0000-4000-8000-000000000000")).resolves.toBe("rw-prod-runway-smoke-abc123");
   });
 
   it("surfaces Runway workspace key lookup failures instead of falling back to env credentials", async () => {
     decryptProjectProviderKeyMock.mockRejectedValue(new Error("key store offline"));
-    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    vi.stubEnv("RUNWAYML_API_SECRET", "rw-prod-runway-smoke-abc123");
     vi.stubEnv("NODE_ENV", "production");
 
     await expect(resolveRunwayApiKeyForProject("00000000-0000-4000-8000-000000000000")).rejects.toThrow(

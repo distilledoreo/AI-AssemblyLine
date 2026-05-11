@@ -150,7 +150,7 @@ describe("video workflow", () => {
 
   it("submits live Runway jobs without writing mock video bytes", async () => {
     const { project, graph } = await projectWithApprovedFrame();
-    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    vi.stubEnv("RUNWAYML_API_SECRET", "rw-prod-runway-smoke-abc123");
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-live-1", status: "PENDING" }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -172,14 +172,14 @@ describe("video workflow", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.dev.runwayml.com/v1/image_to_video",
       expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: "Bearer key_runway_live" }),
+        headers: expect.objectContaining({ Authorization: "Bearer rw-prod-runway-smoke-abc123" }),
       }),
     );
   });
 
   it("fails video generation instead of writing mock bytes when a provider returns no output", async () => {
     const { project, graph } = await projectWithApprovedFrame();
-    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    vi.stubEnv("RUNWAYML_API_SECRET", "rw-prod-runway-smoke-abc123");
     vi.spyOn(RunwayAdapter.prototype, "generateVideo").mockResolvedValue({ isAsync: false });
 
     await expect(
@@ -206,7 +206,7 @@ describe("video workflow", () => {
 
   it("downloads completed Runway task output into a clip version", async () => {
     const { project, graph } = await projectWithApprovedFrame();
-    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    vi.stubEnv("RUNWAYML_API_SECRET", "rw-prod-runway-smoke-abc123");
     const submitFetch = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-live-2", status: "PENDING" }));
     vi.stubGlobal("fetch", submitFetch);
     const submitted = await generateVideoClip({
@@ -245,7 +245,7 @@ describe("video workflow", () => {
 
   it("rejects completed Runway task output downloads with empty video bytes", async () => {
     const { project, graph } = await projectWithApprovedFrame();
-    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    vi.stubEnv("RUNWAYML_API_SECRET", "rw-prod-runway-smoke-abc123");
     const submitFetch = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-live-empty", status: "PENDING" }));
     vi.stubGlobal("fetch", submitFetch);
     const submitted = await generateVideoClip({
@@ -283,7 +283,7 @@ describe("video workflow", () => {
 
   it("persists submitted Runway poll failures instead of leaving jobs processing", async () => {
     const { project, graph } = await projectWithApprovedFrame();
-    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    vi.stubEnv("RUNWAYML_API_SECRET", "rw-prod-runway-smoke-abc123");
     const submitFetch = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-live-poll-failure", status: "PENDING" }));
     vi.stubGlobal("fetch", submitFetch);
     const submitted = await generateVideoClip({
@@ -324,7 +324,7 @@ describe("video workflow", () => {
 
   it("keeps submitted Runway jobs polling after retriable output download failures", async () => {
     const { project, graph } = await projectWithApprovedFrame();
-    vi.stubEnv("RUNWAYML_API_SECRET", "key_runway_live");
+    vi.stubEnv("RUNWAYML_API_SECRET", "rw-prod-runway-smoke-abc123");
     const submitFetch = vi.fn().mockResolvedValue(Response.json({ id: "task-runway-live-retry", status: "PENDING" }));
     vi.stubGlobal("fetch", submitFetch);
     const submitted = await generateVideoClip({
