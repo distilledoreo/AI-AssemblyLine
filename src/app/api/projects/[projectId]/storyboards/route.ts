@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { toErrorResponse } from "@/server/errors";
 import { getProjectRole, getScriptAnalysisGraphForProject } from "@/server/repository";
-import { assertProjectPermission } from "@/server/rbac";
+import { assertProjectPermission, type ProjectAction } from "@/server/rbac";
 import { requireCurrentUser } from "@/server/session";
 import { addFrameComment, attachSketch, generateStoryboardFrame, updateFrameVersion } from "@/server/storyboard";
 
@@ -36,9 +36,10 @@ export async function POST(request: Request, context: { params: Promise<{ projec
   try {
     const user = await requireCurrentUser();
     const { projectId } = await context.params;
-    assertProjectPermission(await getProjectRole(user.id, projectId), "generate_storyboard_frames");
+    const role = await getProjectRole(user.id, projectId);
 
     if ((request.headers.get("content-type") ?? "").includes("multipart/form-data")) {
+      assertProjectPermission(role, "use_drawing_markup_tools");
       const form = await request.formData();
       const file = form.get("file");
       if (!(file instanceof File)) throw new Error("Sketch upload requires a file.");
@@ -55,6 +56,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     }
 
     const body = storyboardActionSchema.parse(await request.json());
+    assertProjectPermission(role, permissionForStoryboardAction(body));
     if (body.action === "generate") return Response.json(await generateStoryboardFrame({ projectId, ...body }));
     if (body.action === "frame") return Response.json(await updateFrameVersion({ projectId, ...body }));
     if (body.action === "comment") {
@@ -64,4 +66,11 @@ export async function POST(request: Request, context: { params: Promise<{ projec
   } catch (error) {
     return toErrorResponse(error);
   }
+}
+
+function permissionForStoryboardAction(body: z.infer<typeof storyboardActionSchema>): ProjectAction {
+  if (body.action === "generate") return "generate_storyboard_frames";
+  if (body.action === "comment") return "add_review_comments";
+  if (body.status === "approved" || body.status === "rejected") return "approve_reject_frames";
+  return "edit_storyboard_frames";
 }

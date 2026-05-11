@@ -90,6 +90,8 @@ Permissions are enforced at the **API route layer** using middleware, not only i
 
 Asset Bible mutations enforce permissions per action: reference uploads use `upload_asset_references`, provider generation uses `request_asset_generation`, approval/rejection uses `approve_reject_assets`, locking uses `lock_unlock_assets`, style updates use `edit_project_settings`, and detail/split/merge corrections use `edit_asset_requirements`.
 
+Storyboard mutations enforce permissions per action: provider generation uses `generate_storyboard_frames`, sketch/markup uploads use `use_drawing_markup_tools`, approval/rejection uses `approve_reject_frames`, comments use `add_review_comments`, and other frame metadata edits use `edit_storyboard_frames`.
+
 ## Invitations
 
 - Workspace owners and admins can invite users by email.
