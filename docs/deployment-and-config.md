@@ -13,7 +13,7 @@ All configuration is driven by environment variables loaded from `.env` files (v
 | `DATABASE_URL` | Postgres connection string | `postgresql://user:pass@localhost:5432/assemblyline` |
 | `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
 | `QUEUE_MODE` | Queue execution mode. Use `inline` for no-worker local development or `redis` for BullMQ-backed async jobs. Production defaults to Redis mode when unset. | `redis` |
-| `NEXTAUTH_URL` | Canonical app URL | `http://localhost:3000` |
+| `NEXTAUTH_URL` | Canonical app origin, without a path/query/fragment | `http://localhost:3000` |
 | `NEXTAUTH_SECRET` | NextAuth session signing secret (32+ chars) | Generated via `openssl rand -base64 32` |
 | `ENCRYPTION_KEY` | AES-256 key for provider API key encryption (32 bytes, base64) | Generated via `openssl rand -base64 32` |
 | `STORAGE_ROOT` | Root directory for local media storage | `./storage` |
@@ -123,7 +123,7 @@ npm run dev
 
 The checked-in `compose.yaml` starts PostgreSQL 16 on `localhost:5432` and Redis 7 on `localhost:6379`, matching `.env.example`. Stop those services with `npm run services:down`; inspect logs with `npm run services:logs`.
 
-Run `npm run preflight:production` before release. The preflight checks required production environment variables, `NEXTAUTH_URL` format (HTTPS outside localhost), `NEXTAUTH_SECRET` length, decoded `ENCRYPTION_KEY` length, production queue mode (`QUEUE_MODE` unset or `redis`), writable `STORAGE_ROOT`, real non-mock `OPENAI_API_KEY`, `STABILITY_API_KEY`, and `RUNWAYML_API_SECRET` values for live provider verification, optional Google/GitHub OAuth client/secret pair consistency, FFmpeg/ffprobe availability, and TCP reachability for the configured Postgres and Redis URLs.
+Run `npm run preflight:production` before release. The preflight checks required production environment variables, `NEXTAUTH_URL` format (origin only, HTTPS outside localhost), `NEXTAUTH_SECRET` length, decoded `ENCRYPTION_KEY` length, production queue mode (`QUEUE_MODE` unset or `redis`), writable `STORAGE_ROOT`, real non-mock `OPENAI_API_KEY`, `STABILITY_API_KEY`, and `RUNWAYML_API_SECRET` values for live provider verification, optional Google/GitHub OAuth client/secret pair consistency, FFmpeg/ffprobe availability, and TCP reachability for the configured Postgres and Redis URLs.
 
 Run `npm run smoke:providers` with real provider keys before enabling providers in production. It runs the OpenAI, Stability, and Runway smoke checks in one release gate and prints only non-secret result metadata. You can also run `npm run smoke:openai`, `npm run smoke:stability`, or `npm run smoke:runway` individually while debugging a provider. These commands make small live API calls. The Runway smoke command submits a short async video task and prints the returned provider task id; it does not wait for final video output.
 

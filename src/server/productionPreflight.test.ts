@@ -114,6 +114,12 @@ describe("production preflight", () => {
       ok: false,
       detail: "must be a valid absolute URL",
     });
+
+    const deepLink = evaluateProductionPreflight({ ...validEnv, NEXTAUTH_URL: "https://assemblyline.example.com/signin?next=dashboard" }, () => true);
+    expect(deepLink.find((result) => result.name === "NEXTAUTH_URL format")).toMatchObject({
+      ok: false,
+      detail: "must be an origin without path, query, or fragment",
+    });
   });
 
   it("verifies the storage root is configured and writable", async () => {

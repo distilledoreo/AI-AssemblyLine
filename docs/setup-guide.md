@@ -76,7 +76,7 @@ For browser verification, start the dev server and exercise the relevant dashboa
 
 For production-style dependency verification, call `GET /api/health` after Postgres and Redis are configured. The endpoint returns `200` only when both dependencies are reachable; a `503` response identifies the failing dependency. The response also includes non-secret OpenAI, Stability, and Runway server fallback key readiness under `providerEnv`. In production, raw dependency exception text is redacted unless `HEALTH_VERBOSE_ERRORS=1` is set for a private diagnostic run.
 
-Run `npm run preflight:production` before release. It verifies required production environment variables, `NEXTAUTH_URL` format (HTTPS outside localhost), secret/key lengths, production queue mode (`QUEUE_MODE` unset or `redis`), writable `STORAGE_ROOT`, real non-mock OpenAI, Stability, and Runway credentials, optional Google/GitHub OAuth client/secret pair consistency, FFmpeg/ffprobe availability, and TCP reachability for Postgres and Redis.
+Run `npm run preflight:production` before release. It verifies required production environment variables, `NEXTAUTH_URL` format (origin only, HTTPS outside localhost), secret/key lengths, production queue mode (`QUEUE_MODE` unset or `redis`), writable `STORAGE_ROOT`, real non-mock OpenAI, Stability, and Runway credentials, optional Google/GitHub OAuth client/secret pair consistency, FFmpeg/ffprobe availability, and TCP reachability for Postgres and Redis.
 
 ## Export and import smoke test
 

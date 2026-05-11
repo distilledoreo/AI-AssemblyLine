@@ -116,6 +116,9 @@ function checkNextAuthUrl(value: string | undefined): CheckResult {
   if (url.protocol !== "https:" && !isLocal) {
     return { name: "NEXTAUTH_URL format", ok: false, detail: "must use https outside localhost" };
   }
+  if ((url.pathname && url.pathname !== "/") || url.search || url.hash) {
+    return { name: "NEXTAUTH_URL format", ok: false, detail: "must be an origin without path, query, or fragment" };
+  }
   return { name: "NEXTAUTH_URL format", ok: true, detail: isLocal ? "local URL allowed" : "https URL" };
 }
 
