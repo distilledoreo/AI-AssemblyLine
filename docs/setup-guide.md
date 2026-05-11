@@ -27,7 +27,7 @@ The local MVP can run with default development values. Production-style deployme
 - `STORAGE_ROOT`
 - `SENTRY_DSN` when error tracking should be enabled
 
-Provider keys are entered in the app settings and encrypted server-side. The dashboard does not prefill mock keys; paste a real provider API key for production verification. In production, the server rejects a literal `mock` OpenAI key. Provider keys are never written to exports.
+Provider keys are entered in the app settings and encrypted server-side. The dashboard does not prefill mock keys; paste real provider API keys for production verification. In production, the server rejects a literal `mock` key for every provider. Provider keys are never written to exports.
 
 ## OpenAI provider
 
@@ -64,7 +64,7 @@ For browser verification, start the dev server and exercise the relevant dashboa
 
 For production-style dependency verification, call `GET /api/health` after Postgres and Redis are configured. The endpoint returns `200` only when both dependencies are reachable; a `503` response identifies the failing dependency. In production, raw dependency exception text is redacted unless `HEALTH_VERBOSE_ERRORS=1` is set for a private diagnostic run.
 
-Run `npm run preflight:production` before release. It verifies required production environment variables, secret/key lengths, real OpenAI smoke-test credentials, FFmpeg/ffprobe availability, and TCP reachability for Postgres and Redis.
+Run `npm run preflight:production` before release. It verifies required production environment variables, secret/key lengths, real non-mock OpenAI, Stability, and Runway credentials, FFmpeg/ffprobe availability, and TCP reachability for Postgres and Redis.
 
 ## Export and import smoke test
 
