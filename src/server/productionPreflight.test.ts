@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { checkStorageRoot, evaluateProductionPreflight } from "../../scripts/production-preflight";
+import { checkStorageRoot, evaluateProductionPreflight, runProductionPreflight } from "../../scripts/production-preflight";
 
 const validEnv = {
   DATABASE_URL: "postgresql://assemblyline:assemblyline@localhost:5432/assemblyline",
@@ -141,6 +141,29 @@ describe("production preflight", () => {
       await expect(checkStorageRoot(filePath)).resolves.toMatchObject({
         name: "STORAGE_ROOT",
         ok: false,
+      });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects non-Postgres and non-Redis dependency URLs before TCP checks", async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "assemblyline-preflight-"));
+    try {
+      const results = await runProductionPreflight({
+        ...validEnv,
+        DATABASE_URL: "mysql://localhost:3306/assemblyline",
+        REDIS_URL: "http://localhost:6379",
+        STORAGE_ROOT: tempRoot,
+      });
+
+      expect(results.find((result) => result.name === "Postgres TCP")).toMatchObject({
+        ok: false,
+        detail: "URL must use postgres or postgresql",
+      });
+      expect(results.find((result) => result.name === "Redis TCP")).toMatchObject({
+        ok: false,
+        detail: "URL must use redis or rediss",
       });
     } finally {
       await rm(tempRoot, { recursive: true, force: true });

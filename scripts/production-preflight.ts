@@ -137,8 +137,8 @@ function oauthPairCheck(name: string, env: Env, clientIdKeys: string[], clientSe
 export async function runProductionPreflight(env: Env = process.env) {
   const results = evaluateProductionPreflight(env);
   results.push(await checkStorageRoot(env.STORAGE_ROOT));
-  results.push(await checkTcpUrl("Postgres TCP", env.DATABASE_URL));
-  results.push(await checkTcpUrl("Redis TCP", env.REDIS_URL));
+  results.push(await checkTcpUrl("Postgres TCP", env.DATABASE_URL, ["postgres:", "postgresql:"]));
+  results.push(await checkTcpUrl("Redis TCP", env.REDIS_URL, ["redis:", "rediss:"]));
   return results;
 }
 
@@ -154,7 +154,7 @@ function decodeBase64Length(value: string) {
   }
 }
 
-async function checkTcpUrl(name: string, value: string | undefined): Promise<CheckResult> {
+async function checkTcpUrl(name: string, value: string | undefined, allowedProtocols: string[]): Promise<CheckResult> {
   if (!value) {
     return { name, ok: false, detail: "URL is missing" };
   }
@@ -163,6 +163,9 @@ async function checkTcpUrl(name: string, value: string | undefined): Promise<Che
     url = new URL(value);
   } catch {
     return { name, ok: false, detail: "URL is invalid" };
+  }
+  if (!allowedProtocols.includes(url.protocol)) {
+    return { name, ok: false, detail: `URL must use ${allowedProtocols.map((protocol) => protocol.replace(":", "")).join(" or ")}` };
   }
   const port = Number(url.port || (url.protocol.startsWith("postgres") ? 5432 : 6379));
   const host = url.hostname || "localhost";
