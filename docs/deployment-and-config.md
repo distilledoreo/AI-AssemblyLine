@@ -116,7 +116,7 @@ npm run dev
 
 The checked-in `compose.yaml` starts PostgreSQL 16 on `localhost:5432` and Redis 7 on `localhost:6379`, matching `.env.example`. Stop those services with `npm run services:down`; inspect logs with `npm run services:logs`.
 
-Run `npm run preflight:production` before release. The preflight checks required production environment variables, `NEXTAUTH_SECRET` length, decoded `ENCRYPTION_KEY` length, a real non-mock `OPENAI_API_KEY` for live smoke testing, FFmpeg/ffprobe availability, and TCP reachability for the configured Postgres and Redis URLs.
+Run `npm run preflight:production` before release. The preflight checks required production environment variables, `NEXTAUTH_SECRET` length, decoded `ENCRYPTION_KEY` length, real non-mock `OPENAI_API_KEY` and `STABILITY_API_KEY` values for live smoke testing, FFmpeg/ffprobe availability, and TCP reachability for the configured Postgres and Redis URLs.
 
 Run `npm run smoke:openai` and `npm run smoke:stability` with real provider keys before enabling those providers in production. These commands make small live API calls and print only non-secret result metadata.
 

@@ -8,6 +8,7 @@ const validEnv = {
   NEXTAUTH_SECRET: "a".repeat(32),
   ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
   OPENAI_API_KEY: "sk-live-test",
+  STABILITY_API_KEY: "sk-stability-live-test",
 };
 
 describe("production preflight", () => {
@@ -17,7 +18,7 @@ describe("production preflight", () => {
     expect(results.every((result) => result.ok)).toBe(true);
   });
 
-  it("reports missing services, weak secrets, mock OpenAI keys, and missing media tools", () => {
+  it("reports missing services, weak secrets, mock provider keys, and missing media tools", () => {
     const results = evaluateProductionPreflight(
       {
         DATABASE_URL: "",
@@ -26,6 +27,7 @@ describe("production preflight", () => {
         NEXTAUTH_SECRET: "short",
         ENCRYPTION_KEY: "not-32-bytes",
         OPENAI_API_KEY: "mock",
+        STABILITY_API_KEY: "mock",
       },
       () => false,
     );
@@ -37,6 +39,7 @@ describe("production preflight", () => {
         "NEXTAUTH_SECRET length",
         "ENCRYPTION_KEY length",
         "OPENAI_API_KEY",
+        "STABILITY_API_KEY",
         "ffmpeg",
         "ffprobe",
       ]),

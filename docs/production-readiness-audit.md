@@ -47,9 +47,9 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 - `npm run smoke:stability` now provides a release-time live Stability API check when `STABILITY_API_KEY` is available.
 - Mock-backed placeholder providers now fail with `provider_not_configured` in production instead of silently returning fake Runway, Kling, Seedance, Pika, Luma, or ElevenLabs outputs.
 - Direct OpenAI adapter mock-mode calls now fail with `provider_not_configured` in production, covering callers that bypass project credential resolution.
-- `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, live OpenAI smoke-test credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
+- `npm run preflight:production` now provides a release gate for required env vars, secret/key lengths, live OpenAI and Stability smoke-test credentials, FFmpeg/ffprobe availability, and Postgres/Redis TCP reachability.
 - Script analysis now uses the OpenAI structured-output adapter for scene, shot, and asset passes when real credentials are configured; deterministic parsing remains available only for local development/tests without provider credentials.
-- `npm test`: passing, 28 files and 83 tests.
+- `npm test`: passing, 30 files and 96 tests.
 - `npm run lint`: passing.
 - `npm run build`: passing.
 - `npm audit --audit-level=moderate`: passing, zero vulnerabilities.

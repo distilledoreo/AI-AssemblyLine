@@ -47,6 +47,13 @@ export function evaluateProductionPreflight(
     detail: openAiKey && openAiKey !== "mock" ? "configured for live smoke test" : "missing or mock",
   });
 
+  const stabilityKey = env.STABILITY_API_KEY?.trim() ?? "";
+  results.push({
+    name: "STABILITY_API_KEY",
+    ok: Boolean(stabilityKey) && stabilityKey !== "mock",
+    detail: stabilityKey && stabilityKey !== "mock" ? "configured for live smoke test" : "missing or mock",
+  });
+
   for (const command of ["ffmpeg", "ffprobe"]) {
     const exists = commandExists(command);
     results.push({
