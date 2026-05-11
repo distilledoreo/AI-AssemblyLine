@@ -36,6 +36,7 @@ FFmpeg runs as a **child process** spawned from Node.js BullMQ workers. The app 
 - **Input:** Video file path.
 - **Output:** Duration (ms), resolution, codec, frame rate, file size.
 - **Use:** Populates `ClipVersion.durationMs` and metadata fields. Used by the UI to display clip details.
+- **Implementation status:** `inspectClip` validates the file, records file size, and reads duration/resolution/codec through `ffprobe` when it is available on `PATH`. If `ffprobe` is unavailable, the app returns placeholder metadata with an explicit FFmpeg availability diagnostic so local mock workflows continue to run.
 
 ### Scene reel assembly
 
