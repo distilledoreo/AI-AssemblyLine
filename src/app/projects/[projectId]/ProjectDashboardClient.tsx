@@ -40,6 +40,7 @@ type OperationsPayload = {
       delayed?: number;
       failed: number;
       completed?: number;
+      rateLimit?: { max: number; duration: number };
       redisBacked: boolean;
       latestFailures?: Array<{
         id: string;
@@ -798,6 +799,7 @@ export function ProjectDashboardClient({
                       <span className="meta">
                         {queue.redisBacked ? "Redis" : "inline"} · active {queue.active} · waiting {queue.waiting} ·
                         delayed {queue.delayed ?? 0} · failed {queue.failed}
+                        {queue.rateLimit ? ` · limit ${queue.rateLimit.max}/${Math.round(queue.rateLimit.duration / 1000)}s` : ""}
                       </span>
                     </li>
                   ))}

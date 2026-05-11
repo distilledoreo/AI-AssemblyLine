@@ -15,6 +15,7 @@ Separate queues per job category prevent slow video jobs from starving fast imag
 | `project` | `export`, `import` | 1 |
 
 Concurrency values are per-worker-process defaults. They can be adjusted via environment variables.
+Queue-level BullMQ rate limits are optional. Set `QUEUE_RATE_LIMIT_MAX` and `QUEUE_RATE_LIMIT_DURATION_MS` to apply the same limiter to every worker, or use queue-specific overrides such as `IMAGE_QUEUE_RATE_LIMIT_MAX` and `IMAGE_QUEUE_RATE_LIMIT_DURATION_MS` for a single queue. Queue health responses include the active limiter for each queue when both values are configured.
 
 ## Priority lanes
 
@@ -42,7 +43,7 @@ Worker processors also persist AssemblyLine job failures before rethrowing to Bu
 
 ## Failed-job retention
 
-Each queue retains recent failed BullMQ jobs for debugging. Queue health responses include active, waiting, delayed, completed, failed counts, and up to 10 recent failed jobs with the job id, job name, failure reason, attempt count, and finish timestamp.
+Each queue retains recent failed BullMQ jobs for debugging. Queue health responses include active, waiting, delayed, completed, failed counts, configured rate-limit settings when present, and up to 10 recent failed jobs with the job id, job name, failure reason, attempt count, and finish timestamp.
 
 Failed AssemblyLine `GenerationJob` records are also persisted in Postgres with their error message, error class, and retry count so project owners can inspect failures in the operations panel. Manual retry/dismiss controls are not currently exposed; rerun the relevant workflow action to create a new job.
 
@@ -135,9 +136,9 @@ If the SSE connection drops, the client reconnects with a `Last-Event-ID` header
 
 To avoid hitting provider rate limits across multiple concurrent jobs:
 
-1. Each provider adapter declares its rate limit (requests per minute).
-2. The queue worker uses a **BullMQ rate limiter** on the queue, configured per provider.
-3. If a provider returns a 429, the job enters `rate_limit` error class and the queue pauses for the `Retry-After` duration (or a default of 60 seconds).
+1. Provider limits are translated into queue-level BullMQ limiters through environment configuration.
+2. `QUEUE_RATE_LIMIT_MAX` plus `QUEUE_RATE_LIMIT_DURATION_MS` applies a global worker limiter, while `<QUEUE>_QUEUE_RATE_LIMIT_MAX` plus `<QUEUE>_QUEUE_RATE_LIMIT_DURATION_MS` overrides it for `analysis`, `image`, `video`, `media`, or `project`.
+3. If a provider returns a 429, the job enters `rate_limit` error class and follows the retry/backoff policy above.
 
 ## Worker deployment
 

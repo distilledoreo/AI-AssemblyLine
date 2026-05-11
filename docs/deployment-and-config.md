@@ -26,8 +26,12 @@ All configuration is driven by environment variables loaded from `.env` files (v
 | `ANALYSIS_QUEUE_CONCURRENCY` | Workers for script analysis queue | `2` |
 | `IMAGE_QUEUE_CONCURRENCY` | Workers for image generation queue | `3` |
 | `VIDEO_QUEUE_CONCURRENCY` | Workers for video generation queue | `2` |
-| `MEDIA_WORKER_CONCURRENCY` | Workers for FFmpeg media queue | `4` |
+| `MEDIA_QUEUE_CONCURRENCY` | Workers for FFmpeg media queue | `4` |
 | `PROJECT_QUEUE_CONCURRENCY` | Workers for export/import queue | `1` |
+| `QUEUE_RATE_LIMIT_MAX` | Optional global BullMQ worker limiter maximum jobs per duration window | None |
+| `QUEUE_RATE_LIMIT_DURATION_MS` | Optional global BullMQ worker limiter duration window in milliseconds | None |
+| `<QUEUE>_QUEUE_RATE_LIMIT_MAX` | Optional per-queue override for `ANALYSIS`, `IMAGE`, `VIDEO`, `MEDIA`, or `PROJECT` queue limiter maximum jobs | None |
+| `<QUEUE>_QUEUE_RATE_LIMIT_DURATION_MS` | Optional per-queue override for `ANALYSIS`, `IMAGE`, `VIDEO`, `MEDIA`, or `PROJECT` queue limiter duration in milliseconds | None |
 | `MAX_UPLOAD_SIZE_MB` | Maximum file upload size | `100` |
 | `SESSION_MAX_AGE_DAYS` | Session expiry | `30` |
 | `LOG_LEVEL` | Logging verbosity | `info` |
@@ -158,5 +162,5 @@ The app uses a structured logger (e.g. pino) with JSON output. Every log entry i
 Unexpected API errors are passed through the structured `captureError` path before the route returns a `500` response. When `SENTRY_DSN` is configured, the captured log records include `sentryEnabled: true` so deployment monitoring can verify the error-tracking path is active. Expected application errors such as validation, authorization, and not-found responses are returned without error capture.
 
 - `GET /api/health` actively probes Postgres with `SELECT 1` and Redis with `PING`. It returns `200` with `status: "ok"` only when both dependencies are reachable, and `503` with `status: "degraded"` when either check fails. The response also reports non-secret `providerEnv` readiness for the OpenAI, Stability, and Runway server fallback keys without exposing key values. Production responses redact raw dependency exception text by default; set `HEALTH_VERBOSE_ERRORS=1` only in a private diagnostic environment if exact dependency error messages are needed.
-- `GET /api/health/workers` returns queue status (active, waiting, failed counts per queue).
+- `GET /api/health/workers` returns queue status (active, waiting, delayed, completed, failed counts per queue), configured queue rate limits when present, and recent failed BullMQ job summaries when Redis queue mode is active.
 - These endpoints are unauthenticated for use by load balancers and monitoring.

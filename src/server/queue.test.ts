@@ -49,8 +49,10 @@ const QueueConstructorMock = vi.hoisted(() =>
   }),
 );
 
+const WorkerConstructorMock = vi.hoisted(() => vi.fn());
+
 vi.mock("ioredis", () => ({ default: RedisConstructorMock }));
-vi.mock("bullmq", () => ({ Queue: QueueConstructorMock, Worker: vi.fn() }));
+vi.mock("bullmq", () => ({ Queue: QueueConstructorMock, Worker: WorkerConstructorMock }));
 
 const generationJob = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -166,6 +168,46 @@ describe("queue and SSE foundation", () => {
     });
     expect(queueInstances[0].getJobCounts).toHaveBeenCalledWith("active", "waiting", "delayed", "failed", "completed");
     expect(queueInstances[0].getJobs).toHaveBeenCalledWith(["failed"], 0, 9, false);
+  });
+
+  it("configures worker rate limits from global and per-queue environment variables", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("QUEUE_MODE", "redis");
+    vi.stubEnv("REDIS_URL", "redis://queue.test:6379");
+    vi.stubEnv("QUEUE_RATE_LIMIT_MAX", "20");
+    vi.stubEnv("QUEUE_RATE_LIMIT_DURATION_MS", "60000");
+    vi.stubEnv("IMAGE_QUEUE_RATE_LIMIT_MAX", "7");
+    vi.stubEnv("IMAGE_QUEUE_RATE_LIMIT_DURATION_MS", "30000");
+    resetConfigForTests();
+
+    const { createGenerationWorker, getQueueHealthSnapshot } = await importQueueModule();
+    const processor = vi.fn();
+    createGenerationWorker("image", processor);
+    createGenerationWorker("analysis", processor);
+    const queues = await getQueueHealthSnapshot();
+
+    expect(WorkerConstructorMock).toHaveBeenNthCalledWith(
+      1,
+      "assemblyline-image",
+      processor,
+      expect.objectContaining({
+        limiter: { max: 7, duration: 30000 },
+      }),
+    );
+    expect(WorkerConstructorMock).toHaveBeenNthCalledWith(
+      2,
+      "assemblyline-analysis",
+      processor,
+      expect.objectContaining({
+        limiter: { max: 20, duration: 60000 },
+      }),
+    );
+    expect(queues.find((queue) => queue.name === "image")).toMatchObject({
+      rateLimit: { max: 7, duration: 30000 },
+    });
+    expect(queues.find((queue) => queue.name === "analysis")).toMatchObject({
+      rateLimit: { max: 20, duration: 60000 },
+    });
   });
 
   it("schedules repeatable provider polling jobs on Redis-backed queues", async () => {

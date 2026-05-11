@@ -143,9 +143,11 @@ export function createGenerationWorker(queueName: keyof typeof queueTopology, pr
   if (!connection) {
     return undefined;
   }
+  const rateLimit = getQueueRateLimit(queueName);
   return new Worker(`assemblyline-${queueName}`, processor, {
     connection,
     concurrency: Number(process.env[`${queueName.toUpperCase()}_QUEUE_CONCURRENCY`]) || queueTopology[queueName].defaultConcurrency,
+    ...(rateLimit ? { limiter: rateLimit } : {}),
   });
 }
 
@@ -201,6 +203,7 @@ export async function getQueueHealthSnapshot() {
         name,
         jobTypes: config.jobTypes,
         concurrency: Number(process.env[`${name.toUpperCase()}_QUEUE_CONCURRENCY`]) || config.defaultConcurrency,
+        rateLimit: getQueueRateLimit(name as keyof typeof queueTopology),
         active: counts.active,
         waiting: counts.waiting,
         delayed: counts.delayed,
@@ -211,6 +214,17 @@ export async function getQueueHealthSnapshot() {
       };
     }),
   );
+}
+
+function getQueueRateLimit(queueName: keyof typeof queueTopology) {
+  const max = positiveIntegerFromEnv(`${queueName.toUpperCase()}_QUEUE_RATE_LIMIT_MAX`) ?? positiveIntegerFromEnv("QUEUE_RATE_LIMIT_MAX");
+  const duration =
+    positiveIntegerFromEnv(`${queueName.toUpperCase()}_QUEUE_RATE_LIMIT_DURATION_MS`) ??
+    positiveIntegerFromEnv("QUEUE_RATE_LIMIT_DURATION_MS");
+  if (!max || !duration) {
+    return undefined;
+  }
+  return { max, duration };
 }
 
 async function getRecentFailedJobs(queue: Queue) {
@@ -236,4 +250,9 @@ function toBullBackoff(backoff: string) {
     return { type: "fixed", delay: 60000 };
   }
   return undefined;
+}
+
+function positiveIntegerFromEnv(key: string) {
+  const value = Number(process.env[key]);
+  return Number.isInteger(value) && value > 0 ? value : undefined;
 }
