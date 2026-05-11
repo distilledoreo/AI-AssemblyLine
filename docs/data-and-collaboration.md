@@ -82,6 +82,8 @@ Recommended folders:
 
 Project storage directory names remove UUID dashes and reject path separators or traversal characters. This keeps cleanup, thumbnail, export, and media-write operations inside the configured `STORAGE_ROOT`.
 
+Project creation verifies that the project's storage folders can be created before the Prisma project row is written. A storage setup failure should abort creation instead of leaving a production project record with missing media directories.
+
 ### Storage management
 
 - **Disk usage tracking:** The dashboard shows total storage used per project and per workspace. Configurable warning thresholds (default: 80% and 95% of available disk) trigger user-visible alerts.

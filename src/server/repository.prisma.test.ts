@@ -188,7 +188,13 @@ const prismaMock = vi.hoisted(() => ({
   },
 }));
 
+const storageMock = vi.hoisted(() => ({
+  ensureProjectStorage: vi.fn(async (projectId: string) => `storage/projects/${projectId}`),
+  projectStoragePath: vi.fn((projectId: string) => `storage/projects/${projectId}`),
+}));
+
 vi.mock("@/server/prisma", () => ({ prisma: prismaMock }));
+vi.mock("@/server/storage", () => storageMock);
 
 const timestamp = new Date("2026-05-10T12:00:00.000Z");
 
@@ -375,6 +381,8 @@ describe("Prisma repository mode", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.$transaction.mockImplementation(async (operations: Promise<unknown>[]) => Promise.all(operations));
+    storageMock.ensureProjectStorage.mockImplementation(async (projectId: string) => `storage/projects/${projectId}`);
+    storageMock.projectStoragePath.mockImplementation((projectId: string) => `storage/projects/${projectId}`);
     process.env.REPOSITORY_MODE = "prisma";
   });
 
@@ -468,7 +476,11 @@ describe("Prisma repository mode", () => {
     prismaMock.workspace.create.mockResolvedValue(workspace);
     prismaMock.workspaceMember.findMany.mockResolvedValue([{ workspace }]);
     prismaMock.workspaceMember.findUnique.mockResolvedValue({ role: "owner" });
-    prismaMock.project.create.mockResolvedValue({ ...project, storagePath: "" });
+    prismaMock.project.create.mockImplementation(async ({ data }) => ({
+      ...project,
+      id: data.id,
+      storagePath: data.storagePath,
+    }));
     prismaMock.project.update.mockResolvedValue(project);
     prismaMock.project.findUnique.mockResolvedValue({ ...project, style, generationJobs: [job], jobEvents: [event] });
     prismaMock.projectMember.findMany.mockResolvedValue([{ project }]);
@@ -492,6 +504,8 @@ describe("Prisma repository mode", () => {
       workspaceId: createdWorkspace.id,
       title: "Pilot",
     });
+    const persistedProject = { ...project, id: createdProject.id, storagePath: createdProject.storagePath };
+    prismaMock.projectMember.findMany.mockResolvedValue([{ project: persistedProject }]);
     const providerKey = await repository.saveProviderKey(createdWorkspace.id, {
       providerSlug: "openai",
       apiKey: "sk-live-repository-test",
@@ -506,7 +520,17 @@ describe("Prisma repository mode", () => {
     expect(await repository.getOptionalSessionUser("session-token")).toMatchObject({ id: user.id });
     expect(await repository.listWorkspacesForUser(user.id)).toEqual([createdWorkspace]);
     expect(await repository.getWorkspaceRole(user.id, createdWorkspace.id)).toBe("owner");
-    expect(createdProject.storagePath).toContain(project.id);
+    expect(storageMock.ensureProjectStorage.mock.invocationCallOrder[0]).toBeLessThan(
+      prismaMock.project.create.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+    expect(prismaMock.project.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: createdProject.id,
+        storagePath: createdProject.storagePath,
+      }),
+    });
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
+    expect(createdProject.storagePath).toContain(createdProject.id);
     expect(await repository.listProjectsForUser(user.id)).toEqual([createdProject]);
     expect(await repository.getProjectRole(user.id, createdProject.id)).toBe("owner");
     expect((await repository.getProjectDashboard(createdProject.id)).jobs[0].id).toBe(job.id);
@@ -519,6 +543,27 @@ describe("Prisma repository mode", () => {
     expect(await repository.decryptWorkspaceProviderKey(createdWorkspace.id, "openai")).toBe("sk-live-repository-test");
     expect(await repository.decryptProjectProviderKey(createdProject.id, "openai")).toBe("sk-live-repository-test");
     expect(await repository.listProviderKeys(createdWorkspace.id)).toHaveLength(1);
+  });
+
+  it("rejects Prisma project creation before writing a project row when storage setup fails", async () => {
+    const repository = await import("@/server/repository");
+    prismaMock.workspace.findUnique.mockResolvedValue({
+      id: "22222222-2222-4222-8222-222222222222",
+      name: "Studio",
+      slug: "studio",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    storageMock.ensureProjectStorage.mockRejectedValueOnce(new Error("project storage setup failed"));
+
+    await expect(
+      repository.createProjectForWorkspace("11111111-1111-4111-8111-111111111111", {
+        workspaceId: "22222222-2222-4222-8222-222222222222",
+        title: "Pilot",
+      }),
+    ).rejects.toThrow("project storage setup failed");
+    expect(prismaMock.project.create).not.toHaveBeenCalled();
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
   });
 
   it("replaces Prisma provider keys atomically", async () => {

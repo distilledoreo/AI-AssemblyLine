@@ -1129,14 +1129,18 @@ export async function createProjectForWorkspace(
     if (!workspace) {
       throw new NotFoundError("Workspace not found.");
     }
+    const projectId = createId();
+    const storagePath = projectStoragePath(projectId);
+    await ensureProjectStorage(projectId);
     const project = await prisma.project.create({
       data: {
+        id: projectId,
         workspaceId: workspace.id,
         title,
         targetFormat: input.targetFormat ?? "short_film",
         aspectRatio: input.aspectRatio ?? "16:9",
         estimatedRuntime: input.estimatedRuntime,
-        storagePath: "",
+        storagePath,
         rightsPolicy: input.rightsPolicy ?? "unrestricted",
         members: { create: { userId, role: "owner" } },
         style: {
@@ -1154,10 +1158,7 @@ export async function createProjectForWorkspace(
         },
       },
     });
-    const storagePath = projectStoragePath(project.id);
-    const updated = await prisma.project.update({ where: { id: project.id }, data: { storagePath } });
-    await ensureProjectStorage(updated.id);
-    return mapProject(updated);
+    return mapProject(project);
   }
 
   const store = getStore();

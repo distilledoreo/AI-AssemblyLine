@@ -49,6 +49,7 @@ This document tracks concrete production gaps and verified evidence. Passing uni
 
 ## Latest verification
 
+- Prisma project creation now verifies project media-directory setup before writing the project row, preventing storage setup failures from leaving production projects without backing media directories.
 - Asset Bible merge persistence now batches scene/shot requirement reassignment and both source/target Prisma asset updates into one transaction, preventing a failed merge from leaving requirements and asset lifecycle state out of sync.
 - Generated script analysis graph persistence now batches the regenerated Prisma scene, shot, asset, and requirement writes into one transaction, preventing a late graph-write failure from leaving a partially replaced production dependency graph.
 - Project bundle import graph persistence now batches restored Prisma records into a single transaction and restores historical generation jobs before dependent media/version rows, preventing late storyboard/video/review write failures from leaving partially imported production graphs.
