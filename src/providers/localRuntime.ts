@@ -42,7 +42,7 @@ export class LocalQwenTextAdapter implements TextAdapter {
     const response = await this.localRequest("/v1/text", {
       prompt,
       schema,
-      modelId: options.modelId || "qwen3.6-27b",
+      modelId: options.modelId || "Qwen/Qwen3.6-27B",
       responseFormat: options.responseFormat ?? "json",
       maxTokens: options.maxTokens,
       temperature: options.temperature,
@@ -54,14 +54,14 @@ export class LocalQwenTextAdapter implements TextAdapter {
         inputTokens: Number(response.usage?.inputTokens ?? estimateTokens(prompt)),
         outputTokens: Number(response.usage?.outputTokens ?? estimateTokens(content)),
       },
-      modelId: String(response.modelId ?? options.modelId ?? "qwen3.6-27b"),
+      modelId: String(response.modelId ?? options.modelId ?? "Qwen/Qwen3.6-27B"),
       providerJobId: typeof response.id === "string" ? response.id : undefined,
     };
   }
 
   getCapabilities() {
     return {
-      models: ["qwen3.6-27b"],
+      models: ["Qwen/Qwen3.6-27B"],
       structuredOutput: true,
       maxPromptLength: 64000,
     };
@@ -84,7 +84,7 @@ export class LocalQwenImageAdapter implements ImageAdapter {
     const response = (await postJson(this.fetchImpl, this.baseUrl, "/v1/image", {
       prompt: prompt.positivePrompt,
       negativePrompt: prompt.negativePrompt,
-      modelId: options.modelId || "qwen-image-2512",
+      modelId: options.modelId || "Qwen/Qwen-Image-2512",
       width: options.width,
       height: options.height,
       count: options.count ?? 1,
@@ -104,14 +104,14 @@ export class LocalQwenImageAdapter implements ImageAdapter {
     return {
       images,
       usage: { units: images.length },
-      modelId: response.modelId ?? options.modelId ?? "qwen-image-2512",
+      modelId: response.modelId ?? options.modelId ?? "Qwen/Qwen-Image-2512",
       isAsync: false,
     };
   }
 
   getCapabilities() {
     return {
-      models: ["qwen-image-2512"],
+      models: ["Qwen/Qwen-Image-2512"],
       supportsTextToImage: true,
       supportsImageEditing: false,
       supportsReferenceImages: true,
@@ -134,7 +134,7 @@ export class LocalLtxVideoAdapter implements VideoAdapter {
     const response = (await postJson(this.fetchImpl, this.baseUrl, "/v1/video", {
       prompt: prompt.positivePrompt,
       negativePrompt: prompt.negativePrompt,
-      modelId: options.modelId || "ltx-2.3",
+      modelId: options.modelId || "diffusers/LTX-2.3-Diffusers",
       width: options.width,
       height: options.height,
       durationSeconds: options.durationSeconds,
@@ -183,7 +183,7 @@ export class LocalLtxVideoAdapter implements VideoAdapter {
 
   getCapabilities() {
     return {
-      models: ["ltx-2.3"],
+      models: ["diffusers/LTX-2.3-Diffusers"],
       supportsTextToVideo: true,
       supportsImageToVideo: true,
       supportsVideoExtension: false,

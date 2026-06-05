@@ -5,6 +5,7 @@ import {
   getScriptAnalysisGraph,
   resetStoreForTests,
   signInWithCredentials,
+  updateProject,
 } from "@/server/repository";
 import { transitionAssetStatus } from "@/server/assetBible";
 import { uploadScriptForProject } from "@/server/scriptAnalysis";
@@ -147,6 +148,39 @@ describe("video workflow", () => {
         providerSlug: "kling",
       }),
     ).rejects.toMatchObject({ code: "unsupported_provider" });
+  });
+
+  it("requests a 15 second LTX scene clip for Local Mode projects", async () => {
+    const { project, graph } = await projectWithApprovedFrame();
+    await updateProject(project.id, { generationMode: "local" });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ jobId: "local-video-scene", isAsync: true }))
+      .mockResolvedValueOnce(Response.json({ status: "processing", progress: 25 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const submitted = await generateVideoClip({
+      projectId: project.id,
+      mode: "scene",
+      sceneId: graph.scenes[0].id,
+      providerSlug: "runway",
+    });
+
+    const job = submitted.jobs.at(-1)!;
+    expect(job).toMatchObject({
+      type: "video_clip",
+      providerSlug: "local-ltx-video",
+      modelId: "diffusers/LTX-2.3-Diffusers",
+      status: "provider_submitted",
+    });
+    expect(job.inputPayload).toMatchObject({ generationMode: "local", durationSeconds: 15 });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(URL),
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"durationSeconds":15'),
+      }),
+    );
   });
 
   it("submits live Runway jobs without writing mock video bytes", async () => {

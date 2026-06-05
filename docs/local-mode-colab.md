@@ -41,4 +41,15 @@ The local runtime exposes:
 - `GET /v1/video/:jobId`
 - `GET /v1/video/:jobId/result`
 
-The checked-in `local-runtime/app.py` starts with a mock backend so the app contract can be tested quickly. The Colab notebook is responsible for installing GPU model dependencies and replacing the mock backend with real model inference.
+The checked-in `local-runtime/app.py` supports two modes:
+
+- `LOCAL_RUNTIME_MOCK=1` keeps tests and quick local smoke checks fast.
+- `LOCAL_RUNTIME_MOCK=0` loads the real model backends through Transformers and Diffusers.
+
+The Colab notebook installs `local-runtime/requirements-real.txt`, sets `LOCAL_RUNTIME_MOCK=0`, detects the assigned GPU, and selects `a100-full`, `l4-balanced`, or `t4-starter`.
+
+## Real Inference Notes
+
+The runtime lazy-loads one modality at a time and clears GPU memory before switching between text, image, and video. This is intentional: loading Qwen3.6-27B, Qwen-Image-2512, and LTX-2.3 at the same time is not realistic on Colab Pro GPUs.
+
+Scene-level Local Mode video generation requests up to 15 seconds from LTX-2.3. If the runtime reports an out-of-memory error, switch to an A100 runtime or use a smaller preset.
