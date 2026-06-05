@@ -106,10 +106,10 @@ jobs:
       REPOSITORY_MODE: prisma
       # Synthetic non-secret values exercise the production preflight key-shape gate.
       # Live provider API calls remain covered only by the explicit smoke commands.
-      OPENAI_API_KEY: sk-prod-ci-openai-preflight-shape
-      STABILITY_API_KEY: sk-prod-ci-stability-preflight-shape
-      RUNWAYML_API_SECRET: rw-prod-ci-runway-preflight-shape
-      GEMINI_API_KEY: gemini-prod-ci-veo-preflight-shape
+      OPENAI_API_KEY: sk-prod-ci-openai-preflight-shape-123
+      STABILITY_API_KEY: sk-prod-ci-stability-preflight-shape-123
+      RUNWAYML_API_SECRET: rw-prod-ci-runway-preflight-shape-123
+      GEMINI_API_KEY: gemini-prod-ci-veo-preflight-shape-123
 
     steps:
       - name: Check out repository
