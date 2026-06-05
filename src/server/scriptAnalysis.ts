@@ -1,8 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { OpenAIAdapter } from "@/providers/openai";
 import { isMockProviderApiKey } from "@/providers/providerKeySafety";
+import type { TextAdapter } from "@/providers/types";
 import { AppError, NotFoundError } from "@/server/errors";
+import { createTextAdapterForProject, localModelIdForJob, localProviderSlugForJob, resolveProjectGenerationMode } from "@/server/generationMode";
 import { createId, nowIso } from "@/server/ids";
 import {
   addJobEvent,
@@ -188,6 +189,16 @@ export async function processScriptAnalysisJob(input: { projectId: string; scrip
 }
 
 async function createScriptAnalysisJob(projectId: string, scriptVersionId: string) {
+  const mode = await resolveProjectGenerationMode(projectId);
+  if (mode === "local") {
+    return createGenerationJob({
+      projectId,
+      type: "script_analysis",
+      providerSlug: localProviderSlugForJob("text"),
+      modelId: process.env.LOCAL_TEXT_MODEL ?? localModelIdForJob("text"),
+      inputPayload: { projectId, scriptVersionId, preserveUserEdits: true, generationMode: mode },
+    });
+  }
   const apiKey = await resolveOpenAiApiKeyForProject(projectId);
   const usesLiveOpenAi = !isMockProviderApiKey(apiKey);
   return createGenerationJob({
@@ -195,11 +206,21 @@ async function createScriptAnalysisJob(projectId: string, scriptVersionId: strin
     type: "script_analysis",
     providerSlug: usesLiveOpenAi ? "openai" : "local-mock",
     modelId: process.env.OPENAI_ANALYSIS_MODEL ?? (usesLiveOpenAi ? "gpt-4.1-mini" : "deterministic-script-pass-v1"),
-    inputPayload: { projectId, scriptVersionId, preserveUserEdits: true },
+    inputPayload: { projectId, scriptVersionId, preserveUserEdits: true, generationMode: mode },
   });
 }
 
 async function analyzeScriptWithConfiguredProvider(projectId: string, scriptText: string) {
+  const mode = await resolveProjectGenerationMode(projectId);
+  if (mode === "local") {
+    const adapter = await createTextAdapterForProject(projectId);
+    const modelId = process.env.LOCAL_TEXT_MODEL ?? localModelIdForJob("text");
+    const scenes = await runScenePass(adapter, modelId, scriptText, "Local text runtime");
+    const shots = await runShotPass(adapter, modelId, scriptText, scenes, "Local text runtime");
+    const assets = await runAssetPass(adapter, modelId, scriptText, scenes, shots, "Local text runtime");
+    return { scenes, shots, assets };
+  }
+
   const apiKey = await resolveOpenAiApiKeyForProject(projectId);
   if (isMockProviderApiKey(apiKey)) {
     const scenes = extractScenes(scriptText);
@@ -211,15 +232,15 @@ async function analyzeScriptWithConfiguredProvider(projectId: string, scriptText
     };
   }
 
-  const adapter = new OpenAIAdapter(apiKey);
+  const adapter = await createTextAdapterForProject(projectId);
   const modelId = process.env.OPENAI_ANALYSIS_MODEL ?? "gpt-4.1-mini";
-  const scenes = await runScenePass(adapter, modelId, scriptText);
-  const shots = await runShotPass(adapter, modelId, scriptText, scenes);
-  const assets = await runAssetPass(adapter, modelId, scriptText, scenes, shots);
+  const scenes = await runScenePass(adapter, modelId, scriptText, "OpenAI");
+  const shots = await runShotPass(adapter, modelId, scriptText, scenes, "OpenAI");
+  const assets = await runAssetPass(adapter, modelId, scriptText, scenes, shots, "OpenAI");
   return { scenes, shots, assets };
 }
 
-async function runScenePass(adapter: OpenAIAdapter, modelId: string, scriptText: string) {
+async function runScenePass(adapter: TextAdapter, modelId: string, scriptText: string, providerName: string) {
   const result = await adapter.generateStructuredOutput(
     [
       "Extract scene boundaries from this script as strict JSON.",
@@ -253,12 +274,12 @@ async function runScenePass(adapter: OpenAIAdapter, modelId: string, scriptText:
   );
   const parsed = extractJsonFromModelOutput(result.content) as { scenes?: ScriptSceneOutput[] };
   if (!Array.isArray(parsed.scenes) || parsed.scenes.length === 0) {
-    throw new AppError("OpenAI scene analysis returned no scenes.", 502, "provider_invalid_output");
+    throw new AppError(`${providerName} scene analysis returned no scenes.`, 502, "provider_invalid_output");
   }
   return parsed.scenes;
 }
 
-async function runShotPass(adapter: OpenAIAdapter, modelId: string, scriptText: string, scenes: ScriptSceneOutput[]) {
+async function runShotPass(adapter: TextAdapter, modelId: string, scriptText: string, scenes: ScriptSceneOutput[], providerName: string) {
   const result = await adapter.generateStructuredOutput(
     [
       "Break these scenes into production storyboard shots as strict JSON.",
@@ -303,17 +324,18 @@ async function runShotPass(adapter: OpenAIAdapter, modelId: string, scriptText: 
   );
   const parsed = extractJsonFromModelOutput(result.content) as { shotBreakdowns?: ScriptShotOutput[] };
   if (!Array.isArray(parsed.shotBreakdowns) || parsed.shotBreakdowns.length === 0) {
-    throw new AppError("OpenAI shot analysis returned no shots.", 502, "provider_invalid_output");
+    throw new AppError(`${providerName} shot analysis returned no shots.`, 502, "provider_invalid_output");
   }
   return parsed.shotBreakdowns;
 }
 
 async function runAssetPass(
-  adapter: OpenAIAdapter,
+  adapter: TextAdapter,
   modelId: string,
   scriptText: string,
   scenes: ScriptSceneOutput[],
   shots: ScriptShotOutput[],
+  providerName: string,
 ) {
   const result = await adapter.generateStructuredOutput(
     [
@@ -336,7 +358,7 @@ async function runAssetPass(
   );
   const parsed = extractJsonFromModelOutput(result.content) as ScriptAssetOutput;
   if (!Array.isArray(parsed.assets) || !Array.isArray(parsed.sceneAssetLinks) || !Array.isArray(parsed.shotAssetLinks)) {
-    throw new AppError("OpenAI asset analysis returned invalid asset data.", 502, "provider_invalid_output");
+    throw new AppError(`${providerName} asset analysis returned invalid asset data.`, 502, "provider_invalid_output");
   }
   return { ...parsed, warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [] };
 }

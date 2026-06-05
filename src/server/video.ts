@@ -1,8 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { GoogleVeoAdapter, RunwayAdapter } from "@/providers/videoProviders";
+import { GoogleVeoAdapter } from "@/providers/videoProviders";
 import type { VideoAdapter } from "@/providers/types";
 import { AppError, NotFoundError } from "@/server/errors";
+import { createVideoAdapterForProject, localModelIdForJob, localProviderSlugForJob, resolveProjectGenerationMode } from "@/server/generationMode";
 import {
   addJobEvent,
   completeGenerationJob,
@@ -22,7 +23,6 @@ import { isRedisQueueEnabled } from "@/server/queue";
 import { inspectClip } from "@/server/media";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
-import { resolveGoogleAiApiKeyForProject, resolveRunwayApiKeyForProject } from "@/server/providerKeys";
 import type { ClipVersion, ErrorClass, GenerationJob, ScriptAnalysisGraph, VideoClip } from "@/server/types";
 
 type LiveVideoProviderSlug = "runway" | "google-ai";
@@ -34,7 +34,8 @@ export async function generateVideoClip(input: {
   sceneId?: string;
   providerSlug?: string;
 }) {
-  const providerSlug = requireLiveVideoProvider(input.providerSlug);
+  const mode = await resolveProjectGenerationMode(input.projectId);
+  const providerSlug = mode === "local" ? localProviderSlugForJob("video") : requireLiveVideoProvider(input.providerSlug);
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   validateVideoTarget(graph, input);
   const frameVersions =
@@ -44,19 +45,20 @@ export async function generateVideoClip(input: {
   if (frameVersions.length === 0) {
     throw new AppError("Video generation requires approved storyboard frames.", 409, "missing_approved_frames");
   }
-  const adapter = await createLiveVideoAdapter(input.projectId, providerSlug);
+  const adapter = await createVideoAdapterForProject(input.projectId, input.providerSlug ?? "runway");
   const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
   const job = await createGenerationJob({
     projectId: input.projectId,
     type: "video_clip",
-    providerSlug: adapter.slug,
-    modelId: adapter.getCapabilities().models[0],
+    providerSlug,
+    modelId: mode === "local" ? process.env.LOCAL_VIDEO_MODEL ?? localModelIdForJob("video") : adapter.getCapabilities().models[0],
     inputPayload: {
       projectId: input.projectId,
       mode: input.mode,
       shotId: input.shotId,
       sceneId: input.sceneId,
       providerSlug,
+      generationMode: mode,
       prompt,
       sourceFrameVersionIds: frameVersions.map((version) => version.id),
       polling: { intervalSeconds: 15, maxAttempts: 120 },
@@ -83,7 +85,8 @@ export async function processVideoClipJob(input: {
   providerSlug: string;
   jobId: string;
 }) {
-  const providerSlug = requireLiveVideoProvider(input.providerSlug);
+  const mode = await resolveProjectGenerationMode(input.projectId);
+  const providerSlug = mode === "local" ? localProviderSlugForJob("video") : requireLiveVideoProvider(input.providerSlug);
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   validateVideoTarget(graph, input);
   const frameVersions =
@@ -93,7 +96,7 @@ export async function processVideoClipJob(input: {
   if (frameVersions.length === 0) {
     throw new AppError("Video generation requires approved storyboard frames.", 409, "missing_approved_frames");
   }
-  const adapter = await createLiveVideoAdapter(input.projectId, providerSlug);
+  const adapter = await createVideoAdapterForProject(input.projectId, input.providerSlug);
   const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
   const job = await markGenerationJobRunning(input.jobId, "polling");
   if (!job) throw new NotFoundError("Generation job not found.");
@@ -105,7 +108,7 @@ export async function processVideoClipJob(input: {
       generationSettings: { width: 1024, height: 576, duration: input.mode === "scene" ? frameVersions.length * 3 : 3 },
       metadata: { sourceIds: frameVersions.map((version) => version.id), conflictWarnings: [], truncationWarnings: [] },
     },
-    { modelId: job.modelId ?? "video-model", width: 1024, height: 576, durationSeconds: 3 },
+    { modelId: job.modelId ?? (mode === "local" ? localModelIdForJob("video") : "video-model"), width: 1024, height: 576, durationSeconds: 3 },
   );
   if (result.isAsync && result.providerJobId && !result.video) {
     await markGenerationJobProviderSubmitted(job.id, {
@@ -155,13 +158,6 @@ function requireLiveVideoProvider(providerSlug = "runway"): LiveVideoProviderSlu
   return providerSlug;
 }
 
-async function createLiveVideoAdapter(projectId: string, providerSlug: LiveVideoProviderSlug, fetchImpl: typeof fetch = fetch) {
-  if (providerSlug === "google-ai") {
-    return new GoogleVeoAdapter(await resolveGoogleAiApiKeyForProject(projectId), fetchImpl);
-  }
-  return new RunwayAdapter(await resolveRunwayApiKeyForProject(projectId), fetchImpl);
-}
-
 function providerDisplayName(providerSlug: LiveVideoProviderSlug) {
   return providerSlug === "google-ai" ? "Google AI Veo" : "Runway";
 }
@@ -187,7 +183,7 @@ export async function processVideoProviderResult(input: {
     throw new AppError("Only submitted live video jobs can be polled.", 400, "unsupported_provider_poll");
   }
 
-  const adapter = await createLiveVideoAdapter(input.projectId, providerSlug, input.fetchImpl ?? fetch);
+  const adapter = await createVideoAdapterForProject(input.projectId, providerSlug, input.fetchImpl ?? fetch);
   const providerName = providerDisplayName(providerSlug);
   const status = await adapter.checkJobStatus(job.providerJobId);
   if (status.status === "pending" || status.status === "processing") {

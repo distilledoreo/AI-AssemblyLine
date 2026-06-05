@@ -55,19 +55,19 @@ describe("provider key resolution", () => {
   });
 
   it("uses a workspace OpenAI key before the server fallback key", async () => {
-    decryptProjectProviderKeyMock.mockResolvedValue("sk-workspace-test");
-    vi.stubEnv("OPENAI_API_KEY", "sk-env-test");
+    decryptProjectProviderKeyMock.mockResolvedValue("sk-workspace-test-abc123");
+    vi.stubEnv("OPENAI_API_KEY", "sk-env-test-abc123");
     vi.stubEnv("NODE_ENV", "production");
 
     await expect(resolveOpenAiApiKeyForProject("00000000-0000-4000-8000-000000000000")).resolves.toBe(
-      "sk-workspace-test",
+      "sk-workspace-test-abc123",
     );
     expect(decryptProjectProviderKeyMock).toHaveBeenCalledWith("00000000-0000-4000-8000-000000000000", "openai");
   });
 
   it("surfaces OpenAI workspace key lookup failures instead of falling back to env credentials", async () => {
     decryptProjectProviderKeyMock.mockRejectedValue(new Error("database unavailable"));
-    vi.stubEnv("OPENAI_API_KEY", "sk-env-test");
+    vi.stubEnv("OPENAI_API_KEY", "sk-env-test-abc123");
     vi.stubEnv("NODE_ENV", "production");
 
     await expect(resolveOpenAiApiKeyForProject("00000000-0000-4000-8000-000000000000")).rejects.toThrow(
@@ -146,12 +146,12 @@ describe("provider key resolution", () => {
   });
 
   it("uses a workspace Google AI key before the server fallback key", async () => {
-    decryptProjectProviderKeyMock.mockResolvedValue("gemini-workspace-test");
-    vi.stubEnv("GEMINI_API_KEY", "gemini-env-test");
+    decryptProjectProviderKeyMock.mockResolvedValue("gemini-workspace-test-abc123");
+    vi.stubEnv("GEMINI_API_KEY", "gemini-env-test-abc123");
     vi.stubEnv("NODE_ENV", "production");
 
     await expect(resolveGoogleAiApiKeyForProject("00000000-0000-4000-8000-000000000000")).resolves.toBe(
-      "gemini-workspace-test",
+      "gemini-workspace-test-abc123",
     );
     expect(decryptProjectProviderKeyMock).toHaveBeenCalledWith("00000000-0000-4000-8000-000000000000", "google-ai");
   });

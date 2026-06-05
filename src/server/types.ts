@@ -1,6 +1,7 @@
 export type WorkspaceRole = "owner" | "admin" | "member";
 export type ProjectRole = "owner" | "producer" | "artist" | "reviewer" | "viewer";
 export type RightsPolicy = "unrestricted" | "no_real_people" | "client_owned" | "custom";
+export type GenerationMode = "cloud" | "local";
 export type AssetType = "character" | "wardrobe" | "location" | "creature" | "prop";
 export type AssetStatus =
   | "missing"
@@ -89,6 +90,7 @@ export type Project = {
   targetFormat: string;
   aspectRatio: string;
   estimatedRuntime?: number;
+  generationMode: GenerationMode;
   storagePath: string;
   rightsPolicy: RightsPolicy;
   createdAt: string;

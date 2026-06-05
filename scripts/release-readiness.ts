@@ -33,22 +33,22 @@ export function evaluateLocalProviderCredentials(env: ScriptEnv): CheckResult[] 
     {
       name: "local OPENAI_API_KEY",
       ok: isLiveProviderApiKey(openAiKey),
-      detail: isLiveProviderApiKey(openAiKey) ? "configured for live OpenAI smoke" : "missing, mock, or placeholder",
+      detail: isLiveProviderApiKey(openAiKey) ? "configured for live OpenAI smoke" : "missing, mock, placeholder, or too short",
     },
     {
       name: "local STABILITY_API_KEY",
       ok: isLiveProviderApiKey(stabilityKey),
-      detail: isLiveProviderApiKey(stabilityKey) ? "configured for live Stability smoke" : "missing, mock, or placeholder",
+      detail: isLiveProviderApiKey(stabilityKey) ? "configured for live Stability smoke" : "missing, mock, placeholder, or too short",
     },
     {
       name: "local RUNWAYML_API_SECRET",
       ok: isLiveProviderApiKey(runwayKey),
-      detail: isLiveProviderApiKey(runwayKey) ? "configured for live Runway smoke" : "missing, mock, or placeholder",
+      detail: isLiveProviderApiKey(runwayKey) ? "configured for live Runway smoke" : "missing, mock, placeholder, or too short",
     },
     {
       name: "local GEMINI_API_KEY or GOOGLE_AI_API_KEY",
       ok: isLiveProviderApiKey(googleKey),
-      detail: isLiveProviderApiKey(googleKey) ? "configured for live Google AI / Veo smoke" : "missing, mock, or placeholder",
+      detail: isLiveProviderApiKey(googleKey) ? "configured for live Google AI / Veo smoke" : "missing, mock, placeholder, or too short",
     },
   ];
 }

@@ -40,6 +40,7 @@ describe("foundation repository flows", () => {
     expect(await listWorkspacesForUser(user.id)).toHaveLength(1);
     expect(await listProjectsForUser(user.id)).toHaveLength(1);
     expect(await getProjectRole(user.id, project.id)).toBe("owner");
+    expect(project.generationMode).toBe("cloud");
     expect((await getProjectDashboard(project.id)).style?.approvalStatus).toBe("draft");
     expect((await getOptionalSessionUser(session.token))?.id).toBe(user.id);
     expect(await getOptionalSessionUser("stale-session-token")).toBeUndefined();
@@ -59,6 +60,8 @@ describe("foundation repository flows", () => {
     await updateProject(project.id, { title: "Locked Cut", aspectRatio: "2.39:1" });
     expect((await getProjectDashboard(project.id)).project.title).toBe("Locked Cut");
     expect((await getProjectDashboard(project.id)).project.aspectRatio).toBe("2.39:1");
+    await updateProject(project.id, { generationMode: "local" });
+    expect((await getProjectDashboard(project.id)).project.generationMode).toBe("local");
 
     await deleteProject(project.id);
     expect(await listProjectsForUser(user.id)).toHaveLength(0);

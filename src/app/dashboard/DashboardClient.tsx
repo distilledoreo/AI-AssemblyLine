@@ -23,6 +23,7 @@ export function DashboardClient({
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(initialWorkspaces[0]?.id ?? "");
   const [workspaceName, setWorkspaceName] = useState("Studio Workspace");
   const [projectTitle, setProjectTitle] = useState("Untitled Short Film");
+  const [generationMode, setGenerationMode] = useState<"cloud" | "local">("cloud");
   const [providerSlug, setProviderSlug] = useState("openai");
   const [providerKey, setProviderKey] = useState("");
   const [providerKeys, setProviderKeys] = useState<SafeProviderKey[]>([]);
@@ -67,6 +68,7 @@ export function DashboardClient({
         title: projectTitle,
         targetFormat: "short_film",
         aspectRatio: "16:9",
+        generationMode,
         rightsPolicy: "unrestricted",
       }),
     });
@@ -182,6 +184,17 @@ export function DashboardClient({
                 onChange={(event) => setProjectTitle(event.target.value)}
               />
             </div>
+            <div className="field">
+              <label htmlFor="generation-mode">Generation mode</label>
+              <select
+                id="generation-mode"
+                value={generationMode}
+                onChange={(event) => setGenerationMode(event.target.value === "local" ? "local" : "cloud")}
+              >
+                <option value="cloud">Cloud Mode - use provider APIs</option>
+                <option value="local">Local Mode - use the Colab runtime</option>
+              </select>
+            </div>
             <button className="button" type="submit">
               <FolderPlus size={17} aria-hidden="true" />
               Create project
@@ -197,6 +210,9 @@ export function DashboardClient({
               Refresh
             </button>
           </div>
+          {generationMode === "local" ? (
+            <p className="notice">Local Mode uses the Colab runtime and does not require provider API keys.</p>
+          ) : null}
           <form className="form" onSubmit={saveKey}>
             <div className="field">
               <label htmlFor="provider-slug">Provider</label>
@@ -222,7 +238,7 @@ export function DashboardClient({
                 onChange={(event) => setProviderKey(event.target.value)}
               />
             </div>
-            <button className="button" type="submit">
+            <button className="button" type="submit" disabled={generationMode === "local"}>
               <KeyRound size={17} aria-hidden="true" />
               Save key
             </button>
@@ -248,7 +264,7 @@ export function DashboardClient({
                   <div>
                     <h3>{project.title}</h3>
                     <p className="meta">
-                      {project.targetFormat} · {project.aspectRatio} · {project.rightsPolicy}
+                      {project.targetFormat} · {project.aspectRatio} · {project.generationMode} · {project.rightsPolicy}
                     </p>
                   </div>
                   <Link className="button secondary" href={`/projects/${project.id}`}>

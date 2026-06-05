@@ -5,6 +5,7 @@ describe("Google Veo smoke helper", () => {
   it("requires a real API key", async () => {
     await expect(runGoogleVeoSmoke({ apiKey: " mock " })).rejects.toThrow(/GEMINI_API_KEY/);
     await expect(runGoogleVeoSmoke({ apiKey: "" })).rejects.toThrow(/GEMINI_API_KEY/);
+    await expect(runGoogleVeoSmoke({ apiKey: "abc" })).rejects.toThrow(/GEMINI_API_KEY/);
   });
 
   it("submits a low-duration Veo operation and verifies the status endpoint", async () => {

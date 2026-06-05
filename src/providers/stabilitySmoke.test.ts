@@ -5,6 +5,7 @@ describe("Stability smoke helper", () => {
   it("requires a real API key", async () => {
     await expect(runStabilitySmoke({ apiKey: " Mock " })).rejects.toThrow(/STABILITY_API_KEY/);
     await expect(runStabilitySmoke({ apiKey: "" })).rejects.toThrow(/STABILITY_API_KEY/);
+    await expect(runStabilitySmoke({ apiKey: "abc" })).rejects.toThrow(/STABILITY_API_KEY/);
   });
 
   it("performs a single-image Stable Image Core smoke call", async () => {

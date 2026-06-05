@@ -34,6 +34,9 @@ const configSchema = z.object({
     .refine((value) => process.env.NODE_ENV !== "production" || value !== "memory", {
       message: "must be unset or prisma in production",
     }),
+  GENERATION_MODE_DEFAULT: z.enum(["cloud", "local"]).default("cloud"),
+  LOCAL_RUNTIME_URL: z.string().url().default("http://127.0.0.1:7861"),
+  LOCAL_RUNTIME_PRESET: z.enum(["auto", "a100-full", "l4-balanced", "t4-starter"]).default("auto"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
   PORT: z.coerce.number().int().positive().default(3000),
 });
@@ -54,6 +57,9 @@ function developmentFallbacks() {
     NEXTAUTH_SECRET: DEVELOPMENT_NEXTAUTH_SECRET,
     ENCRYPTION_KEY: DEVELOPMENT_ENCRYPTION_KEY,
     STORAGE_ROOT: "./storage",
+    GENERATION_MODE_DEFAULT: "cloud",
+    LOCAL_RUNTIME_URL: "http://127.0.0.1:7861",
+    LOCAL_RUNTIME_PRESET: "auto",
     LOG_LEVEL: "info",
   };
 }

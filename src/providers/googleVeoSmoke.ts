@@ -1,5 +1,5 @@
 import { GoogleVeoAdapter } from "@/providers/videoProviders";
-import { isMockProviderApiKey, normalizeProviderApiKey } from "@/providers/providerKeySafety";
+import { isLiveProviderApiKey, normalizeProviderApiKey } from "@/providers/providerKeySafety";
 import type { AsyncJobStatus, ComposedPrompt } from "@/providers/types";
 
 export type GoogleVeoSmokeResult = {
@@ -17,7 +17,7 @@ export async function runGoogleVeoSmoke(input: {
   fetchImpl?: typeof fetch;
 }): Promise<GoogleVeoSmokeResult> {
   const apiKey = normalizeProviderApiKey(input.apiKey);
-  if (!apiKey || isMockProviderApiKey(apiKey)) {
+  if (!isLiveProviderApiKey(apiKey)) {
     throw new Error("GEMINI_API_KEY must be set to a real Google AI API key for the live Veo smoke test.");
   }
 

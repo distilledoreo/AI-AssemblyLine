@@ -338,6 +338,10 @@ export function ProjectDashboardClient({
               <span className="meta">{project.aspectRatio}</span>
             </li>
             <li className="list-item">
+              <span>Generation mode</span>
+              <span className="meta">{project.generationMode === "local" ? "Local Mode" : "Cloud Mode"}</span>
+            </li>
+            <li className="list-item">
               <span>Rights policy</span>
               <span className="meta">{project.rightsPolicy}</span>
             </li>
@@ -486,7 +490,7 @@ export function ProjectDashboardClient({
                         }
                       >
                         <Sparkles size={15} aria-hidden="true" />
-                        Generate
+                        {project.generationMode === "local" ? "Generate local" : "Generate"}
                       </button>
                       <button className="button secondary" type="button" onClick={() => approveAsset(asset)}>
                         <Save size={15} aria-hidden="true" />
@@ -586,7 +590,7 @@ export function ProjectDashboardClient({
                         onClick={() => storyboardAction({ action: "generate", shotId: shot.id, keyframeIndex: 0 })}
                       >
                         <Sparkles size={15} aria-hidden="true" />
-                        Generate frame
+                        {project.generationMode === "local" ? "Generate local frame" : "Generate frame"}
                       </button>
                       {latest ? (
                         <>
@@ -672,11 +676,12 @@ export function ProjectDashboardClient({
                         }
                       >
                         <Film size={15} aria-hidden="true" />
-                        Generate Runway
+                        {project.generationMode === "local" ? "Generate local" : "Generate Runway"}
                       </button>
                       <button
                         className="button secondary"
                         type="button"
+                        hidden={project.generationMode === "local"}
                         onClick={() =>
                           videoAction({ action: "generate", mode: "shot", shotId: shot.id, providerSlug: "google-ai" })
                         }
@@ -713,7 +718,7 @@ export function ProjectDashboardClient({
                 onClick={() => videoAction({ action: "generate", mode: "scene", sceneId: scene.id, providerSlug: "runway" })}
               >
                 <Film size={15} aria-hidden="true" />
-                Runway scene {scene.sceneNumber}
+                {project.generationMode === "local" ? "Local scene" : "Runway scene"} {scene.sceneNumber}
               </button>
             ))}
             {analysisGraph.scenes.map((scene) => (
@@ -721,6 +726,7 @@ export function ProjectDashboardClient({
                 className="button secondary"
                 key={`${scene.id}-google-ai`}
                 type="button"
+                hidden={project.generationMode === "local"}
                 onClick={() => videoAction({ action: "generate", mode: "scene", sceneId: scene.id, providerSlug: "google-ai" })}
               >
                 <Film size={15} aria-hidden="true" />

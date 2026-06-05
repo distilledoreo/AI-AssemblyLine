@@ -261,6 +261,7 @@ model Project {
   targetFormat     String
   aspectRatio      String
   estimatedRuntime Int?
+  generationMode   String          @default("cloud")
   storagePath      String
   rightsPolicy     RightsPolicy    @default(unrestricted)
   style            ProjectStyle?

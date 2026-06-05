@@ -1,7 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { OpenAIAdapter } from "@/providers/openai";
-import { StabilityAdapter } from "@/providers/stability";
 import { AppError, NotFoundError } from "@/server/errors";
+import { createImageAdapterForProject, localModelIdForJob, localProviderSlugForJob, resolveProjectGenerationMode } from "@/server/generationMode";
 import {
   addJobEvent,
   completeGenerationJob,
@@ -21,7 +20,6 @@ import {
   refreshPrismaReadiness,
 } from "@/server/repository";
 import { isRedisQueueEnabled } from "@/server/queue";
-import { resolveOpenAiApiKeyForProject, resolveStabilityApiKeyForProject } from "@/server/providerKeys";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath, storagePath } from "@/server/storage";
 import { markFramesStaleForAsset } from "@/server/storyboard";
@@ -115,16 +113,14 @@ export async function generateAssetReference(input: {
 }) {
   const graph = await getScriptAnalysisGraphForProject(input.projectId);
   const asset = await resolveProjectAsset(input.projectId, input.assetId, graph);
-  const adapter =
-    input.providerSlug === "stability"
-      ? new StabilityAdapter(await resolveStabilityApiKeyForProject(input.projectId))
-      : new OpenAIAdapter(await resolveOpenAiApiKeyForProject(input.projectId));
+  const mode = await resolveProjectGenerationMode(input.projectId);
+  const adapter = await createImageAdapterForProject(input.projectId, input.providerSlug);
   const job = await createGenerationJob({
     projectId: input.projectId,
     type: "asset_reference",
-    providerSlug: adapter.slug,
-    modelId: input.providerSlug === "stability" ? "stable-image-core" : "gpt-image-1",
-    inputPayload: { projectId: input.projectId, assetId: asset.id, providerSlug: input.providerSlug },
+    providerSlug: mode === "local" ? localProviderSlugForJob("image") : adapter.slug,
+    modelId: mode === "local" ? process.env.LOCAL_IMAGE_MODEL ?? localModelIdForJob("image") : input.providerSlug === "stability" ? "stable-image-core" : "gpt-image-1",
+    inputPayload: { projectId: input.projectId, assetId: asset.id, providerSlug: input.providerSlug, generationMode: mode },
   });
   if (isRedisQueueEnabled()) {
     return { job, graph: await getScriptAnalysisGraphForProject(input.projectId) };
@@ -149,10 +145,8 @@ export async function processAssetReferenceJob(input: {
   if (!job) {
     throw new NotFoundError("Generation job not found.");
   }
-  const adapter =
-    input.providerSlug === "stability"
-      ? new StabilityAdapter(await resolveStabilityApiKeyForProject(input.projectId))
-      : new OpenAIAdapter(await resolveOpenAiApiKeyForProject(input.projectId));
+  const mode = await resolveProjectGenerationMode(input.projectId);
+  const adapter = await createImageAdapterForProject(input.projectId, input.providerSlug);
   await addJobEvent({
     jobId: job.id,
     projectId: input.projectId,
@@ -173,11 +167,11 @@ export async function processAssetReferenceJob(input: {
   const version = buildAssetVersion(
     asset,
     graph.assetVersions,
-    { description: `Generated ${input.providerSlug} reference sheet.` },
+    { description: `Generated ${mode === "local" ? "local Qwen-Image" : input.providerSlug} reference sheet.` },
   );
   const dir = storagePath(projectFolderPath(input.projectId, "assets"), asset.id);
   await mkdir(dir, { recursive: true });
-  const filePath = storagePath(dir, `${version.versionNumber}-${input.providerSlug}-reference.png`);
+  const filePath = storagePath(dir, `${version.versionNumber}-${mode === "local" ? "local" : input.providerSlug}-reference.png`);
   await writeFile(filePath, result.images[0].data);
   const reference: AssetReference = {
     id: createId(),

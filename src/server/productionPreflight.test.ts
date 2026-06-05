@@ -132,19 +132,49 @@ describe("production preflight", () => {
 
     expect(results.find((result) => result.name === "OPENAI_API_KEY")).toMatchObject({
       ok: false,
-      detail: "missing, mock, or placeholder",
+      detail: "missing, mock, placeholder, or too short",
     });
     expect(results.find((result) => result.name === "STABILITY_API_KEY")).toMatchObject({
       ok: false,
-      detail: "missing, mock, or placeholder",
+      detail: "missing, mock, placeholder, or too short",
     });
     expect(results.find((result) => result.name === "RUNWAYML_API_SECRET")).toMatchObject({
       ok: false,
-      detail: "missing, mock, or placeholder",
+      detail: "missing, mock, placeholder, or too short",
     });
     expect(results.find((result) => result.name === "GEMINI_API_KEY or GOOGLE_AI_API_KEY")).toMatchObject({
       ok: false,
-      detail: "missing, mock, or placeholder",
+      detail: "missing, mock, placeholder, or too short",
+    });
+  });
+
+  it("rejects trivial provider key strings that are not known placeholders", () => {
+    const results = evaluateProductionPreflight(
+      {
+        ...validEnv,
+        OPENAI_API_KEY: "abc",
+        STABILITY_API_KEY: "123456789012",
+        RUNWAYML_API_SECRET: "abcdefghijkl",
+        GEMINI_API_KEY: "short-key",
+      },
+      () => true,
+    );
+
+    expect(results.find((result) => result.name === "OPENAI_API_KEY")).toMatchObject({
+      ok: false,
+      detail: "missing, mock, placeholder, or too short",
+    });
+    expect(results.find((result) => result.name === "STABILITY_API_KEY")).toMatchObject({
+      ok: false,
+      detail: "missing, mock, placeholder, or too short",
+    });
+    expect(results.find((result) => result.name === "RUNWAYML_API_SECRET")).toMatchObject({
+      ok: false,
+      detail: "missing, mock, placeholder, or too short",
+    });
+    expect(results.find((result) => result.name === "GEMINI_API_KEY or GOOGLE_AI_API_KEY")).toMatchObject({
+      ok: false,
+      detail: "missing, mock, placeholder, or too short",
     });
   });
 

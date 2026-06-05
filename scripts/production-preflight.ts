@@ -105,28 +105,28 @@ export function evaluateProductionPreflight(
   results.push({
     name: "OPENAI_API_KEY",
     ok: isLiveProviderApiKey(openAiKey),
-    detail: isLiveProviderApiKey(openAiKey) ? "configured for live smoke test" : "missing, mock, or placeholder",
+    detail: isLiveProviderApiKey(openAiKey) ? "configured for live smoke test" : "missing, mock, placeholder, or too short",
   });
 
   const stabilityKey = env.STABILITY_API_KEY?.trim() ?? "";
   results.push({
     name: "STABILITY_API_KEY",
     ok: isLiveProviderApiKey(stabilityKey),
-    detail: isLiveProviderApiKey(stabilityKey) ? "configured for live smoke test" : "missing, mock, or placeholder",
+    detail: isLiveProviderApiKey(stabilityKey) ? "configured for live smoke test" : "missing, mock, placeholder, or too short",
   });
 
   const runwayKey = env.RUNWAYML_API_SECRET?.trim() ?? "";
   results.push({
     name: "RUNWAYML_API_SECRET",
     ok: isLiveProviderApiKey(runwayKey),
-    detail: isLiveProviderApiKey(runwayKey) ? "configured for live video submission" : "missing, mock, or placeholder",
+    detail: isLiveProviderApiKey(runwayKey) ? "configured for live video submission" : "missing, mock, placeholder, or too short",
   });
 
   const geminiKey = env.GEMINI_API_KEY?.trim() || env.GOOGLE_AI_API_KEY?.trim() || "";
   results.push({
     name: "GEMINI_API_KEY or GOOGLE_AI_API_KEY",
     ok: isLiveProviderApiKey(geminiKey),
-    detail: isLiveProviderApiKey(geminiKey) ? "configured for live Veo submission" : "missing, mock, or placeholder",
+    detail: isLiveProviderApiKey(geminiKey) ? "configured for live Veo submission" : "missing, mock, placeholder, or too short",
   });
 
   results.push(oauthPairCheck("Google OAuth", env, ["AUTH_GOOGLE_ID", "GOOGLE_CLIENT_ID", "GOOGLE_ID"], [

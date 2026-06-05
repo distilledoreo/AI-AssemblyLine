@@ -48,10 +48,10 @@ describe("health checks", () => {
     process.env.NEXTAUTH_SECRET = "test-secret-with-at-least-32-chars";
     process.env.ENCRYPTION_KEY = Buffer.alloc(32, 4).toString("base64");
     process.env.STORAGE_ROOT = storageRoot;
-    process.env.OPENAI_API_KEY = "sk-live-health";
-    process.env.STABILITY_API_KEY = "sk-stability-health";
-    process.env.RUNWAYML_API_SECRET = "key_runway_health";
-    process.env.GOOGLE_AI_API_KEY = "google-ai-live-health";
+    process.env.OPENAI_API_KEY = "sk-live-health-abc123";
+    process.env.STABILITY_API_KEY = "sk-stability-health-abc123";
+    process.env.RUNWAYML_API_SECRET = "key-runway-health-abc123";
+    process.env.GOOGLE_AI_API_KEY = "google-ai-live-health-abc123";
     resetConfigForTests();
 
     prismaMock.$queryRaw.mockResolvedValue([{ "?column?": 1 }]);

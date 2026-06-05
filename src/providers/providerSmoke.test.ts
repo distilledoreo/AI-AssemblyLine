@@ -26,8 +26,8 @@ describe("provider smoke suite", () => {
 
     const results = await runProviderSmokeSuite({
       env: {
-        OPENAI_API_KEY: "sk-openai-live",
-        STABILITY_API_KEY: "sk-stability-live",
+        OPENAI_API_KEY: "sk-openai-live-abc123",
+        STABILITY_API_KEY: "sk-stability-live-abc123",
         RUNWAYML_API_SECRET: "rw-prod-runway-smoke-abc123",
         GEMINI_API_KEY: "gemini-prod-veo-smoke-abc123",
       },
@@ -65,8 +65,8 @@ describe("provider smoke suite", () => {
       await writeFile(
         path.join(tempRoot, ".env.production.local"),
         [
-          "OPENAI_API_KEY=sk-openai-live",
-          "STABILITY_API_KEY=sk-stability-live",
+          "OPENAI_API_KEY=sk-openai-live-abc123",
+          "STABILITY_API_KEY=sk-stability-live-abc123",
           "RUNWAYML_API_SECRET=rw-prod-runway-smoke-abc123",
           "GEMINI_API_KEY=gemini-prod-veo-smoke-abc123",
           "",

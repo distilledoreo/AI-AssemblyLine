@@ -40,6 +40,7 @@ The app is designed for both single creators and production teams. It will analy
 - [Testing strategy](docs/testing-strategy.md) — test categories, provider mock factory, CI expectations.
 - [API reference](docs/api-reference.md) — project workflow and operations endpoints.
 - [Setup guide](docs/setup-guide.md) — local setup, verification commands, and export/import smoke test.
+- [Local Mode on Google Colab Pro](docs/local-mode-colab.md) — no-provider-key setup using a Colab-hosted local runtime.
 - [Production readiness audit](docs/production-readiness-audit.md) — current evidence, blockers, and remaining production gaps.
 - [Implementation roadmap](docs/implementation-roadmap.md) — phased build order with deliverables and exit criteria.
 - [Phase 1 foundation](docs/phase-1-foundation.md) — runnable app shell, setup flow, auth/RBAC, provider keys, storage, queues, and SSE verification.
@@ -74,6 +75,8 @@ npm run dev
 ```
 
 Open `http://localhost:3000/signin`, sign in with any valid email and a password of at least four characters, create a workspace and project, save an OpenAI key, then open the project dashboard to verify the live SSE connection. Use the Script analysis panel to upload sample script text, review the generated breakdown, generate and approve Asset Bible references, approve storyboard frames and video clips, invite or assign collaborators, then export and import a project bundle from the operations panel.
+
+For users who do not want to configure provider API keys, create the project in **Local Mode** and run the Colab notebook in `notebooks/AI_AssemblyLine_Local_Mode_Colab.ipynb`. Local Mode sends text, image, and video generation to the local runtime gateway instead of OpenAI, Stability, Runway, or Google AI.
 
 The `services:up` script requires Docker Compose and starts the local Postgres and Redis services defined in `compose.yaml`. If Docker is unavailable, install or start equivalent Postgres and Redis services yourself and point `DATABASE_URL` and `REDIS_URL` at them.
 

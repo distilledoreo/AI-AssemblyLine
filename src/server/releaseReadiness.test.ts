@@ -21,11 +21,27 @@ describe("release readiness", () => {
 
     expect(results.find((result) => result.name === "local OPENAI_API_KEY")).toMatchObject({
       ok: false,
-      detail: "missing, mock, or placeholder",
+      detail: "missing, mock, placeholder, or too short",
     });
     expect(results.find((result) => result.name === "local GEMINI_API_KEY or GOOGLE_AI_API_KEY")).toMatchObject({
       ok: true,
     });
+  });
+
+  it("rejects trivial local provider credential strings", () => {
+    const results = evaluateLocalProviderCredentials({
+      OPENAI_API_KEY: "abc",
+      STABILITY_API_KEY: "123456789012",
+      RUNWAYML_API_SECRET: "abcdefghijkl",
+      GOOGLE_AI_API_KEY: "short-key",
+    });
+
+    expect(results.filter((result) => !result.ok).map((result) => result.detail)).toEqual([
+      "missing, mock, placeholder, or too short",
+      "missing, mock, placeholder, or too short",
+      "missing, mock, placeholder, or too short",
+      "missing, mock, placeholder, or too short",
+    ]);
   });
 
   it("checks GitHub provider secrets by name without reading secret values", () => {

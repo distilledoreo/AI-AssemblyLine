@@ -14,6 +14,7 @@ const createProjectSchema = z.object({
   targetFormat: z.string().default("short_film"),
   aspectRatio: z.string().default("16:9"),
   estimatedRuntime: z.number().int().positive().optional(),
+  generationMode: z.enum(["cloud", "local"]).optional(),
   rightsPolicy: z
     .enum(["unrestricted", "no_real_people", "client_owned", "custom"])
     .default("unrestricted"),

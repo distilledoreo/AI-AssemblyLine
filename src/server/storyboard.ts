@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { OpenAIAdapter } from "@/providers/openai";
 import { AppError, NotFoundError } from "@/server/errors";
+import { createImageAdapterForProject, localModelIdForJob, localProviderSlugForJob, resolveProjectGenerationMode } from "@/server/generationMode";
 import {
   completeGenerationJob,
   createGenerationJob,
@@ -16,7 +16,6 @@ import {
   persistStoryboardFrameState,
 } from "@/server/repository";
 import { isRedisQueueEnabled } from "@/server/queue";
-import { resolveOpenAiApiKeyForProject } from "@/server/providerKeys";
 import { composeStoryboardPrompt } from "@/server/promptEngine";
 import { createId, nowIso } from "@/server/ids";
 import { projectFolderPath } from "@/server/storage";
@@ -37,16 +36,18 @@ export async function generateStoryboardFrame(input: {
   const scene = graph.scenes.find((candidate) => candidate.id === shot.sceneId);
   if (!scene) throw new NotFoundError("Scene not found.");
   const keyframeIndex = validateKeyframeIndex(input.keyframeIndex ?? 0);
+  const mode = await resolveProjectGenerationMode(input.projectId);
   const job = await createGenerationJob({
     projectId: input.projectId,
     type: "storyboard_frame",
-    providerSlug: "openai",
-    modelId: "gpt-image-1",
+    providerSlug: mode === "local" ? localProviderSlugForJob("image") : "openai",
+    modelId: mode === "local" ? process.env.LOCAL_IMAGE_MODEL ?? localModelIdForJob("image") : "gpt-image-1",
     inputPayload: {
       projectId: input.projectId,
       shotId: input.shotId,
       keyframeIndex,
       userDirection: input.userDirection,
+      generationMode: mode,
     },
   });
   if (isRedisQueueEnabled()) {
@@ -95,8 +96,9 @@ export async function processStoryboardFrameJob(input: {
     assets: graph.assets.filter((asset) => requiredAssetIds.has(asset.id)),
     userDirection: input.userDirection,
   });
-  const result = await new OpenAIAdapter(await resolveOpenAiApiKeyForProject(input.projectId)).generateImage(prompt, {
-    modelId: "gpt-image-1",
+  const mode = await resolveProjectGenerationMode(input.projectId);
+  const result = await (await createImageAdapterForProject(input.projectId, "openai")).generateImage(prompt, {
+    modelId: job.modelId ?? (mode === "local" ? localModelIdForJob("image") : "gpt-image-1"),
     width: 1024,
     height: 576,
     count: 1,

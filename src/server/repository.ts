@@ -20,6 +20,7 @@ import type {
   ProjectRole,
   ProjectStyle,
   ProviderKey,
+  GenerationMode,
   ReviewNote,
   RightsPolicy,
   Asset,
@@ -182,6 +183,7 @@ function mapProject(project: {
   targetFormat: string;
   aspectRatio: string;
   estimatedRuntime?: number | null;
+  generationMode?: string | null;
   storagePath: string;
   rightsPolicy: RightsPolicy;
   createdAt: Date | string;
@@ -194,6 +196,7 @@ function mapProject(project: {
     targetFormat: project.targetFormat,
     aspectRatio: project.aspectRatio,
     estimatedRuntime: project.estimatedRuntime ?? undefined,
+    generationMode: normalizeGenerationMode(project.generationMode),
     storagePath: project.storagePath,
     rightsPolicy: project.rightsPolicy,
     createdAt: iso(project.createdAt),
@@ -1125,6 +1128,7 @@ export async function createProjectForWorkspace(
     targetFormat?: string;
     aspectRatio?: string;
     estimatedRuntime?: number;
+    generationMode?: GenerationMode;
     rightsPolicy?: RightsPolicy;
   },
 ) {
@@ -1149,6 +1153,7 @@ export async function createProjectForWorkspace(
         targetFormat: input.targetFormat ?? "short_film",
         aspectRatio: input.aspectRatio ?? "16:9",
         estimatedRuntime: input.estimatedRuntime,
+        generationMode: input.generationMode ?? defaultGenerationMode(),
         storagePath,
         rightsPolicy: input.rightsPolicy ?? "unrestricted",
         members: { create: { userId, role: "owner" } },
@@ -1184,6 +1189,7 @@ export async function createProjectForWorkspace(
     targetFormat: input.targetFormat ?? "short_film",
     aspectRatio: input.aspectRatio ?? "16:9",
     estimatedRuntime: input.estimatedRuntime,
+    generationMode: input.generationMode ?? defaultGenerationMode(),
     storagePath: projectStoragePath(createId()),
     rightsPolicy: input.rightsPolicy ?? "unrestricted",
     createdAt: timestamp,
@@ -2058,6 +2064,14 @@ function prismaAssetUpdateArgs(asset: Asset): Prisma.AssetUpdateArgs {
       isUserEdited: asset.isUserEdited ?? false,
     },
   };
+}
+
+function normalizeGenerationMode(value: string | null | undefined): GenerationMode {
+  return value === "local" ? "local" : "cloud";
+}
+
+function defaultGenerationMode(): GenerationMode {
+  return normalizeGenerationMode(process.env.GENERATION_MODE_DEFAULT);
 }
 
 export async function getSceneById(sceneId: string) {
@@ -3348,7 +3362,7 @@ export function refreshLocalReadiness(projectId: string) {
 
 export async function updateProject(
   projectId: string,
-  input: Partial<Pick<Project, "title" | "targetFormat" | "aspectRatio" | "estimatedRuntime" | "rightsPolicy">>,
+  input: Partial<Pick<Project, "title" | "targetFormat" | "aspectRatio" | "estimatedRuntime" | "generationMode" | "rightsPolicy">>,
 ) {
   if (isPrismaRepositoryEnabled()) {
     try {

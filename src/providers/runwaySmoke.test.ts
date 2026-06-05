@@ -5,6 +5,7 @@ describe("Runway smoke helper", () => {
   it("requires a real API key", async () => {
     await expect(runRunwaySmoke({ apiKey: " mOcK " })).rejects.toThrow(/RUNWAYML_API_SECRET/);
     await expect(runRunwaySmoke({ apiKey: "" })).rejects.toThrow(/RUNWAYML_API_SECRET/);
+    await expect(runRunwaySmoke({ apiKey: "abc" })).rejects.toThrow(/RUNWAYML_API_SECRET/);
   });
 
   it("submits a low-duration Runway video task and verifies the status endpoint", async () => {

@@ -1,4 +1,4 @@
-import { isMockProviderApiKey, normalizeProviderApiKey } from "@/providers/providerKeySafety";
+import { isLiveProviderApiKey, normalizeProviderApiKey } from "@/providers/providerKeySafety";
 import { StabilityAdapter } from "@/providers/stability";
 import type { ComposedPrompt } from "@/providers/types";
 
@@ -16,7 +16,7 @@ export async function runStabilitySmoke(input: {
   fetchImpl?: typeof fetch;
 }): Promise<StabilitySmokeResult> {
   const apiKey = normalizeProviderApiKey(input.apiKey);
-  if (!apiKey || isMockProviderApiKey(apiKey)) {
+  if (!isLiveProviderApiKey(apiKey)) {
     throw new Error("STABILITY_API_KEY must be set to a real Stability API key for the live smoke test.");
   }
 

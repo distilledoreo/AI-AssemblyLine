@@ -1,4 +1,4 @@
-import { isMockProviderApiKey, normalizeProviderApiKey } from "@/providers/providerKeySafety";
+import { isLiveProviderApiKey, normalizeProviderApiKey } from "@/providers/providerKeySafety";
 import { RunwayAdapter } from "@/providers/videoProviders";
 import type { AsyncJobStatus, ComposedPrompt } from "@/providers/types";
 
@@ -17,7 +17,7 @@ export async function runRunwaySmoke(input: {
   fetchImpl?: typeof fetch;
 }): Promise<RunwaySmokeResult> {
   const apiKey = normalizeProviderApiKey(input.apiKey);
-  if (!apiKey || isMockProviderApiKey(apiKey)) {
+  if (!isLiveProviderApiKey(apiKey)) {
     throw new Error("RUNWAYML_API_SECRET must be set to a real Runway API key for the live smoke test.");
   }
 
