@@ -30,6 +30,8 @@ The product promise is that nontechnical users can complete the idea-to-video wo
 
 Local Mode does not require OpenAI, Stability, Runway, or Google AI keys. An optional Hugging Face token may be needed when downloading gated or rate-limited model files.
 
+The notebook serves the Next.js app through Colab's `googleusercontent.com` proxy. The app is configured to allow that development origin, so the React client bundle can hydrate and the dashboard buttons remain interactive through the printed proxy link. If a runtime or proxy request fails, dashboard buttons show a working status followed by the actual error instead of failing silently in the browser console.
+
 ## Runtime Contract
 
 The local runtime exposes:

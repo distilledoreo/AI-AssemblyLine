@@ -88,6 +88,7 @@ export function ProjectDashboardClient({
   const [scriptText, setScriptText] = useState(sampleScript);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [activeAction, setActiveAction] = useState("");
   const [operations, setOperations] = useState<OperationsPayload | null>(null);
   const [operationsError, setOperationsError] = useState("");
 
@@ -136,142 +137,140 @@ export function ProjectDashboardClient({
       });
   }, [project.id]);
 
-  async function uploadScript() {
+  async function requestJson(path: string, init?: RequestInit) {
+    const response = await fetch(path, init);
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(body?.error?.message ?? `Request failed with status ${response.status}.`);
+    }
+    if (!body) {
+      throw new Error("The server returned an empty response.");
+    }
+    return body;
+  }
+
+  async function runAction(label: string, action: () => Promise<void>) {
     setNotice("");
     setError("");
-    const response = await fetch(`/api/projects/${project.id}/scripts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: "phase-2-script.txt", text: scriptText }),
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      setError(body.error?.message ?? "Script analysis failed.");
-      return;
+    setActiveAction(label);
+    try {
+      await action();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Action failed.");
+    } finally {
+      setActiveAction("");
     }
-    setAnalysisGraph(body);
-    setNotice("Script uploaded and analyzed.");
+  }
+
+  async function uploadScript() {
+    await runAction("Uploading and analyzing script...", async () => {
+      const body = await requestJson(`/api/projects/${project.id}/scripts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: "phase-2-script.txt", text: scriptText }),
+      });
+      setAnalysisGraph(body);
+      setNotice("Script uploaded and analyzed.");
+    });
   }
 
   async function reanalyze() {
-    setNotice("");
-    setError("");
-    const response = await fetch(`/api/projects/${project.id}/scripts`, { method: "PATCH" });
-    const body = await response.json();
-    if (!response.ok) {
-      setError(body.error?.message ?? "Re-analysis failed.");
-      return;
-    }
-    setAnalysisGraph(body);
-    setNotice("Re-analysis complete with user edits preserved.");
+    await runAction("Re-analyzing script...", async () => {
+      const body = await requestJson(`/api/projects/${project.id}/scripts`, { method: "PATCH" });
+      setAnalysisGraph(body);
+      setNotice("Re-analysis complete with user edits preserved.");
+    });
   }
 
   async function saveScene(scene: Scene, summary: string) {
-    const response = await fetch(`/api/projects/${project.id}/scenes/${scene.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ summary }),
-    });
-    const body = await response.json();
-    if (response.ok) {
+    await runAction("Saving scene edit...", async () => {
+      const body = await requestJson(`/api/projects/${project.id}/scenes/${scene.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ summary }),
+      });
       setAnalysisGraph((current) => ({
         ...current,
         scenes: current.scenes.map((candidate) => (candidate.id === scene.id ? body.scene : candidate)),
       }));
       setNotice("Scene edit saved.");
-    }
+    });
   }
 
   async function saveShot(shot: Shot, userDirection: string) {
-    const response = await fetch(`/api/projects/${project.id}/shots/${shot.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userDirection }),
-    });
-    const body = await response.json();
-    if (response.ok) {
+    await runAction("Saving shot direction...", async () => {
+      const body = await requestJson(`/api/projects/${project.id}/shots/${shot.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userDirection }),
+      });
       setAnalysisGraph((current) => ({
         ...current,
         shots: current.shots.map((candidate) => (candidate.id === shot.id ? body.shot : candidate)),
       }));
       setNotice("Shot direction saved.");
-    }
+    });
   }
 
   async function approveAsset(asset: Asset) {
-    await assetBibleAction({ action: "status", assetId: asset.id, status: "approved" });
-    setNotice(`${asset.canonicalName} approved.`);
+    await assetBibleAction({ action: "status", assetId: asset.id, status: "approved" }, `${asset.canonicalName} approved.`);
   }
 
-  async function assetBibleAction(payload: unknown) {
-    const response = await fetch(`/api/projects/${project.id}/asset-bible`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const body = await response.json();
-    if (response.ok) {
+  async function assetBibleAction(payload: unknown, successMessage = "Asset Bible updated.") {
+    await runAction("Updating Asset Bible...", async () => {
+      const body = await requestJson(`/api/projects/${project.id}/asset-bible`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
       setAnalysisGraph(body);
-    } else {
-      setError(body.error?.message ?? "Asset Bible action failed.");
-    }
+      setNotice(successMessage);
+    });
   }
 
   async function storyboardAction(payload: unknown) {
-    const response = await fetch(`/api/projects/${project.id}/storyboards`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const body = await response.json();
-    if (response.ok) {
+    await runAction("Updating storyboard...", async () => {
+      const body = await requestJson(`/api/projects/${project.id}/storyboards`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
       setAnalysisGraph(body);
       setNotice("Storyboard updated.");
-    } else {
-      setError(body.error?.message ?? "Storyboard action failed.");
-    }
+    });
   }
 
   async function videoAction(payload: unknown) {
-    const response = await fetch(`/api/projects/${project.id}/videos`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const body = await response.json();
-    if (response.ok) {
+    await runAction("Updating video workflow...", async () => {
+      const body = await requestJson(`/api/projects/${project.id}/videos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
       setAnalysisGraph(body);
       setNotice("Video workflow updated.");
-    } else {
-      setError(body.error?.message ?? "Video action failed.");
-    }
+    });
   }
 
   async function collaborationAction(payload: unknown) {
-    const response = await fetch(`/api/projects/${project.id}/collaboration`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const body = await response.json();
-    if (response.ok) {
+    await runAction("Updating collaboration...", async () => {
+      const body = await requestJson(`/api/projects/${project.id}/collaboration`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
       setAnalysisGraph(body);
       setNotice(body.inviteToken ? `Invitation created. Token: ${body.inviteToken}` : "Collaboration updated.");
-    } else {
-      setError(body.error?.message ?? "Collaboration action failed.");
-    }
+    });
   }
 
   async function operationsAction(payload: unknown) {
-    setNotice("");
-    setError("");
-    const response = await fetch(`/api/projects/${project.id}/operations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const body = await response.json();
-    if (response.ok) {
+    await runAction("Updating project operations...", async () => {
+      const body = await requestJson(`/api/projects/${project.id}/operations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
       setOperations(body);
       if (body.graph) setAnalysisGraph(body.graph);
       setNotice(
@@ -285,12 +284,11 @@ export function ProjectDashboardClient({
               ? "Import queued."
             : "Project operations updated.",
       );
-    } else {
-      setError(body.error?.message ?? "Project operation failed.");
-    }
+    });
   }
 
   const show = (target: ProjectDashboardView) => view === "overview" || view === target;
+  const actionInProgress = activeAction.length > 0;
   const workflowLinks: Array<{ href: string; label: string; target: ProjectDashboardView }> = [
     { href: `/projects/${project.id}`, label: "Overview", target: "overview" },
     { href: `/projects/${project.id}/script`, label: "Script", target: "script" },
@@ -323,9 +321,14 @@ export function ProjectDashboardClient({
         ))}
       </nav>
       {notice ? <p className="notice">{notice}</p> : null}
+      {activeAction ? (
+        <p className="notice" role="status">
+          {activeAction}
+        </p>
+      ) : null}
       {error ? <p className="error">{error}</p> : null}
 
-      <div className="grid">
+      <div className="grid" aria-busy={actionInProgress}>
         <section className="panel span-6" hidden={!show("overview")} aria-labelledby="overview-heading">
           <h2 id="overview-heading">Overview</h2>
           <ul className="list">
@@ -405,11 +408,11 @@ export function ProjectDashboardClient({
           <div className="button-row" style={{ justifyContent: "space-between" }}>
             <h2 id="script-heading">Script analysis</h2>
             <div className="button-row">
-              <button className="button secondary" type="button" onClick={reanalyze}>
+              <button className="button secondary" type="button" onClick={reanalyze} disabled={actionInProgress}>
                 <RefreshCw size={16} aria-hidden="true" />
                 Re-analyze
               </button>
-              <button className="button" type="button" onClick={uploadScript}>
+              <button className="button" type="button" onClick={uploadScript} disabled={actionInProgress}>
                 <FileUp size={16} aria-hidden="true" />
                 Upload and analyze
               </button>
@@ -485,6 +488,7 @@ export function ProjectDashboardClient({
                       <button
                         className="button secondary"
                         type="button"
+                        disabled={actionInProgress}
                         onClick={() =>
                           assetBibleAction({ action: "generate", assetId: asset.id, providerSlug: "stability" })
                         }
@@ -492,13 +496,14 @@ export function ProjectDashboardClient({
                         <Sparkles size={15} aria-hidden="true" />
                         {project.generationMode === "local" ? "Generate local" : "Generate"}
                       </button>
-                      <button className="button secondary" type="button" onClick={() => approveAsset(asset)}>
+                      <button className="button secondary" type="button" onClick={() => approveAsset(asset)} disabled={actionInProgress}>
                         <Save size={15} aria-hidden="true" />
                         Approve
                       </button>
                       <button
                         className="button secondary"
                         type="button"
+                        disabled={actionInProgress}
                         onClick={() => assetBibleAction({ action: "status", assetId: asset.id, status: "locked" })}
                       >
                         <Lock size={15} aria-hidden="true" />
@@ -587,6 +592,7 @@ export function ProjectDashboardClient({
                       <button
                         className="button secondary"
                         type="button"
+                        disabled={actionInProgress}
                         onClick={() => storyboardAction({ action: "generate", shotId: shot.id, keyframeIndex: 0 })}
                       >
                         <Sparkles size={15} aria-hidden="true" />
@@ -597,6 +603,7 @@ export function ProjectDashboardClient({
                           <button
                             className="button secondary"
                             type="button"
+                            disabled={actionInProgress}
                             onClick={() =>
                               storyboardAction({
                                 action: "comment",
@@ -610,6 +617,7 @@ export function ProjectDashboardClient({
                           <button
                             className="button secondary"
                             type="button"
+                            disabled={actionInProgress}
                             onClick={() =>
                               storyboardAction({
                                 action: "frame",
@@ -671,6 +679,7 @@ export function ProjectDashboardClient({
                       <button
                         className="button secondary"
                         type="button"
+                        disabled={actionInProgress}
                         onClick={() =>
                           videoAction({ action: "generate", mode: "shot", shotId: shot.id, providerSlug: "runway" })
                         }
@@ -681,6 +690,7 @@ export function ProjectDashboardClient({
                       <button
                         className="button secondary"
                         type="button"
+                        disabled={actionInProgress}
                         hidden={project.generationMode === "local"}
                         onClick={() =>
                           videoAction({ action: "generate", mode: "shot", shotId: shot.id, providerSlug: "google-ai" })
@@ -693,6 +703,7 @@ export function ProjectDashboardClient({
                         <button
                           className="button secondary"
                           type="button"
+                          disabled={actionInProgress}
                           onClick={() => videoAction({ action: "clip", clipVersionId: latest.id, status: "approved" })}
                         >
                           <Save size={15} aria-hidden="true" />
@@ -715,6 +726,7 @@ export function ProjectDashboardClient({
                 className="button secondary"
                 key={scene.id}
                 type="button"
+                disabled={actionInProgress}
                 onClick={() => videoAction({ action: "generate", mode: "scene", sceneId: scene.id, providerSlug: "runway" })}
               >
                 <Film size={15} aria-hidden="true" />
@@ -726,6 +738,7 @@ export function ProjectDashboardClient({
                 className="button secondary"
                 key={`${scene.id}-google-ai`}
                 type="button"
+                disabled={actionInProgress}
                 hidden={project.generationMode === "local"}
                 onClick={() => videoAction({ action: "generate", mode: "scene", sceneId: scene.id, providerSlug: "google-ai" })}
               >
@@ -748,6 +761,7 @@ export function ProjectDashboardClient({
             <button
               className="button secondary"
               type="button"
+              disabled={actionInProgress}
               onClick={() => collaborationAction({ action: "invite", email: "artist@example.com", role: "artist" })}
             >
               Invite artist
@@ -756,6 +770,7 @@ export function ProjectDashboardClient({
               <button
                 className="button secondary"
                 type="button"
+                disabled={actionInProgress}
                 onClick={() =>
                   collaborationAction({
                     action: "assign",
@@ -791,6 +806,7 @@ export function ProjectDashboardClient({
               aria-label="Export complete project bundle"
               className="button secondary"
               type="button"
+              disabled={actionInProgress}
               onClick={() => operationsAction({ action: "export" })}
             >
               <Archive size={15} aria-hidden="true" />
@@ -801,6 +817,7 @@ export function ProjectDashboardClient({
                 aria-label="Import latest exported project bundle into a new project"
                 className="button secondary"
                 type="button"
+                disabled={actionInProgress}
                 onClick={() => operationsAction({ action: "import", manifestPath: operations.bundles.at(-1)?.manifestPath })}
               >
                 <Archive size={15} aria-hidden="true" />
@@ -811,6 +828,7 @@ export function ProjectDashboardClient({
               aria-label="Clear generated thumbnail cache"
               className="button secondary"
               type="button"
+              disabled={actionInProgress}
               onClick={() => operationsAction({ action: "clear_thumbnails" })}
             >
               <HardDrive size={15} aria-hidden="true" />
