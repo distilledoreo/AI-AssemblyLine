@@ -56,7 +56,7 @@ export function localProviderSlugForJob(type: "text" | "image" | "video") {
 }
 
 export function localModelIdForJob(type: "text" | "image" | "video") {
-  if (type === "text") return "qwen3.6-27b";
-  if (type === "image") return "qwen-image-2512";
-  return "ltx-2.3";
+  if (type === "text") return "Qwen/Qwen3.6-27B";
+  if (type === "image") return "Qwen/Qwen-Image-2512";
+  return "diffusers/LTX-2.3-Diffusers";
 }

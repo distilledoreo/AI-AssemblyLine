@@ -5,7 +5,7 @@ describe("local runtime adapters", () => {
   it("maps Qwen text runtime output to the text adapter contract", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({
       id: "local-text-1",
-      modelId: "qwen3.6-27b",
+      modelId: "Qwen/Qwen3.6-27B",
       content: "{\"ok\":true}",
       usage: { inputTokens: 4, outputTokens: 3 },
     }));
@@ -13,16 +13,16 @@ describe("local runtime adapters", () => {
     const result = await new LocalQwenTextAdapter("http://127.0.0.1:7861", fetchMock).generateStructuredOutput(
       "Return JSON.",
       { type: "object" },
-      { modelId: "qwen3.6-27b", responseFormat: "json" },
+      { modelId: "Qwen/Qwen3.6-27B", responseFormat: "json" },
     );
 
-    expect(result).toMatchObject({ content: "{\"ok\":true}", modelId: "qwen3.6-27b", providerJobId: "local-text-1" });
+    expect(result).toMatchObject({ content: "{\"ok\":true}", modelId: "Qwen/Qwen3.6-27B", providerJobId: "local-text-1" });
     expect(fetchMock).toHaveBeenCalledWith(expect.any(URL), expect.objectContaining({ method: "POST" }));
   });
 
   it("decodes Qwen image runtime base64 images", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({
-      modelId: "qwen-image-2512",
+      modelId: "Qwen/Qwen-Image-2512",
       images: [{ b64: Buffer.from("image-bytes").toString("base64"), mimeType: "image/png" }],
     }));
 
@@ -34,11 +34,11 @@ describe("local runtime adapters", () => {
         generationSettings: { width: 1024, height: 1024 },
         metadata: { sourceIds: [], truncationWarnings: [], conflictWarnings: [] },
       },
-      { modelId: "qwen-image-2512", width: 1024, height: 1024 },
+      { modelId: "Qwen/Qwen-Image-2512", width: 1024, height: 1024 },
     );
 
     expect(result.images[0].data.toString()).toBe("image-bytes");
-    expect(result.modelId).toBe("qwen-image-2512");
+    expect(result.modelId).toBe("Qwen/Qwen-Image-2512");
   });
 
   it("downloads completed LTX video runtime jobs into sync video bytes", async () => {
@@ -56,7 +56,7 @@ describe("local runtime adapters", () => {
         generationSettings: { width: 1024, height: 576, duration: 3 },
         metadata: { sourceIds: [], truncationWarnings: [], conflictWarnings: [] },
       },
-      { modelId: "ltx-2.3", width: 1024, height: 576, durationSeconds: 3 },
+      { modelId: "diffusers/LTX-2.3-Diffusers", width: 1024, height: 576, durationSeconds: 3 },
     );
 
     expect(result.isAsync).toBe(false);

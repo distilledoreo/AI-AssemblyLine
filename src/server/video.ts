@@ -47,6 +47,7 @@ export async function generateVideoClip(input: {
   }
   const adapter = await createVideoAdapterForProject(input.projectId, input.providerSlug ?? "runway");
   const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
+  const durationSeconds = mode === "local" && input.mode === "scene" ? 15 : 3;
   const job = await createGenerationJob({
     projectId: input.projectId,
     type: "video_clip",
@@ -61,6 +62,7 @@ export async function generateVideoClip(input: {
       generationMode: mode,
       prompt,
       sourceFrameVersionIds: frameVersions.map((version) => version.id),
+      durationSeconds,
       polling: { intervalSeconds: 15, maxAttempts: 120 },
     },
   });
@@ -98,6 +100,7 @@ export async function processVideoClipJob(input: {
   }
   const adapter = await createVideoAdapterForProject(input.projectId, input.providerSlug);
   const prompt = composeVideoPrompt(input.mode, graph, input.shotId, input.sceneId);
+  const durationSeconds = mode === "local" && input.mode === "scene" ? 15 : 3;
   const job = await markGenerationJobRunning(input.jobId, "polling");
   if (!job) throw new NotFoundError("Generation job not found.");
   const result = await adapter.generateVideo(
@@ -105,10 +108,10 @@ export async function processVideoClipJob(input: {
       positivePrompt: prompt,
       negativePrompt: "continuity breaks, off-model assets, flicker",
       referenceImages: [],
-      generationSettings: { width: 1024, height: 576, duration: input.mode === "scene" ? frameVersions.length * 3 : 3 },
+      generationSettings: { width: 1024, height: 576, duration: durationSeconds },
       metadata: { sourceIds: frameVersions.map((version) => version.id), conflictWarnings: [], truncationWarnings: [] },
     },
-    { modelId: job.modelId ?? (mode === "local" ? localModelIdForJob("video") : "video-model"), width: 1024, height: 576, durationSeconds: 3 },
+    { modelId: job.modelId ?? (mode === "local" ? localModelIdForJob("video") : "video-model"), width: 1024, height: 576, durationSeconds },
   );
   if (result.isAsync && result.providerJobId && !result.video) {
     await markGenerationJobProviderSubmitted(job.id, {

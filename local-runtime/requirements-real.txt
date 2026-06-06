@@ -1,0 +1,9 @@
+-r requirements.txt
+accelerate>=1.12.0
+bitsandbytes>=0.48.0
+diffusers @ git+https://github.com/huggingface/diffusers
+imageio>=2.37.0
+imageio-ffmpeg>=0.6.0
+sentencepiece>=0.2.1
+torch>=2.9.0
+transformers @ git+https://github.com/huggingface/transformers

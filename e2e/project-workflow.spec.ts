@@ -15,6 +15,11 @@ test("creator can run the core project workflow and export a bundle", async ({ p
   await expect(providerSelect).toContainText("Runway");
   await expect(providerSelect).toContainText("Google AI Veo");
   await expect(providerSelect).not.toContainText("Replicate");
+  await page.getByLabel("Generation mode").selectOption("local");
+  await expect(page.getByText("Local Mode uses the Colab runtime and does not require provider API keys.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save key" })).toBeDisabled();
+  await page.getByLabel("Generation mode").selectOption("cloud");
+  await expect(page.getByRole("button", { name: "Save key" })).toBeEnabled();
 
   const projectId = await page.evaluate(async () => {
     async function api(path: string, options: RequestInit = {}) {
@@ -83,6 +88,23 @@ test("creator can run the core project workflow and export a bundle", async ({ p
   await expect(page.getByRole("heading", { name: "Scenes and shots" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Assets and requirements" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Export and operations" })).toHaveCount(0);
+  await page.route(`**/api/projects/${projectId}/scripts`, async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.continue();
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    await route.fulfill({
+      contentType: "application/json",
+      status: 502,
+      body: JSON.stringify({ error: { message: "Colab proxy could not reach the app runtime." } }),
+    });
+  });
+  await page.getByRole("button", { name: "Re-analyze" }).click();
+  await expect(page.getByRole("status")).toContainText("Re-analyzing script...");
+  await expect(page.getByRole("button", { name: "Re-analyze" })).toBeDisabled();
+  await expect(page.getByText("Colab proxy could not reach the app runtime.")).toBeVisible();
+  await page.unroute(`**/api/projects/${projectId}/scripts`);
 
   await page.getByRole("link", { name: "Asset Bible" }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/asset-bible$`));
